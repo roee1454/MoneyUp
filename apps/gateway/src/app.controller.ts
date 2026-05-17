@@ -119,7 +119,9 @@ export class AppController {
   @Get('users/:id')
   async findUser(@Param('id') id: string) {
     const user = await firstValueFrom(
-      this.usersServiceClient.send<UserPayload | null>('user_find_one', id).pipe(timeout(2000)),
+      this.usersServiceClient
+        .send<UserPayload | null>('user_find_one', id)
+        .pipe(timeout(2000)),
     );
 
     if (!user) {
@@ -135,9 +137,7 @@ export class AppController {
     @Body() data: { username?: string; email?: string },
   ) {
     return firstValueFrom(
-      this.usersServiceClient
-        .send('user_update', { id, data })
-        .pipe(timeout(2000)),
+      this.usersServiceClient.send('user_update', { id, data }).pipe(timeout(2000)),
     );
   }
 
@@ -161,14 +161,16 @@ export class AppController {
       users: this.usersServiceClient,
     };
 
-    const checks = Object.entries(serviceClients).map(async ([name, client]) => {
-      try {
-        await firstValueFrom(client.send<string>('ping', {}).pipe(timeout(500)));
-        return [name, 'up'] as const;
-      } catch {
-        return [name, 'down'] as const;
-      }
-    });
+    const checks = Object.entries(serviceClients).map(
+      async ([name, client]) => {
+        try {
+          await firstValueFrom(client.send<string>('ping', {}).pipe(timeout(500)));
+          return [name, 'up'] as const;
+        } catch {
+          return [name, 'down'] as const;
+        }
+      },
+    );
 
     const services = Object.fromEntries(await Promise.all(checks)) as Record<
       string,

@@ -5,7 +5,6 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  redirect,
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router';
@@ -25,7 +24,7 @@ function AppLayout() {
   });
   const navigate = useNavigate();
 
-  const showNavbar = Boolean(session) && pathname !== '/login';
+  const showNavbar = Boolean(session) && pathname !== '/login' && pathname !== '/';
 
   async function logout() {
     await fetch(`${apiBase}/auth/logout`, {
@@ -39,7 +38,7 @@ function AppLayout() {
   return (
     <main className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       {showNavbar ? (
-        <header className="w-full border-b bg-background/95 supports-[backdrop-filter]:bg-background/60">
+        <header className="w-full border-b bg-background">
           <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
             <h1 className="text-base font-semibold">MoneyUp</h1>
             <nav className="flex items-center gap-4">
@@ -70,10 +69,6 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: () => {
-    const session = useAppStore.getState().session;
-    throw redirect({ to: session ? '/dashboard' : '/login' });
-  },
   component: Home,
 });
 

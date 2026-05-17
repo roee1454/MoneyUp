@@ -27,6 +27,12 @@
       ],
       "@money-up/common/*": [
         "packages/common/src/*"
+      ],
+      "@moneyup/types": [
+        "packages/types/src/index.ts"
+      ],
+      "@moneyup/types/*": [
+        "packages/types/src/*"
       ]
     }
   }

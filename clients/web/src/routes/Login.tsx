@@ -110,7 +110,8 @@ export default function Login() {
   }
 
   return (
-    <section className="min-h-[70vh]">
+    <section className="flex min-h-[calc(100vh-80px)] items-center justify-center">
+      <div className="w-full">
       {error ? <p className="mb-4 text-center text-sm text-red-500">{error}</p> : null}
 
       {shouldShowForm ? (
@@ -153,8 +154,8 @@ export default function Login() {
           </Card>
         </div>
       ) : (
-        <div className="mx-auto flex min-h-[70vh] max-w-5xl flex-col items-center justify-center space-y-10">
-          <h1 className="text-5xl font-bold tracking-tight">מי מתחבר?</h1>
+        <div className="mx-auto flex max-w-5xl flex-col items-center justify-center space-y-10">
+          <h1 className="text-5xl font-bold tracking-tight">מי צופה?</h1>
           <div className="flex flex-wrap items-start justify-center gap-8">
             {profiles.map((user, index) => (
               <div key={user.id} className="space-y-3 text-center">
@@ -188,6 +189,7 @@ export default function Login() {
           </div>
         </div>
       )}
+      </div>
     </section>
   );
 }

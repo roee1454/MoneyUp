@@ -22,7 +22,9 @@ export class UsersController {
   }
 
   @MessagePattern('user_update')
-  update(@Payload() payload: { id: string; data: { username?: string; email?: string } }) {
+  update(
+    @Payload() payload: { id: string; data: { username?: string; email?: string } },
+  ) {
     return this.usersService.update(payload.id, payload.data);
   }
 
