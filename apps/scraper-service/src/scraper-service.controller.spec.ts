@@ -16,7 +16,7 @@ describe('ScraperServiceController', () => {
 
   describe('root', () => {
     it('should return "Hello World!"', () => {
-      expect(scraperServiceController.getHello()).toBe('Hello World!');
+      expect(scraperServiceController.getHelloMessage()).toBe('Hello World!');
     });
   });
 });

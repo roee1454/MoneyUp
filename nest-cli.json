@@ -10,15 +10,6 @@
   "monorepo": true,
   "root": "apps/gateway",
   "projects": {
-    "gateway": {
-      "type": "application",
-      "root": "apps/gateway",
-      "entryFile": "main",
-      "sourceRoot": "apps/gateway/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/gateway/tsconfig.app.json"
-      }
-    },
     "ai-service": {
       "type": "application",
       "root": "apps/ai-service",
@@ -26,6 +17,24 @@
       "sourceRoot": "apps/ai-service/src",
       "compilerOptions": {
         "tsConfigPath": "apps/ai-service/tsconfig.app.json"
+      }
+    },
+    "auth-service": {
+      "type": "application",
+      "root": "apps/auth-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/auth-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/auth-service/tsconfig.app.json"
+      }
+    },
+    "gateway": {
+      "type": "application",
+      "root": "apps/gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/gateway/tsconfig.app.json"
       }
     },
     "scraper-service": {

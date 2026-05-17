@@ -1,0 +1,42 @@
+services:
+  ai-service:
+    image: node:22-alpine
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm start ai-service"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+    expose:
+      - "3001"
+
+  scraper-service:
+    image: node:22-alpine
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm start scraper-service"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3002
+    expose:
+      - "3002"
+
+  gateway:
+    image: node:22-alpine
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm start gateway"
+    environment:
+      PORT: 3000
+      AI_SERVICE_HOST: ai-service
+      AI_SERVICE_PORT: 3001
+      SCRAPER_SERVICE_HOST: scraper-service
+      SCRAPER_SERVICE_PORT: 3002
+    ports:
+      - "3000:3000"
+    depends_on:
+      - ai-service
+      - scraper-service

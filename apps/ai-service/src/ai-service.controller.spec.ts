@@ -16,7 +16,7 @@ describe('AiServiceController', () => {
 
   describe('root', () => {
     it('should return "Hello World!"', () => {
-      expect(aiServiceController.getHello()).toBe('Hello World!');
+      expect(aiServiceController.getHelloMessage()).toBe('Hello World!');
     });
   });
 });

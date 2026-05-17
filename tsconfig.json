@@ -21,6 +21,13 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "paths": {}
+    "paths": {
+      "@money-up/common": [
+        "packages/common/src/index.ts"
+      ],
+      "@money-up/common/*": [
+        "packages/common/src/*"
+      ]
+    }
   }
 }
