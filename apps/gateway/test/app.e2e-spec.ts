@@ -15,7 +15,9 @@ describe('AppController (e2e)', () => {
       .overrideProvider('AI_SERVICE')
       .useValue({ send: () => of('Hello World!') })
       .overrideProvider('SCRAPER_SERVICE')
-      .useValue({ send: () => of('Hello World!') });
+      .useValue({ send: () => of('Hello World!') })
+      .overrideProvider('AUTH_SERVICE')
+      .useValue({ send: () => of('pong') });
 
     const moduleFixture: TestingModule = await moduleBuilder.compile();
 
@@ -35,5 +37,14 @@ describe('AppController (e2e)', () => {
       .get('/scraper')
       .expect(200)
       .expect('Hello World!');
+  });
+
+  it('/health (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/health')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.status).toBe('healthy');
+      });
   });
 });

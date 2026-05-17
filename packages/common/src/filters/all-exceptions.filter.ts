@@ -24,18 +24,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ? exception.getStatus()
           : HttpStatus.INTERNAL_SERVER_ERROR;
 
-      const message =
+      const responseBody =
         exception instanceof HttpException
-          ? exception.message
-          : 'Internal server error';
+          ? exception.getResponse()
+          : null;
 
       const payload = {
         success: false,
         statusCode: status,
-        message,
+        message:
+          typeof responseBody === 'string'
+            ? responseBody
+            : (responseBody as any)?.message || 'Http Exception',
         timestamp: new Date().toISOString(),
         path: request.url ?? '',
         correlationId: request.headers?.['x-correlation-id'] ?? null,
+        ...(typeof responseBody === 'object' && responseBody !== null
+          ? responseBody
+          : {}),
       };
 
       response.status(status).json(payload);

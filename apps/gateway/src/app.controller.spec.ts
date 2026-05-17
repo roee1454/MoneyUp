@@ -17,6 +17,10 @@ describe('AppController', () => {
           provide: 'SCRAPER_SERVICE',
           useValue: { send: jest.fn(() => of('Hello World!')) },
         },
+        {
+          provide: 'AUTH_SERVICE',
+          useValue: { send: jest.fn(() => of('pong')) },
+        },
       ],
     }).compile();
 
@@ -32,6 +36,16 @@ describe('AppController', () => {
       await expect(appController.getScraperGreeting()).resolves.toBe(
         'Hello World!',
       );
+    });
+
+    it('should return healthy status when all services are up', async () => {
+      const response = await appController.getHealth();
+      expect(response.status).toBe('healthy');
+      expect(response.services).toEqual({
+        ai: 'up',
+        scraper: 'up',
+        auth: 'up',
+      });
     });
   });
 });

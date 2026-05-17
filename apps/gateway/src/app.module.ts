@@ -22,13 +22,21 @@ import { AppController } from './app.controller';
         },
       },
       {
-        name: "AUTH_SERVICE",
+        name: 'AUTH_SERVICE',
         transport: Transport.TCP,
         options: {
           host: process.env.AUTH_SERVICE_HOST ?? '127.0.0.1',
-          port: Number(process.env.AUTH_SERVICE_PORT ?? 3003)
-        }
-      }
+          port: Number(process.env.AUTH_SERVICE_PORT ?? 3003),
+        },
+      },
+      {
+        name: 'USERS_SERVICE',
+        transport: Transport.TCP,
+        options: {
+          host: process.env.USERS_SERVICE_HOST ?? '127.0.0.1',
+          port: Number(process.env.USERS_SERVICE_PORT ?? 3004),
+        },
+      },
     ]),
   ],
   controllers: [AppController],

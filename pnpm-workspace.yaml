@@ -1,0 +1,12 @@
+ignoredBuiltDependencies:
+  - unrs-resolver
+
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - better-sqlite3
+  - puppeteer
+
+packages:
+  - 'apps/*'
+  - 'libs/*'
+  - 'clients/*'

@@ -12,20 +12,20 @@
   "projects": {
     "ai-service": {
       "type": "application",
-      "root": "apps/ai-service",
+      "root": "apps/ai",
       "entryFile": "main",
-      "sourceRoot": "apps/ai-service/src",
+      "sourceRoot": "apps/ai/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/ai-service/tsconfig.app.json"
+        "tsConfigPath": "apps/ai/tsconfig.app.json"
       }
     },
     "auth-service": {
       "type": "application",
-      "root": "apps/auth-service",
+      "root": "apps/auth",
       "entryFile": "main",
-      "sourceRoot": "apps/auth-service/src",
+      "sourceRoot": "apps/auth/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/auth-service/tsconfig.app.json"
+        "tsConfigPath": "apps/auth/tsconfig.app.json"
       }
     },
     "gateway": {
@@ -39,11 +39,20 @@
     },
     "scraper-service": {
       "type": "application",
-      "root": "apps/scraper-service",
+      "root": "apps/scraper",
       "entryFile": "main",
-      "sourceRoot": "apps/scraper-service/src",
+      "sourceRoot": "apps/scraper/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/scraper-service/tsconfig.app.json"
+        "tsConfigPath": "apps/scraper/tsconfig.app.json"
+      }
+    },
+    "users-service": {
+      "type": "application",
+      "root": "apps/users",
+      "entryFile": "main",
+      "sourceRoot": "apps/users/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/users/tsconfig.app.json"
       }
     }
   }

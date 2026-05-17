@@ -1,0 +1,131 @@
+services:
+  ai-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+    command: node dist/apps/ai/main
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+      CI: "true"
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 3001"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+
+  scraper-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+    command: node dist/apps/scraper/main
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3002
+      CI: "true"
+    expose:
+      - "3002"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 3002"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+    command: node dist/apps/auth/main
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3003
+      CI: "true"
+    expose:
+      - "3003"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 3003"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+
+  users-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+    command: node dist/apps/users/main
+    volumes:
+      - users-db-data:/workspace/data
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3004
+      CI: "true"
+    expose:
+      - "3004"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 3004"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+    command: node dist/apps/gateway/main
+    environment:
+      PORT: 3000
+      AI_SERVICE_HOST: ai-service
+      AI_SERVICE_PORT: 3001
+      SCRAPER_SERVICE_HOST: scraper-service
+      SCRAPER_SERVICE_PORT: 3002
+      AUTH_SERVICE_HOST: auth-service
+      AUTH_SERVICE_PORT: 3003
+      USERS_SERVICE_HOST: users-service
+      USERS_SERVICE_PORT: 3004
+      CLIENT_URL: http://web:5173
+      CI: "true"
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/health || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    depends_on:
+      ai-service:
+        condition: service_healthy
+      scraper-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      users-service:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+    command: sh -c "cd /workspace/clients/web && pnpm dev --host"
+    environment:
+      CI: "true"
+    ports:
+      - "5173:5173"
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  users-db-data:
