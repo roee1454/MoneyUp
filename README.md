@@ -10,23 +10,13 @@
 
 | Feature | Description |
 |---|---|
-| **Bank & Credit Card Sync** | Powered by [israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers) |
-| **Monthly Financial Summary** | Live income and expense totals, calculated separately per source type (bank vs. credit card) |
-| **Spending Categories** | AI-gated widget that categorizes credit card expenses into Food, Clothing, Entertainment, Fuel/Transport, Supermarket, and Subscriptions |
-| **AI Agent Integration** | Connect your own AI provider API key (e.g. OpenAI, Gemini) for smart financial advice |
-| **Secure Local Storage** | All credentials are encrypted at rest using **AES-256-GCM** inside a local SQLite database — nothing leaves your machine |
-| **Multi-User Auth** | JWT-based authentication with session management |
-| **Dark / Light Mode** | Full theme support with RTL Hebrew UI |
-
-### Planned Features (see [TODO.md](./TODO.md))
-
-- **AI-Powered Category Analysis** — AI agent scans transaction data and returns structured spending insights inside the categories widget
-- **Conversation History** — Persistent chat with your AI financial advisor
-- **Export Page** — Download your data as `.csv`, `.pdf`, or `.docx`
-- **Full Settings Page** — Remove connections, change AI provider, configure app theme
-- **Ollama / MCP Support** — Run entirely offline with a local LLM
-- **Accessibility Plugin** — Integration with [enable.co.il](https://enable.co.il)
-- **Terms of Service & Privacy Policy** pages
+| ***Bank & Credit Card Sync*** | Powered by [israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers) |
+| ***Monthly Financial Summary*** | Live income and expense totals, calculated separately per source type (bank vs. credit card) |
+| ***Spending Categories*** | AI-gated widget that categorizes credit card expenses into Food, Clothing, Entertainment, Fuel/Transport, Supermarket, and Subscriptions |
+| ***AI Agent Integration*** | Connect your own AI provider API key (e.g. OpenAI, Gemini) for smart financial advice |
+| ***Secure Local Storage*** | All credentials are encrypted at rest using **AES-256-GCM** inside a local SQLite database — nothing leaves your machine |
+| ***Multi-User Auth*** | JWT-based authentication with session management |
+| ***Dark / Light Mode*** | Full theme support with RTL Hebrew UI |
 
 ---
 
