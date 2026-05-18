@@ -1,60 +1,68 @@
 import {
-  Link,
   Outlet,
   RouterProvider,
   createRootRoute,
   createRoute,
   createRouter,
-  useNavigate,
-  useRouterState,
 } from '@tanstack/react-router';
-import { Button } from '@/components/ui/button';
 import Dashboard from '@/routes/Dashboard';
-import Home from '@/routes/Home';
+import Introduction from '@/routes/Introduction';
 import Login from '@/routes/Login';
-import { useAppStore } from '@/store';
 
-const apiBase = 'http://localhost:3000';
+import { useState, useEffect } from 'react';
+import { useRouterState, useNavigate } from '@tanstack/react-router';
+import { useAppStore } from '@/store';
+import { Navbar } from '@/components/Navbar';
+import { useSession } from '@/hooks/useAuth';
 
 function AppLayout() {
   const session = useAppStore((s) => s.session);
   const setSession = useAppStore((s) => s.setSession);
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  });
+  const routerState = useRouterState();
   const navigate = useNavigate();
+  const [isHydrated, setIsHydrated] = useState(false);
+  const sessionQuery = useSession();
+  const isLoadingSession = sessionQuery.isLoading;
 
-  const showNavbar = Boolean(session) && pathname !== '/login' && pathname !== '/';
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
-  async function logout() {
-    await fetch(`${apiBase}/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    setSession(null);
-    navigate({ to: '/login' });
+  useEffect(() => {
+    if (!sessionQuery.isLoading) {
+      setSession(sessionQuery.data?.user ?? null);
+    }
+  }, [sessionQuery.isLoading, sessionQuery.data, setSession]);
+
+  useEffect(() => {
+    if (!isHydrated || isLoadingSession) return;
+
+    const path = routerState.location.pathname;
+
+    if (session) {
+      if (path === '/login' || path === '/') {
+        void navigate({ to: '/dashboard' });
+      }
+    } else {
+      if (path === '/dashboard') {
+        void navigate({ to: '/login' });
+      }
+    }
+  }, [session, isLoadingSession, routerState.location.pathname, navigate, isHydrated]);
+
+  const showNavbar = isHydrated && !isLoadingSession && session && routerState.location.pathname === '/dashboard';
+
+  if (isHydrated && isLoadingSession) {
+    return (
+      <main className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 flex items-center justify-center" dir="rtl">
+        <div className="text-sm font-semibold text-zinc-500">טוען נתוני סשן...</div>
+      </main>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      {showNavbar ? (
-        <header className="w-full border-b bg-background">
-          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-            <h1 className="text-base font-semibold">MoneyUp</h1>
-            <nav className="flex items-center gap-4">
-              <Link className="text-sm font-medium transition-colors hover:text-primary" to="/dashboard">
-                דשבורד
-              </Link>
-              <Link className="text-sm font-medium transition-colors hover:text-primary" to="/login">
-                פרופילים
-              </Link>
-              <Button variant="destructive" size="sm" onClick={() => void logout()}>
-                התנתקות
-              </Button>
-            </nav>
-          </div>
-        </header>
-      ) : null}
+    <main className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 transition-colors duration-300">
+      {showNavbar && <Navbar />}
       <div className="mx-auto max-w-7xl p-6">
         <Outlet />
       </div>
@@ -69,7 +77,7 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: Home,
+  component: Introduction,
 });
 
 const loginRoute = createRoute({

@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -19,10 +20,13 @@ import type { Request, Response } from 'express';
 import { firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
 
+import { ConnectScraperDto, SubmitChallengeDto } from '@moneyup/types';
+
 type UserPayload = {
   id: string;
   username: string;
   email: string;
+  isLocked?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -35,7 +39,7 @@ export class AppController {
     private readonly scraperServiceClient: ClientProxy,
     @Inject('AUTH_SERVICE') private readonly authServiceClient: ClientProxy,
     @Inject('USERS_SERVICE') private readonly usersServiceClient: ClientProxy,
-  ) {}
+  ) { }
 
   @Get('ai')
   async getAiGreeting(): Promise<string> {
@@ -49,9 +53,116 @@ export class AppController {
     );
   }
 
+  @Get('scrapers')
+  async getScrapersList() {
+    return firstValueFrom(
+      this.scraperServiceClient.send('scrapers_list', {}).pipe(timeout(2000)),
+    );
+  }
+
+  @Get('scrapers/accounts')
+  async getConnectedAccounts(@Req() request: Request) {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
+    }
+    const user = this.verifyJwtToken(sessionToken);
+
+    return firstValueFrom(
+      this.scraperServiceClient
+        .send('get_connected_accounts', { userId: user.userId })
+        .pipe(timeout(60000)),
+    );
+  }
+
+  @Post('scrapers/sync')
+  async syncAccounts(@Req() request: Request) {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
+    }
+    const user = this.verifyJwtToken(sessionToken);
+
+    return firstValueFrom(
+      this.scraperServiceClient
+        .send('sync_accounts', { userId: user.userId })
+        .pipe(timeout(120000)),
+    );
+  }
+
+  @Post('scrapers/connect')
+  async connectScraper(
+    @Body() payload: ConnectScraperDto,
+    @Req() request: Request,
+  ) {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
+    }
+    const user = this.verifyJwtToken(sessionToken);
+
+    const response = await firstValueFrom(
+      this.scraperServiceClient
+        .send('scrape_and_connect', {
+          userId: user.userId,
+          bankId: payload.bankId,
+          credentials: payload.credentials,
+          startDate: payload.startDate,
+        })
+        .pipe(timeout(180000)),
+    );
+
+    return response;
+  }
+
+  @Get('scrapers/status')
+  async getScraperStatus(
+    @Query('sessionId') sessionId: string,
+    @Req() request: Request,
+  ) {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
+    }
+
+    if (!sessionId) {
+      throw new Error('sessionId is required');
+    }
+
+    const response = await firstValueFrom(
+      this.scraperServiceClient
+        .send('get_scraper_status', { sessionId })
+        .pipe(timeout(10000)),
+    );
+
+    return response;
+  }
+
+  @Post('scrapers/challenge/submit')
+  async submitChallenge(
+    @Body() payload: SubmitChallengeDto,
+    @Req() request: Request,
+  ) {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
+    }
+
+    const response = await firstValueFrom(
+      this.scraperServiceClient
+        .send('submit_challenge', {
+          sessionId: payload.sessionId,
+          code: payload.code,
+        })
+        .pipe(timeout(60000)),
+    );
+
+    return response;
+  }
+
   @Post('auth/login')
   async login(
-    @Body() payload: { userId: string; username: string },
+    @Body() payload: { userId: string; username: string; unlockTicket?: string },
     @Res({ passthrough: true }) response: Response,
   ) {
     const user = await firstValueFrom(
@@ -62,6 +173,13 @@ export class AppController {
 
     if (!user || user.username !== payload.username) {
       throw new NotFoundException('User profile not found');
+    }
+
+    if (user.isLocked) {
+      const ticket = payload.unlockTicket;
+      if (!ticket || !this.verifyUnlockTicket(ticket, user.id)) {
+        throw new UnauthorizedException('Profile is locked. Unlock key required.');
+      }
     }
 
     const { token } = await firstValueFrom(
@@ -103,7 +221,9 @@ export class AppController {
   }
 
   @Post('users')
-  async createUser(@Body() payload: { username: string; email: string }) {
+  async createUser(
+    @Body() payload: { username: string; email: string; lockProfile?: boolean; unlockKey?: string },
+  ) {
     return firstValueFrom(
       this.usersServiceClient.send('user_create', payload).pipe(timeout(2000)),
     );
@@ -146,6 +266,51 @@ export class AppController {
     return firstValueFrom(
       this.usersServiceClient.send('user_delete', id).pipe(timeout(2000)),
     );
+  }
+
+  @Post('users/:id/delete-confirm')
+  async deleteUserConfirmed(
+    @Param('id') id: string,
+    @Body() payload: { confirmationEmail: string },
+  ) {
+    return firstValueFrom(
+      this.usersServiceClient
+        .send('user_delete_confirmed', { id, confirmationEmail: payload.confirmationEmail })
+        .pipe(timeout(2000)),
+    );
+  }
+
+  @Post('auth/unlock')
+  async unlockProfile(
+    @Body() payload: { userId: string; unlockKey: string },
+  ): Promise<{ success: boolean; unlockTicket: string }> {
+    const user = await firstValueFrom(
+      this.usersServiceClient
+        .send<UserPayload | null>('user_find_one', payload.userId)
+        .pipe(timeout(2000)),
+    );
+
+    if (!user) {
+      throw new NotFoundException('User profile not found');
+    }
+    if (!user.isLocked) {
+      return { success: true, unlockTicket: this.createUnlockTicket(user.id) };
+    }
+
+    const verification = await firstValueFrom(
+      this.usersServiceClient
+        .send<{ valid: boolean }>('user_verify_unlock', {
+          id: payload.userId,
+          unlockKey: payload.unlockKey,
+        })
+        .pipe(timeout(2000)),
+    );
+
+    if (!verification.valid) {
+      throw new UnauthorizedException('Invalid unlocking key');
+    }
+
+    return { success: true, unlockTicket: this.createUnlockTicket(user.id) };
   }
 
   @Get('health')
@@ -232,6 +397,35 @@ export class AppController {
       return payload;
     } catch {
       throw new UnauthorizedException('Invalid session token');
+    }
+  }
+
+  private createUnlockTicket(userId: string): string {
+    const payload = Buffer.from(
+      JSON.stringify({
+        userId,
+        exp: Date.now() + 5 * 60 * 1000,
+      }),
+    ).toString('base64url');
+    const signature = Buffer.from(`${payload}.moneyup-unlock`).toString('base64url');
+    return `${payload}.${signature}`;
+  }
+
+  private verifyUnlockTicket(ticket: string, userId: string): boolean {
+    const [payload, signature] = ticket.split('.');
+    if (!payload || !signature) return false;
+    const expectedSignature = Buffer.from(`${payload}.moneyup-unlock`).toString('base64url');
+    if (signature !== expectedSignature) return false;
+
+    try {
+      const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+        userId: string;
+        exp: number;
+      };
+      if (decoded.userId !== userId) return false;
+      return decoded.exp > Date.now();
+    } catch {
+      return false;
     }
   }
 }

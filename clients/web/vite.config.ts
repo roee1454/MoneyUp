@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@moneyup/types': fileURLToPath(new URL('../../packages/types/src/index.ts', import.meta.url)),
     },
   },
   server: {

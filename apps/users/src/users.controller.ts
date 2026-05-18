@@ -33,6 +33,16 @@ export class UsersController {
     return this.usersService.remove(id);
   }
 
+  @MessagePattern('user_delete_confirmed')
+  removeConfirmed(@Payload() payload: { id: string; confirmationEmail: string }) {
+    return this.usersService.deleteWithConfirmation(payload.id, payload.confirmationEmail);
+  }
+
+  @MessagePattern('user_verify_unlock')
+  verifyUnlock(@Payload() payload: { id: string; unlockKey: string }) {
+    return this.usersService.verifyUnlockKey(payload.id, payload.unlockKey);
+  }
+
   @MessagePattern('ping')
   ping() {
     return 'pong';

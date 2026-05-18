@@ -17,6 +17,15 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Column({ default: false })
+  isLocked: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  unlockKeyHash: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  unlockKeySalt: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
