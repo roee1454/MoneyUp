@@ -325,7 +325,7 @@ export function SpendingCategories({ accounts = [] }: SpendingCategoriesProps) {
       </div>
 
       {/* Financial Indicators Row */}
-      <div className="grid grid-cols-2 gap-4">
+      <div dir='ltr' className="grid grid-cols-2 gap-4">
         <div className="border border-zinc-100 dark:border-zinc-800 bg-emerald-50/20 dark:bg-emerald-950/10 p-4 space-y-1.5 rounded-none text-right">
           <div className="flex items-center gap-1.5 justify-end text-emerald-600 dark:text-emerald-500">
             <span className="text-[11px] font-black">הכנסות החודש</span>
