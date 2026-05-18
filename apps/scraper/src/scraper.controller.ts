@@ -252,6 +252,12 @@ export class ScraperController {
       }
     }
 
+    if (bankId === 'isracard') {
+      if (isMissing(credentials.id) || isMissing(credentials.card6Digits) || isMissing(credentials.password)) {
+        return "Missing required isracard credentials. Expected 'id', 'card6Digits', and 'password'.";
+      }
+    }
+
     return null;
   }
 

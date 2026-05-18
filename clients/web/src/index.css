@@ -4,6 +4,19 @@
 @theme {
   --font-sans: 'Assistant', 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'Inter', ui-monospace, monospace;
+
+  /* Central Brand Palette Tokens (Default: Signature Zinc Palette) */
+  --color-brand-50: var(--color-zinc-50);
+  --color-brand-100: var(--color-zinc-100);
+  --color-brand-200: var(--color-zinc-200);
+  --color-brand-300: var(--color-zinc-300);
+  --color-brand-400: var(--color-zinc-400);
+  --color-brand-500: var(--color-zinc-500);
+  --color-brand-600: var(--color-zinc-600);
+  --color-brand-700: var(--color-zinc-700);
+  --color-brand-800: var(--color-zinc-800);
+  --color-brand-900: var(--color-zinc-900);
+  --color-brand-950: var(--color-zinc-950);
 }
 
 :root {
@@ -62,4 +75,57 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+.markdown-content p {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content strong {
+  font-weight: 800;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-right: 1.25rem;
+  list-style-type: disc;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.dark .markdown-content code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.markdown-content pre {
+  background-color: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  overflow-x: auto;
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.dark .markdown-content pre {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.markdown-content pre code {
+  background-color: transparent !important;
+  padding: 0;
+  font-size: 0.8em;
 }

@@ -72,6 +72,7 @@ export class ScraperService {
         loginFields: libraryScraper?.loginFields || ['username', 'password'],
         icon: meta.icon,
         enabled: meta.enabled,
+        type: meta.type,
       };
     });
 

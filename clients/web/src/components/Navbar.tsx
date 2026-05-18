@@ -14,7 +14,12 @@ import { useAppStore } from "@/store";
 import { useLogout } from '@/hooks/useAuth';
 import { BrandLogo } from '@/components/BrandLogo';
 
-const NAV_ITEMS: Array<{ label: string; to: string }> = [];
+const NAV_ITEMS = [
+  { label: 'בית', to: '/dashboard' },
+  { label: 'ייעוץ עם סוכן', to: '/ai-studio' },
+  { label: 'ייצוא נתונים', to: '/export' },
+  { label: 'הגדרות', to: '/settings' },
+];
 
 export function Navbar() {
   const [isHydrated, setIsHydrated] = useState(false);

@@ -5,51 +5,40 @@ import { CompanyTypes, createScraper, ScraperCredentials } from 'israeli-bank-sc
 import { ScraperResponse } from '@moneyup/types';
 
 @Injectable()
-export class HapoalimScraper extends BaseScraper {
+export class IsracardScraper extends BaseScraper {
   constructor(configService: ConfigService) {
     super(configService);
   }
 
-  readonly companyId = CompanyTypes.hapoalim;
+  readonly companyId = CompanyTypes.isracard;
 
-  protected async simulateScrape(credentials: ScraperCredentials): Promise<ScraperResponse> {
+  protected async simulateScrape(_credentials: ScraperCredentials): Promise<ScraperResponse> {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      if ('otpCodeRetriever' in credentials && credentials.otpCodeRetriever) {
-        try {
-          const code = await credentials.otpCodeRetriever();
-          if (code !== '123456') {
-            return { status: 'FAILED', error: 'Invalid OTP code' };
-          }
-        } catch (err: any) {
-          return { status: 'FAILED', error: err?.message || 'OTP challenge failed' };
-        }
-      }
 
       return {
         status: 'SUCCESS',
         accounts: [
           {
-            accountNumber: '12-345-67890',
-            balance: 14500,
+            accountNumber: 'ISRACARD-1122',
+            balance: -2450,
             transactions: [
               {
-                id: 'txn_hapoalim_1',
-                date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-                amount: -250,
-                chargedAmount: -250,
-                description: 'שופרסל שלי',
+                id: 'txn_isracard_1',
+                date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                processedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: -120,
+                chargedAmount: -120,
+                description: 'וולט מרקט',
                 originalCurrency: 'ILS',
               },
               {
-                id: 'txn_hapoalim_2',
-                date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-                amount: 5200,
-                chargedAmount: 5200,
-                description: 'העברה נכנסת - מעסיק',
+                id: 'txn_isracard_2',
+                date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                processedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: -350,
+                chargedAmount: -350,
+                description: 'זארה קניון',
                 originalCurrency: 'ILS',
               },
             ],
@@ -59,7 +48,7 @@ export class HapoalimScraper extends BaseScraper {
     } catch (err: any) {
       return {
         status: 'FAILED',
-        error: err?.message || 'Unexpected bank scraper crash occurred',
+        error: err?.message || 'Unexpected credit card scraper crash occurred',
       };
     }
   }
@@ -81,8 +70,6 @@ export class HapoalimScraper extends BaseScraper {
         timeout: timeoutMs,
         defaultTimeout: defaultTimeoutMs,
         storeFailureScreenShotPath: debugEnabled ? 'data/scraper-failures' : undefined,
-        additionalTransactionInformation: true,
-        includeRawTransaction: true,
       });
 
       const scrapeResult = await scraper.scrape(credentials);
@@ -93,7 +80,7 @@ export class HapoalimScraper extends BaseScraper {
           status: 'FAILED',
           error: errorParts.length > 0
             ? errorParts.join(': ')
-            : 'Unknown error occurred during bank scraping',
+            : 'Unknown error occurred during credit card scraping',
         };
       }
 
@@ -105,7 +92,7 @@ export class HapoalimScraper extends BaseScraper {
     } catch (err: any) {
       return {
         status: 'FAILED',
-        error: err?.message || 'Unexpected bank scraper crash occurred',
+        error: err?.message || 'Unexpected credit card scraper crash occurred',
       };
     }
   }

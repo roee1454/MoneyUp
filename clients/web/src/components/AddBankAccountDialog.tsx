@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -8,13 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useConnectBank, useScrapersList, useSubmitChallenge } from '@/hooks/useScrapers';
 import type { ScraperErrorCode } from '@/hooks/useScrapers';
 import { BankIcon } from '@/components/BankIcon';
+import { PremiumInput } from '@/components/ui/premium-input';
+import { PremiumCard } from '@/components/ui/premium-card';
+import { PremiumGridButton } from '@/components/ui/premium-grid-button';
 
 interface AddBankAccountDialogProps {
   open: boolean;
@@ -26,7 +28,6 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
   const [selectedBank, setSelectedBank] = useState<any | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [isConnecting, setIsConnecting] = useState(false);
-  const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
 
   // 2FA / MFA Interactive States
   const [isAwaiting2FA, setIsAwaiting2FA] = useState(false);
@@ -35,6 +36,7 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
   const [challengeMsg, setChallengeMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [activeTab, setActiveTab] = useState<'bank' | 'credit_card'>('bank');
 
   const { data: scrapers = [], isLoading: isLoadingScrapers } = useScrapersList(open);
   const connectBankMutation = useConnectBank();
@@ -55,7 +57,6 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
     if (!open) {
       setSelectedBank(null);
       setFormValues({});
-      setShowPassword({});
       setIsAwaiting2FA(false);
       setOtpCode('');
       setSessionId('');
@@ -63,6 +64,7 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
       setErrorMsg(null);
       setIsConnecting(false);
       setIsConnected(false);
+      setActiveTab('bank');
     }
   }, [open]);
 
@@ -169,41 +171,71 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
         ) : !selectedBank ? (
           <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
             <DialogHeader className="text-right space-y-1.5 pb-4 border-b border-zinc-100 dark:border-zinc-900">
-              <DialogTitle className="text-xl font-black text-zinc-950 dark:text-white">חיבור חשבון בנק חדש</DialogTitle>
+              <DialogTitle className="text-xl font-black text-zinc-950 dark:text-white">חיבור מקור מידע פיננסי</DialogTitle>
               <DialogDescription className="text-xs font-semibold text-zinc-400">
                 סנכרן באופן אוטומטי ומאובטח את הנתונים הפיננסיים שלך
               </DialogDescription>
             </DialogHeader>
 
+            {/* Tabs Selector */}
+            <div className="flex border-b border-zinc-100 dark:border-zinc-900 pt-1">
+              <button
+                type="button"
+                className={`flex-1 pb-3 text-xs font-black transition-all border-b-2 cursor-pointer ${
+                  activeTab === 'bank'
+                    ? 'border-zinc-950 dark:border-white text-zinc-950 dark:text-white'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-350'
+                }`}
+                onClick={() => setActiveTab('bank')}
+              >
+                🏦 בנקים (חשבון עו״ש)
+              </button>
+              <button
+                type="button"
+                className={`flex-1 pb-3 text-xs font-black transition-all border-b-2 cursor-pointer ${
+                  activeTab === 'credit_card'
+                    ? 'border-zinc-950 dark:border-white text-zinc-950 dark:text-white'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-350'
+                }`}
+                onClick={() => setActiveTab('credit_card')}
+              >
+                💳 כרטיסי אשראי
+              </button>
+            </div>
+
+            {/* Premium Explanation Banner */}
+            <div className="bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-850 p-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400 rounded-none animate-in fade-in-50 duration-150">
+              {activeTab === 'bank' ? (
+                <p>
+                  <span className="font-black text-zinc-800 dark:text-zinc-200">למה לחבר?</span> סנכרון יתרת העובר ושב (עו״ש), משכורות, העברות בנקאיות, פקדונות וכרטיסי חיוב מיידי (דביט / דירקט).
+                </p>
+              ) : (
+                <p>
+                  <span className="font-black text-zinc-800 dark:text-zinc-200">למה לחבר?</span> סנכרון כל עסקאות האשראי המפורטות (בארץ ובחו״ל), רכישות בתשלומים, וזיהוי מדויק של תאריכי וסכומי החיוב החודשיים.
+                </p>
+              )}
+            </div>
+
             {isLoadingScrapers ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-950 dark:border-zinc-700 dark:border-t-white" />
-                <span className="text-xs font-semibold text-zinc-400">טוען רשימת בנקים...</span>
+                <span className="text-xs font-semibold text-zinc-400">טוען מוסדות פיננסיים...</span>
               </div>
             ) : (
-              <div className="grid gap-3 pt-4">
-                {scrapers.map((bank: any) => (
-                  <button
-                    key={bank.id}
-                    onClick={() => setSelectedBank(bank)}
-                    className="flex items-center justify-between p-4 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900/50 dark:hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-none transition-all duration-200 text-right group w-full cursor-pointer"
-                  >
-                    <div className="flex items-center gap-4">
-                      <BankIcon bankId={bank.id} shape='circle' size="md" />
-                      <div className="space-y-0.5">
-                        <span className="font-bold text-sm text-zinc-950 dark:text-white">
-                          {bank.name}
-                        </span>
-                        <span className="block text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 leading-none">
-                          {bank.englishName}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white transition-colors text-lg font-bold">
-                      ←
-                    </span>
-                  </button>
-                ))}
+              <div className="grid gap-3 pt-2">
+                {scrapers
+                  .filter((item: any) => item.type === activeTab)
+                  .map((bank: any) => (
+                    <PremiumGridButton
+                      key={bank.id}
+                      onClick={() => setSelectedBank(bank)}
+                      label={bank.name}
+                      icon={<BankIcon bankId={bank.id} shape="circle" size="sm" />}
+                    />
+                  ))}
+                {scrapers.filter((item: any) => item.type === activeTab).length === 0 && (
+                  <p className="text-xs text-center py-8 text-zinc-400 font-semibold">לא נמצאו מוסדות פעילים בקטגוריה זו</p>
+                )}
               </div>
             )}
           </div>
@@ -227,7 +259,7 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
                   {challengeMsg}
                 </p>
                 <div className="pt-2 pb-2 flex justify-center" dir="ltr">
-                  <Input
+                  <PremiumInput
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
@@ -235,7 +267,7 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     autoFocus
-                    className="w-full h-12 text-center tracking-[0.35em] font-bold text-lg bg-zinc-50/50 hover:bg-zinc-100/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 rounded-none focus:bg-white dark:focus:bg-zinc-950 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-zinc-950 dark:focus:border-white focus:ring-4 focus:ring-zinc-950/5 dark:focus:ring-white/5 transition-all duration-300 shadow-sm"
+                    className="text-center tracking-[0.35em] font-bold text-lg"
                   />
                 </div>
                 {errorMsg && (
@@ -297,8 +329,10 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
                 } else if (field === 'password') {
                   label = 'סיסמה';
                   type = 'password';
-                } else if (field === 'nationalId') {
+                } else if (field === 'id' || field === 'nationalId' || field === 'nationalID') {
                   label = 'תעודת זהות';
+                } else if (field === 'card6Digits') {
+                  label = '6 ספרות אחרונות של הכרטיס';
                 }
 
                 return (
@@ -306,30 +340,24 @@ export function AddBankAccountDialog({ open, onOpenChange, onSuccess }: AddBankA
                     <Label htmlFor={field} className="text-sm font-bold text-zinc-500 dark:text-zinc-400">
                       {label}
                     </Label>
-                    <div className="relative">
-                      <Input
-                        id={field}
-                        type={type === 'password' ? (showPassword[field] ? 'text' : 'password') : type}
-                        name={field}
-                        required
-                        value={formValues[field] || ''}
-                        onChange={(e) => setFormValues(prev => ({ ...prev, [field]: e.target.value }))}
-                        className="w-full h-12 pl-12 pr-4 bg-zinc-50/50 hover:bg-zinc-100/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 rounded-none focus:bg-white dark:focus:bg-zinc-950 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-zinc-950 dark:focus:border-white focus:ring-4 focus:ring-zinc-950/5 dark:focus:ring-white/5 font-semibold text-sm transition-all duration-300 shadow-sm"
-                        dir="rtl"
-                      />
-                      {type === 'password' && (
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(prev => ({ ...prev, [field]: !prev[field] }))}
-                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer select-none"
-                        >
-                          {showPassword[field] ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
-                        </button>
-                      )}
-                    </div>
+                    <PremiumInput
+                      id={field}
+                      isPassword={type === 'password'}
+                      name={field}
+                      required
+                      value={formValues[field] || ''}
+                      onChange={(e) => setFormValues(prev => ({ ...prev, [field]: e.target.value }))}
+                      dir="rtl"
+                    />
                   </div>
                 );
               })}
+
+              <PremiumCard variant="warning">
+                <p className="text-sm font-black text-zinc-700 dark:text-zinc-200 leading-relaxed">
+                  פרטי ההתחברות אינם מועברים לשום צד שלישי. הם מוצפנים באופן מקומי על המחשב שלך בלבד!
+                </p>
+              </PremiumCard>
 
               {errorMsg && (
                 <p className="text-[11px] font-bold text-red-500 mt-2 bg-red-50 dark:bg-red-950/30 p-2.5 border border-red-200/50 dark:border-red-900/30 text-right">

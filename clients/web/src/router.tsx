@@ -8,12 +8,17 @@ import {
 import Dashboard from '@/routes/Dashboard';
 import Introduction from '@/routes/Introduction';
 import Login from '@/routes/Login';
+import Export from '@/routes/Export';
+import AiStudio from '@/routes/AiStudio';
+import Settings from '@/routes/Settings';
 
 import { useState, useEffect } from 'react';
 import { useRouterState, useNavigate } from '@tanstack/react-router';
 import { useAppStore } from '@/store';
 import { Navbar } from '@/components/Navbar';
 import { useSession } from '@/hooks/useAuth';
+
+const privatePaths = ['/dashboard', '/export', '/ai-studio', '/settings'];
 
 function AppLayout() {
   const session = useAppStore((s) => s.session);
@@ -44,13 +49,13 @@ function AppLayout() {
         void navigate({ to: '/dashboard' });
       }
     } else {
-      if (path === '/dashboard') {
+      if (privatePaths.includes(path)) {
         void navigate({ to: '/login' });
       }
     }
   }, [session, isLoadingSession, routerState.location.pathname, navigate, isHydrated]);
 
-  const showNavbar = isHydrated && !isLoadingSession && session && routerState.location.pathname === '/dashboard';
+  const showNavbar = isHydrated && !isLoadingSession && session && privatePaths.includes(routerState.location.pathname);
 
   if (isHydrated && isLoadingSession) {
     return (
@@ -92,7 +97,32 @@ const dashboardRoute = createRoute({
   component: Dashboard,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, loginRoute, dashboardRoute]);
+const exportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/export',
+  component: Export,
+});
+
+const aiStudioRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/ai-studio',
+  component: AiStudio,
+});
+
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: Settings,
+});
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  loginRoute,
+  dashboardRoute,
+  exportRoute,
+  aiStudioRoute,
+  settingsRoute,
+]);
 
 export const router = createRouter({ routeTree });
 

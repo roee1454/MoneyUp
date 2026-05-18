@@ -6,12 +6,22 @@ export type User = {
   username: string;
   email: string;
   isLocked?: boolean;
+  activeAiProvider?: 'openai' | 'claude' | 'gemini' | null;
+  preferredModel?: string | null;
 };
 
 export function useUsers() {
   return useQuery({
     queryKey: ['users'],
     queryFn: () => api.get<User[]>('/users'),
+  });
+}
+
+export function useUserProfile(userId?: string) {
+  return useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: () => api.get<User>('/users/me'),
+    enabled: !!userId,
   });
 }
 

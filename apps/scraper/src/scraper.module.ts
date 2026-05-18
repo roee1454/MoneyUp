@@ -5,6 +5,7 @@ import { ScraperController } from './scraper.controller';
 import { ScraperService } from './scraper.service';
 import { HapoalimScraper } from './scrapers/hapoalim-scraper';
 import { MaxScraper } from './scrapers/max-scraper';
+import { IsracardScraper } from './scrapers/isracard-scraper';
 import { ScraperFactory } from './scraper-factory.service';
 import { VaultEntity } from './entities/vault.entity';
 import { ScrapedCacheEntity } from './entities/cache.entity';
@@ -28,6 +29,7 @@ import { ScrapedCacheEntity } from './entities/cache.entity';
     ScraperService,
     HapoalimScraper,
     MaxScraper,
+    IsracardScraper,
     ScraperFactory,
   ],
 })

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
+import { decrypt, encrypt } from './utils/crypto';
 
 @Injectable()
 export class UsersService {
@@ -29,6 +30,11 @@ export class UsersService {
       isLocked,
       unlockKeySalt: salt,
       unlockKeyHash: hash,
+      openaiKeyEncrypted: null,
+      claudeKeyEncrypted: null,
+      geminiKeyEncrypted: null,
+      preferredModel: null,
+      activeAiProvider: null,
     });
     return this.userRepository.save(user);
   }
@@ -82,5 +88,51 @@ export class UsersService {
     const right = Buffer.from(derived, 'hex');
     if (left.length !== right.length) return { valid: false };
     return { valid: timingSafeEqual(left, right) };
+  }
+
+  async saveAiConfig(
+    id: string,
+    data: {
+      provider: 'openai' | 'claude' | 'gemini';
+      apiKey: string;
+      preferredModel: string;
+    },
+  ): Promise<User> {
+    const user = await this.findOne(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const encrypted = encrypt(data.apiKey);
+    if (data.provider === 'openai') user.openaiKeyEncrypted = encrypted;
+    if (data.provider === 'claude') user.claudeKeyEncrypted = encrypted;
+    if (data.provider === 'gemini') user.geminiKeyEncrypted = encrypted;
+
+    user.activeAiProvider = data.provider;
+    user.preferredModel = data.preferredModel;
+    return this.userRepository.save(user);
+  }
+
+  async getAiConfig(id: string): Promise<{
+    activeAiProvider: 'openai' | 'claude' | 'gemini' | null;
+    preferredModel: string | null;
+    decryptedApiKey: string | null;
+  }> {
+    const user = await this.findOne(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const provider = (user.activeAiProvider as 'openai' | 'claude' | 'gemini' | null) ?? null;
+    let encrypted: string | null = null;
+    if (provider === 'openai') encrypted = user.openaiKeyEncrypted;
+    if (provider === 'claude') encrypted = user.claudeKeyEncrypted;
+    if (provider === 'gemini') encrypted = user.geminiKeyEncrypted;
+
+    return {
+      activeAiProvider: provider,
+      preferredModel: user.preferredModel,
+      decryptedApiKey: encrypted ? decrypt(encrypted) : null,
+    };
   }
 }

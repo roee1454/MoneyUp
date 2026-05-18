@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  MessageEvent,
   HttpException,
   HttpStatus,
   Inject,
@@ -13,12 +14,13 @@ import {
   Query,
   Req,
   Res,
+  Sse,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import type { Request, Response } from 'express';
-import { firstValueFrom } from 'rxjs';
-import { timeout } from 'rxjs/operators';
+import { firstValueFrom, Observable } from 'rxjs';
+import { map, timeout } from 'rxjs/operators';
 
 import { ConnectScraperDto, SubmitChallengeDto } from '@moneyup/types';
 
@@ -27,6 +29,8 @@ type UserPayload = {
   username: string;
   email: string;
   isLocked?: boolean;
+  activeAiProvider?: 'openai' | 'claude' | 'gemini' | null;
+  preferredModel?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -43,7 +47,96 @@ export class AppController {
 
   @Get('ai')
   async getAiGreeting(): Promise<string> {
-    return firstValueFrom(this.aiServiceClient.send<string>('ai_hello', {}));
+    return 'AI gateway endpoint is ready';
+  }
+
+  @Post('ai/verify')
+  async verifyAiConnection(
+    @Body() payload: { provider: 'openai' | 'claude' | 'gemini'; apiKey: string },
+  ) {
+    return firstValueFrom(
+      this.aiServiceClient.send('ai_verify_connection', payload).pipe(timeout(30000)),
+    );
+  }
+
+  @Get('ai/models')
+  async listAiModels(
+    @Query('provider') provider: 'openai' | 'claude' | 'gemini',
+    @Query('apiKey') apiKey?: string,
+    @Req() request?: Request,
+  ) {
+    const resolved = await this.resolveAiModelsPayload({ provider, apiKey }, request);
+    return firstValueFrom(
+      this.aiServiceClient.send('ai_list_models', resolved).pipe(timeout(30000)),
+    );
+  }
+
+  @Post('ai/models')
+  async listAiModelsPost(
+    @Body() payload: { provider: 'openai' | 'claude' | 'gemini'; apiKey?: string },
+    @Req() request?: Request,
+  ) {
+    const resolved = await this.resolveAiModelsPayload(payload, request);
+    return firstValueFrom(
+      this.aiServiceClient.send('ai_list_models', resolved).pipe(timeout(30000)),
+    );
+  }
+
+  @Post('ai/prompt')
+  async aiPrompt(
+    @Req() request: Request,
+    @Body()
+    payload: {
+      provider: 'openai' | 'claude' | 'gemini';
+      model: string;
+      prompt: string;
+      apiKey?: string;
+      temperature?: number;
+      maxTokens?: number;
+    },
+  ) {
+    const resolved = await this.resolveAiPayload(payload, request);
+    return firstValueFrom(this.aiServiceClient.send('ai_prompt', resolved).pipe(timeout(180000)));
+  }
+
+  @Sse('ai/prompt/stream')
+  aiPromptStream(
+    @Query('provider') provider: 'openai' | 'claude' | 'gemini',
+    @Query('model') model: string,
+    @Query('prompt') prompt: string,
+    @Query('apiKey') apiKey?: string,
+    @Query('temperature') temperature?: string,
+    @Query('maxTokens') maxTokens?: string,
+    @Req() request?: Request,
+  ): Observable<MessageEvent> {
+    const stream$ = new Observable<string>((subscriber) => {
+      (async () => {
+        try {
+          const parsedTemperature = this.parseOptionalNumber(temperature);
+          const parsedMaxTokens = this.parseOptionalNumber(maxTokens);
+          const payload = await this.resolveAiPayload(
+            {
+              provider,
+              model,
+              prompt,
+              apiKey,
+              temperature: parsedTemperature,
+              maxTokens: parsedMaxTokens,
+            },
+            request,
+          );
+          this.aiServiceClient.send<string>('ai_prompt_stream', payload).subscribe({
+            next: (v) => subscriber.next(v),
+            error: (e) => subscriber.error(e),
+            complete: () => subscriber.complete(),
+          });
+        } catch (err) {
+          subscriber.error(err);
+        }
+      })();
+    });
+
+    return stream$.pipe(map((chunk) => ({ data: chunk } as MessageEvent)));
   }
 
   @Get('scraper')
@@ -198,7 +291,7 @@ export class AppController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return { success: true, user };
+    return { success: true, user: this.toPublicUser(user) };
   }
 
   @Get('auth/session')
@@ -231,9 +324,29 @@ export class AppController {
 
   @Get('users')
   async findUsers() {
-    return firstValueFrom(
+    const users = await firstValueFrom(
       this.usersServiceClient.send('user_find_all', {}).pipe(timeout(2000)),
     );
+    return (users as UserPayload[]).map((u) => this.toPublicUser(u));
+  }
+
+  @Get('users/me')
+  async getCurrentUserProfile(@Req() request: Request) {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('No active session found');
+    }
+    const session = this.verifyJwtToken(sessionToken);
+    const user = await firstValueFrom(
+      this.usersServiceClient
+        .send<UserPayload | null>('user_find_one', session.userId)
+        .pipe(timeout(2000)),
+    );
+
+    if (!user) {
+      throw new NotFoundException('User profile not found');
+    }
+    return this.toPublicUser(user);
   }
 
   @Get('users/:id')
@@ -248,7 +361,35 @@ export class AppController {
       throw new NotFoundException('User profile not found');
     }
 
-    return user;
+    return this.toPublicUser(user);
+  }
+
+  @Post('users/ai-config')
+  async saveAiConfig(
+    @Req() request: Request,
+    @Body()
+    payload: {
+      provider: 'openai' | 'claude' | 'gemini';
+      apiKey: string;
+      preferredModel: string;
+    },
+  ) {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('No active session found');
+    }
+    const session = this.verifyJwtToken(sessionToken);
+
+    const user = await firstValueFrom(
+      this.usersServiceClient
+        .send<UserPayload>('user_save_ai_config', {
+          id: session.userId,
+          ...payload,
+        })
+        .pipe(timeout(30000)),
+    );
+
+    return this.toPublicUser(user);
   }
 
   @Patch('users/:id')
@@ -427,5 +568,117 @@ export class AppController {
     } catch {
       return false;
     }
+  }
+
+  private async resolveAiPayload(
+    payload: {
+      provider: 'openai' | 'claude' | 'gemini';
+      model: string;
+      prompt: string;
+      apiKey?: string;
+      temperature?: number;
+      maxTokens?: number;
+    },
+    request?: Request,
+  ): Promise<{
+    provider: 'openai' | 'claude' | 'gemini';
+    model: string;
+    prompt: string;
+    apiKey?: string;
+    temperature?: number;
+    maxTokens?: number;
+  }> {
+    if (payload.apiKey) {
+      return payload;
+    }
+    if (!request) {
+      return payload;
+    }
+
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      return payload;
+    }
+    const session = this.verifyJwtToken(sessionToken);
+
+    const cfg = await firstValueFrom(
+      this.usersServiceClient
+        .send<{
+          activeAiProvider: 'openai' | 'claude' | 'gemini' | null;
+          preferredModel: string | null;
+          decryptedApiKey: string | null;
+        }>('user_get_ai_config', session.userId)
+        .pipe(timeout(30000)),
+    );
+
+    if (cfg.decryptedApiKey && cfg.activeAiProvider === payload.provider) {
+      return {
+        ...payload,
+        apiKey: cfg.decryptedApiKey,
+      };
+    }
+
+    return payload;
+  }
+
+  private async resolveAiModelsPayload(
+    payload: {
+      provider: 'openai' | 'claude' | 'gemini';
+      apiKey?: string;
+    },
+    request?: Request,
+  ): Promise<{
+    provider: 'openai' | 'claude' | 'gemini';
+    apiKey?: string;
+  }> {
+    if (payload.apiKey) {
+      return payload;
+    }
+    if (!request) {
+      return payload;
+    }
+
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      return payload;
+    }
+
+    const session = this.verifyJwtToken(sessionToken);
+    const cfg = await firstValueFrom(
+      this.usersServiceClient
+        .send<{
+          activeAiProvider: 'openai' | 'claude' | 'gemini' | null;
+          decryptedApiKey: string | null;
+        }>('user_get_ai_config', session.userId)
+        .pipe(timeout(30000)),
+    );
+
+    if (cfg.decryptedApiKey && cfg.activeAiProvider === payload.provider) {
+      return {
+        ...payload,
+        apiKey: cfg.decryptedApiKey,
+      };
+    }
+
+    return payload;
+  }
+
+  private toPublicUser(user: UserPayload) {
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      isLocked: user.isLocked ?? false,
+      activeAiProvider: user.activeAiProvider ?? null,
+      preferredModel: user.preferredModel ?? null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  private parseOptionalNumber(value?: string): number | undefined {
+    if (typeof value === 'undefined') return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
 }

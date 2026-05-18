@@ -7,7 +7,10 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @MessagePattern('user_create')
-  create(@Payload() data: { username: string; email: string }) {
+  create(
+    @Payload()
+    data: { username: string; email: string; lockProfile?: boolean; unlockKey?: string },
+  ) {
     return this.usersService.create(data);
   }
 
@@ -41,6 +44,24 @@ export class UsersController {
   @MessagePattern('user_verify_unlock')
   verifyUnlock(@Payload() payload: { id: string; unlockKey: string }) {
     return this.usersService.verifyUnlockKey(payload.id, payload.unlockKey);
+  }
+
+  @MessagePattern('user_save_ai_config')
+  saveAiConfig(
+    @Payload()
+    payload: {
+      id: string;
+      provider: 'openai' | 'claude' | 'gemini';
+      apiKey: string;
+      preferredModel: string;
+    },
+  ) {
+    return this.usersService.saveAiConfig(payload.id, payload);
+  }
+
+  @MessagePattern('user_get_ai_config')
+  getAiConfig(@Payload() id: string) {
+    return this.usersService.getAiConfig(id);
   }
 
   @MessagePattern('ping')

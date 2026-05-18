@@ -26,6 +26,21 @@ export class User {
   @Column({ type: 'text', nullable: true })
   unlockKeySalt: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  openaiKeyEncrypted: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  claudeKeyEncrypted: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  geminiKeyEncrypted: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  preferredModel: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  activeAiProvider: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
