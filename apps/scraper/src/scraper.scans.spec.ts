@@ -10,7 +10,11 @@ describe('ScraperService scanIncome', () => {
       save: jest.fn(),
       find: jest.fn(),
     };
-    service = new ScraperService(repoMock as any, repoMock as any, repoMock as any);
+    service = new ScraperService(
+      repoMock as any,
+      repoMock as any,
+      repoMock as any,
+    );
   });
 
   it('counts categorized credit expenses and valid incomes', async () => {
@@ -52,7 +56,9 @@ describe('ScraperService scanIncome', () => {
 
     expect(result.totalIncome).toBe(5000);
     expect(result.totalExpenses).toBe(150);
-    expect(result.categories).toEqual([{ name: 'מזון', amount: 150, count: 1 }]);
+    expect(result.categories).toEqual([
+      { name: 'מזון', amount: 150, count: 1 },
+    ]);
   });
 
   it('includes uncategorized credit expenses under לא מסווג', async () => {
@@ -88,6 +94,8 @@ describe('ScraperService scanIncome', () => {
     });
 
     expect(result.totalExpenses).toBe(210);
-    expect(result.categories).toEqual([{ name: 'לא מסווג', amount: 210, count: 1 }]);
+    expect(result.categories).toEqual([
+      { name: 'לא מסווג', amount: 210, count: 1 },
+    ]);
   });
 });

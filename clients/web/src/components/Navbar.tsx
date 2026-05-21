@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MenuIcon, LogOutIcon } from "lucide-react";
+import { List, SignOut } from '@phosphor-icons/react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { Button } from "@/components/ui/button";
 import { 
@@ -75,7 +75,7 @@ export function Navbar() {
                 onClick={() => void logout()}
               >
                 <span>התנתקות</span>
-                <LogOutIcon className="h-3.5 w-3.5" />
+                <SignOut className="h-3.5 w-3.5" weight="duotone" />
               </Button>
             </div>
           ) : (
@@ -88,7 +88,7 @@ export function Navbar() {
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 border border-zinc-200 dark:border-zinc-800 rounded-md" aria-label="תפריט ניווט">
-                <MenuIcon className="h-4 w-4" />
+                <List className="h-4 w-4" weight="bold" />
               </Button>
             </SheetTrigger>
             <SheetContent showCloseButton={false} side="left" className="flex w-[260px] flex-col bg-white dark:bg-zinc-950 p-6 border-l border-zinc-200 dark:border-zinc-800" dir="rtl">

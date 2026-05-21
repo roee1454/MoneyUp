@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
-import { Shield, Zap, TrendingUp } from 'lucide-react';
+import { Shield, Lightning, TrendUp } from '@phosphor-icons/react';
 import { BrandLogo } from '@/components/BrandLogo';
 
 export default function Introduction() {
@@ -41,7 +41,7 @@ export default function Introduction() {
         <div className="grid gap-6 sm:grid-cols-3 pt-16 border-t border-zinc-200/80 dark:border-zinc-800/80 text-right">
           <div className="space-y-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white">
-              <Zap className="h-5 w-5 stroke-2" />
+              <Lightning className="h-5 w-5" weight="duotone" />
             </div>
             <h3 className="font-bold text-lg text-zinc-950 dark:text-white">סנכרון אוטומטי מלא</h3>
             <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -51,7 +51,7 @@ export default function Introduction() {
 
           <div className="space-y-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white">
-              <Shield className="h-5 w-5 stroke-2" />
+              <Shield className="h-5 w-5" weight="duotone" />
             </div>
             <h3 className="font-bold text-lg text-zinc-950 dark:text-white">אבטחה ברמה הגבוהה ביותר</h3>
             <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -61,7 +61,7 @@ export default function Introduction() {
 
           <div className="space-y-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white">
-              <TrendingUp className="h-5 w-5 stroke-2" />
+              <TrendUp className="h-5 w-5" weight="duotone" />
             </div>
             <h3 className="font-bold text-lg text-zinc-950 dark:text-white">תובנות והמלצות חסכון</h3>
             <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 leading-relaxed">

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeSlash } from '@phosphor-icons/react'
 import { cn } from "@/lib/utils"
 
 export interface PremiumInputProps extends React.ComponentProps<"input"> {
@@ -29,7 +29,7 @@ const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps>(
             onClick={() => setShowPassword((prev) => !prev)}
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer select-none"
           >
-            {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+            {showPassword ? <EyeSlash className="h-4.5 w-4.5" weight="duotone" /> : <Eye className="h-4.5 w-4.5" weight="duotone" />}
           </button>
         )}
       </div>

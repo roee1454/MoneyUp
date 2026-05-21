@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { of } from 'rxjs';
-import { RedisCacheService } from './redis-cache.service';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -25,14 +24,6 @@ describe('AppController', () => {
         {
           provide: 'USERS_SERVICE',
           useValue: { send: jest.fn(() => of(null)) },
-        },
-        {
-          provide: RedisCacheService,
-          useValue: {
-            get: jest.fn(),
-            set: jest.fn(),
-            del: jest.fn(),
-          },
         },
       ],
     }).compile();

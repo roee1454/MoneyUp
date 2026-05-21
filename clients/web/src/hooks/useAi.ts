@@ -8,7 +8,7 @@ export interface AiScanCategory {
   count: number;
 }
 
-export interface AiScansResponse {
+export interface SpendingScansResponse {
   totalIncome: number;
   totalExpenses: number;
   categories: AiScanCategory[];
@@ -16,6 +16,9 @@ export interface AiScansResponse {
     string,
     Array<{
       transactionId: string;
+      bankId: string;
+      accountNumber: string;
+      cardLast4?: string;
       merchant: string;
       date: string;
       amount: number;
@@ -54,7 +57,6 @@ export interface AiScansResponse {
     };
   };
 }
-
 export function useVerifyAiConnection() {
   return useMutation({
     mutationFn: (payload: { provider: 'openai' | 'claude' | 'gemini'; apiKey: string }) =>
@@ -88,7 +90,7 @@ function buildScansQuery(filters: ScanFilters): string {
     params.set('endDate', filters.endDate);
   }
   const query = params.toString();
-  return query ? `/ai/scans?${query}` : '/ai/scans';
+  return query ? `/spending/scans?${query}` : '/spending/scans';
 }
 
 function buildScansDebugQuery(filters: ScanFilters): string {
@@ -99,21 +101,23 @@ function buildScansDebugQuery(filters: ScanFilters): string {
     params.set('endDate', filters.endDate);
   }
   const query = params.toString();
-  return query ? `/ai/scans/debug?${query}` : '/ai/scans/debug';
+  return query ? `/spending/scans/debug?${query}` : '/spending/scans/debug';
 }
 
-export function useAiScans(filters: ScanFilters = { period: 'current' }) {
+export function useSpendingScans(filters: ScanFilters = { period: 'current' }) {
   const session = useAppStore((s) => s.session);
   const period = filters.period ?? 'current';
 
   return useQuery({
-    queryKey: ['ai-scans', period, filters.startDate ?? '', filters.endDate ?? ''],
-    queryFn: () => api.get<AiScansResponse>(buildScansQuery({ ...filters, period })),
+    queryKey: ['spending-scans', period, filters.startDate ?? '', filters.endDate ?? ''],
+    queryFn: () => api.get<SpendingScansResponse>(buildScansQuery({ ...filters, period })),
     enabled: !!session,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 10,
   });
 }
 
-export function useAiScansDebug(
+export function useSpendingScansDebug(
   filters: ScanFilters = { period: 'current' },
   enabled = true,
 ) {
@@ -121,23 +125,25 @@ export function useAiScansDebug(
   const period = filters.period ?? 'current';
 
   return useQuery({
-    queryKey: ['ai-scans-debug', period, filters.startDate ?? '', filters.endDate ?? ''],
-    queryFn: () => api.get<AiScansResponse>(buildScansDebugQuery({ ...filters, period })),
+    queryKey: ['spending-scans-debug', period, filters.startDate ?? '', filters.endDate ?? ''],
+    queryFn: () => api.get<SpendingScansResponse>(buildScansDebugQuery({ ...filters, period })),
     enabled: !!session && enabled,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
   });
 }
 
-export function useAnnotateAiScans() {
+export function useAnnotateSpendingScans() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: {
       period?: 'current' | 'previous' | 'both';
       startDate?: string;
       endDate?: string;
-    }) => api.post<AiScansResponse>('/ai/scans/annotate', payload),
+    }) => api.post<SpendingScansResponse>('/spending/scans/annotate', payload),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['ai-scans'] });
-      await queryClient.invalidateQueries({ queryKey: ['ai-scans-debug'] });
+      await queryClient.invalidateQueries({ queryKey: ['spending-scans'] });
+      await queryClient.invalidateQueries({ queryKey: ['spending-scans-debug'] });
     },
   });
 }
@@ -153,7 +159,8 @@ export function useSaveAiConfig() {
     }) => api.post('/users/ai-config', payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-      await queryClient.invalidateQueries({ queryKey: ['ai-scans'] });
+      await queryClient.invalidateQueries({ queryKey: ['spending-scans'] });
+      await queryClient.invalidateQueries({ queryKey: ['spending-scans-debug'] });
     },
   });
 }

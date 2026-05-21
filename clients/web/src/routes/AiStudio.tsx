@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Sparkle } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
@@ -55,7 +55,7 @@ export default function AiStudio() {
                 onClick={() => setIsAiDialogOpen(true)}
                 className="rounded-none font-bold text-xs h-10 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100"
               >
-                <Sparkles className="h-4 w-4" />
+                <Sparkle className="h-4 w-4" weight="duotone" />
                 <span>הוסף ספק</span>
               </Button>
             </div>

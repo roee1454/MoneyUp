@@ -1,4 +1,4 @@
-import { Plus, Trash2, Lock } from 'lucide-react';
+import { Plus, Trash, Lock } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -268,7 +268,7 @@ export default function Login() {
                     className="absolute -top-2 -left-2 z-20 h-7 w-7 rounded-full border border-red-200 bg-white text-red-500 hover:bg-red-50 dark:bg-zinc-900 dark:border-red-900/50 dark:hover:bg-red-950/30 flex items-center justify-center cursor-pointer"
                     aria-label={`Delete ${user.username}`}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash className="h-3.5 w-3.5" weight="duotone" />
                   </button>
 
                   <Button
@@ -287,7 +287,7 @@ export default function Login() {
                   </Button>
                   <p className={cn('text-base transition-colors duration-200 flex items-center justify-center gap-1', selectedId === user.id ? 'font-black text-zinc-950 dark:text-white' : 'font-semibold text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-300')}>
                     {user.username}
-                    {user.isLocked ? <Lock className="h-3.5 w-3.5" /> : null}
+                    {user.isLocked ? <Lock className="h-3.5 w-3.5" weight="duotone" /> : null}
                   </p>
                 </div>
               ))}
@@ -296,7 +296,7 @@ export default function Login() {
                 <Button variant="ghost" className="h-auto p-0 rounded-xl hover:bg-transparent transition-all duration-300 group-hover:scale-105" onClick={() => setShowForm(true)}>
                   <Avatar className="h-28 w-28 rounded-xl bg-zinc-50 dark:bg-zinc-900 border-2 border-dashed border-zinc-300 dark:border-zinc-800 transition-colors group-hover:border-zinc-500 dark:group-hover:border-zinc-650 flex items-center justify-center">
                     <AvatarFallback className="rounded-xl bg-transparent text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300">
-                      <Plus className="h-10 w-10 stroke-[2.5]" />
+                      <Plus className="h-10 w-10" weight="bold" />
                     </AvatarFallback>
                   </Avatar>
                 </Button>

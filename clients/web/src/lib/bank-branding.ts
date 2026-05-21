@@ -1,12 +1,12 @@
 export type BankIconShape = 'circle' | 'rounded-square';
 
-export function normalizeBankId(bankId: string): string {
-  const normalized = bankId.toLowerCase();
+export function normalizeBankId(bankId: string | null | undefined): string {
+  const normalized = String(bankId ?? '').toLowerCase();
   if (normalized === 'one_zero' || normalized === 'one-zero') return 'onezero';
   return normalized;
 }
 
-export function getBankName(bankId: string): string {
+export function getBankName(bankId: string | null | undefined): string {
   switch (normalizeBankId(bankId)) {
     case 'hapoalim':
       return 'בנק הפועלים';
@@ -21,7 +21,7 @@ export function getBankName(bankId: string): string {
     case 'onezero':
       return 'ONE ZERO';
     default:
-      return bankId;
+      return String(bankId ?? 'Unknown');
   }
 }
 

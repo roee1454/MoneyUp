@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Sparkles, TrendingDown } from 'lucide-react';
+import { CircleNotch, Sparkle, TrendDownIcon } from '@phosphor-icons/react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,9 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { PremiumCard } from '@/components/ui/premium-card';
-import type { AiScansResponse } from '@/hooks/useAi';
+import { FilterChips } from '@/components/ui/filter-chips';
+import { getBankName } from '@/lib/bank-branding';
+import type { SpendingScansResponse } from '@/hooks/useAi';
 
 interface Transaction {
   id?: string;
@@ -18,6 +20,8 @@ interface Transaction {
   confidence?: number;
   reason?: string;
   tags?: string[];
+  cardKey?: string;
+  cardLabel?: string;
 }
 
 interface Category {
@@ -31,14 +35,16 @@ interface Category {
 }
 
 interface SpendingCategoriesProps {
-  scans?: AiScansResponse | null;
+  scans?: SpendingScansResponse | null;
   period: 'current' | 'previous' | 'both';
   startDate: string;
   endDate: string;
+  minStartDate?: string;
+  maxEndDate?: string;
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
   isLoadingScans?: boolean;
-  isSyncing?: boolean;
+  isRefreshingScans?: boolean;
   hasConnectedAccounts?: boolean;
   canUseAiAnnotation?: boolean;
   isAnnotatingWithAi?: boolean;
@@ -78,10 +84,12 @@ export function SpendingCategories({
   period,
   startDate,
   endDate,
+  minStartDate,
+  maxEndDate,
   onStartDateChange,
   onEndDateChange,
   isLoadingScans = false,
-  isSyncing = false,
+  isRefreshingScans = false,
   hasConnectedAccounts = false,
   canUseAiAnnotation = false,
   isAnnotatingWithAi = false,
@@ -93,6 +101,7 @@ export function SpendingCategories({
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [isMobileDialogOpen, setIsMobileDialogOpen] = useState(false);
   const [excludedTransactionKeys, setExcludedTransactionKeys] = useState<Set<string>>(new Set());
+  const [selectedCardKeys, setSelectedCardKeys] = useState<Set<string>>(new Set());
 
   function getTransactionKey(categoryName: string, txn: Transaction): string {
     return `${categoryName}::${txn.id ?? `${txn.merchant}|${txn.date}|${txn.amount}`}`;
@@ -116,8 +125,12 @@ export function SpendingCategories({
   }
 
   const displayCategories = useMemo<Category[]>(() => {
-    if (!hasConnectedAccounts || !scans) {
+    if (!hasConnectedAccounts) {
       return staticCategories;
+    }
+    
+    if (!scans) {
+      return [];
     }
 
     return scans.categories.map((category) => ({
@@ -125,20 +138,64 @@ export function SpendingCategories({
       emoji: categoryEmojis[category.name] || '📦',
       amount: category.amount,
       count: category.count,
-      transactions: (scans.categoryTransactions[category.name] ?? []).map((txn) => ({
-        id: txn.transactionId,
-        merchant: txn.merchant,
-        date: txn.date ? new Date(txn.date).toLocaleDateString('he-IL') : '',
+      transactions: (scans.categoryTransactions[category.name] ?? [])
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .map((txn) => ({
+          id: txn.transactionId,
+          merchant: txn.merchant,
+          date: txn.date ? new Date(txn.date).toLocaleDateString('he-IL') : '',
         amount: txn.amount,
         confidence: txn.confidence,
         reason: txn.reason,
         tags: txn.tags,
+        cardKey:
+          String(txn.bankId ?? '').trim() && String(txn.cardLast4 ?? '').trim()
+            ? `${String(txn.bankId)}:${String(txn.cardLast4)}`
+            : undefined,
+        cardLabel:
+          String(txn.bankId ?? '').trim() && String(txn.cardLast4 ?? '').trim()
+            ? `${getBankName(txn.bankId)} • ${String(txn.cardLast4)}`
+            : undefined,
       })),
     }));
   }, [hasConnectedAccounts, scans]);
 
-  const displayCategoriesWithExclusionMeta = useMemo<Category[]>(() => {
+  const cardOptions = useMemo(() => {
+    const optionMap = new Map<string, string>();
+    for (const category of displayCategories) {
+      for (const txn of category.transactions) {
+        if (txn.cardKey && txn.cardLabel && !optionMap.has(txn.cardKey)) {
+          optionMap.set(txn.cardKey, txn.cardLabel);
+        }
+      }
+    }
+    return Array.from(optionMap.entries()).map(([id, label]) => ({ id, label }));
+  }, [displayCategories]);
+
+  const cardFilteredCategories = useMemo<Category[]>(() => {
+    if (selectedCardKeys.size === 0) return displayCategories;
     return displayCategories.map((category) => {
+      const filteredTransactions = category.transactions.filter(
+        (txn) => !!txn.cardKey && selectedCardKeys.has(txn.cardKey),
+      );
+      const filteredAmount = filteredTransactions.reduce((sum, txn) => sum + txn.amount, 0);
+      return {
+        ...category,
+        amount: filteredAmount,
+        count: filteredTransactions.length,
+        transactions: filteredTransactions,
+      };
+    });
+  }, [displayCategories, selectedCardKeys]);
+  const unmappedTransactionsCount = useMemo(() => {
+    return displayCategories.reduce(
+      (sum, category) => sum + category.transactions.filter((txn) => !txn.cardKey).length,
+      0,
+    );
+  }, [displayCategories]);
+
+  const displayCategoriesWithExclusionMeta = useMemo<Category[]>(() => {
+    return cardFilteredCategories.map((category) => {
       const excludedCount = category.transactions.filter((txn) =>
         excludedTransactionKeys.has(getTransactionKey(category.name, txn)),
       ).length;
@@ -148,9 +205,9 @@ export function SpendingCategories({
         excludedCount,
       };
     });
-  }, [displayCategories, excludedTransactionKeys]);
+  }, [cardFilteredCategories, excludedTransactionKeys]);
   const excludedTotalAmount = useMemo(() => {
-    return displayCategories.reduce((sum, category) => {
+    return cardFilteredCategories.reduce((sum, category) => {
       const categoryExcludedSum = category.transactions.reduce((categorySum, txn) => {
         if (excludedTransactionKeys.has(getTransactionKey(category.name, txn))) {
           return categorySum + txn.amount;
@@ -159,9 +216,11 @@ export function SpendingCategories({
       }, 0);
       return sum + categoryExcludedSum;
     }, 0);
-  }, [displayCategories, excludedTransactionKeys]);
+  }, [cardFilteredCategories, excludedTransactionKeys]);
 
-  const baseTotalExpenses = hasConnectedAccounts && scans ? scans.totalExpenses : 3650;
+  const baseTotalExpenses = hasConnectedAccounts && scans
+    ? cardFilteredCategories.reduce((sum, category) => sum + category.amount, 0)
+    : hasConnectedAccounts ? 0 : 3650;
   const displaySpent = Math.max(baseTotalExpenses - excludedTotalAmount, 0);
   const sortedCategories = useMemo(
     () => [...displayCategoriesWithExclusionMeta].sort((a, b) => b.amount - a.amount),
@@ -170,6 +229,9 @@ export function SpendingCategories({
   const topCategories = useMemo(() => sortedCategories.slice(0, 6), [sortedCategories]);
   const visibleCategories = showAllCategories ? sortedCategories : topCategories;
   const hiddenCategoriesCount = Math.max(sortedCategories.length - topCategories.length, 0);
+
+  const showShimmer = isLoadingScans || (hasConnectedAccounts && !scans);
+
   const activeCategory = useMemo(() => {
     if (selectedCategory && sortedCategories.some((category) => category.name === selectedCategory.name)) {
       return sortedCategories.find((category) => category.name === selectedCategory.name) ?? selectedCategory;
@@ -196,18 +258,22 @@ export function SpendingCategories({
 
   useEffect(() => {
     setExcludedTransactionKeys(new Set());
-  }, [period, scans, startDate, endDate, hasConnectedAccounts]);
+  }, [period, startDate, endDate]);
+
+  useEffect(() => {
+    setSelectedCardKeys(new Set());
+  }, [period, startDate, endDate]);
 
   useEffect(() => {
     if (!hasConnectedAccounts || !scans) return;
 
     const debugEnabled =
       import.meta.env.DEV ||
-      String(import.meta.env.VITE_AI_SCANS_DEBUG ?? '').toLowerCase() === 'true';
+      String(import.meta.env.VITE_SPENDING_SCANS_DEBUG ?? import.meta.env.VITE_AI_SCANS_DEBUG ?? '').toLowerCase() === 'true';
 
     if (!debugEnabled) return;
 
-    console.log('[AI_SCANS_DEBUG] displayed_categories', {
+    console.log('[SPENDING_SCANS_DEBUG] displayed_categories', {
       period,
       totalExpenses: displaySpent,
       categories: displayCategories.map((category) => ({
@@ -227,48 +293,16 @@ export function SpendingCategories({
     });
   }, [displayCategories, displaySpent, hasConnectedAccounts, period, scans]);
 
-  if (isSyncing || (hasConnectedAccounts && isLoadingScans)) {
-    return (
-      <PremiumCard className="space-y-6 animate-pulse">
-        <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-          <div className="space-y-3 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 p-4">
-            <div className="h-5 w-44 bg-zinc-200 dark:bg-zinc-800" />
-            <div className="h-3 w-64 bg-zinc-100 dark:bg-zinc-900" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-              <div className="h-9 bg-zinc-200 dark:bg-zinc-800" />
-              <div className="h-9 bg-zinc-200 dark:bg-zinc-800" />
-            </div>
-          </div>
-          <div className="space-y-3 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 p-4">
-            <div className="h-4 w-28 bg-zinc-200 dark:bg-zinc-800" />
-            <div className="h-10 w-40 bg-zinc-200 dark:bg-zinc-800" />
-            <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-900" />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="aspect-square border border-zinc-100 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-900/20 p-3 space-y-2"
-            >
-              <div className="h-4 w-7 bg-zinc-200 dark:bg-zinc-800" />
-              <div className="h-3 w-full bg-zinc-200 dark:bg-zinc-800" />
-              <div className="h-4 w-2/3 bg-zinc-200 dark:bg-zinc-800" />
-            </div>
-          ))}
-        </div>
-      </PremiumCard>
-    );
-  }
+  const shouldShimmerSpendingValues = showShimmer;
 
   return (
     <PremiumCard className="space-y-6 relative overflow-hidden">
-      {isWidgetBusy ? (
+      {(isWidgetBusy || isRefreshingScans) && !showShimmer ? (
         <div className="absolute inset-0 z-20 bg-white/75 dark:bg-zinc-950/75 backdrop-blur-[1px] flex items-center justify-center">
           <div className="flex items-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-            <Loader2 className="h-4 w-4 animate-spin text-zinc-700 dark:text-zinc-200" />
+            <CircleNotch className="h-4 w-4 animate-spin text-zinc-700 dark:text-zinc-200" />
             <span className="text-xs font-black text-zinc-800 dark:text-zinc-100">
-              מסווג בתי עסק ומעדכן נתונים...
+              {isAnnotatingWithAi ? 'מסווג בתי עסק ומעדכן נתונים...' : 'מעדכן נתוני הוצאות...'}
             </span>
           </div>
         </div>
@@ -276,7 +310,12 @@ export function SpendingCategories({
       <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
         <div className="border border-zinc-100 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-900/20 p-4 space-y-4">
           <div className="space-y-1.5">
-            <h2 className="text-lg font-black text-zinc-950 dark:text-white">סיכום הוצאות חודשי</h2>
+            <h2 className="text-lg font-black text-zinc-950 dark:text-white flex items-center gap-2">
+              <span>סיכום הוצאות</span>
+              {isRefreshingScans && !showShimmer && (
+                <CircleNotch className="h-4 w-4 animate-spin text-zinc-500 dark:text-zinc-400" />
+              )}
+            </h2>
             <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
               {hasConnectedAccounts
                 ? 'מחושב לפי תנועות מחברות אשראי מסונכרנות'
@@ -290,6 +329,8 @@ export function SpendingCategories({
               <input
                 type="date"
                 value={startDate}
+                min={minStartDate}
+                max={endDate || maxEndDate}
                 onChange={(e) => onStartDateChange(e.target.value)}
                 disabled={isWidgetBusy}
                 className="h-9 w-full px-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200"
@@ -300,6 +341,8 @@ export function SpendingCategories({
               <input
                 type="date"
                 value={endDate}
+                min={startDate || minStartDate}
+                max={maxEndDate}
                 onChange={(e) => onEndDateChange(e.target.value)}
                 disabled={isWidgetBusy}
                 className="h-9 w-full px-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200"
@@ -312,10 +355,14 @@ export function SpendingCategories({
           <div dir="ltr" className="space-y-1.5">
             <div className="flex items-center gap-1.5 justify-end text-rose-600 dark:text-rose-500">
               <span className="text-[11px] font-black">הוצאות</span>
-              <TrendingDown className="h-4 w-4" />
+              <TrendDownIcon className="h-4 w-4" weight="duotone" />
             </div>
             <p className="text-2xl font-black text-rose-600 dark:text-rose-400">
-              -{displaySpent.toLocaleString('he-IL')} ₪
+              {shouldShimmerSpendingValues ? (
+                <span className="inline-block h-8 w-36 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
+              ) : (
+                <>-{displaySpent.toLocaleString('he-IL')} ₪</>
+              )}
             </p>
             {excludedTransactionKeys.size > 0 ? (
               <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400" dir="rtl">
@@ -344,12 +391,12 @@ export function SpendingCategories({
               >
                 {isAnnotatingWithAi ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <CircleNotch className="h-3.5 w-3.5 animate-spin" />
                     <span>מסווג עם AI...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <Sparkle className="h-3.5 w-3.5" weight="duotone" />
                     <span>סווג בתי עסק לא מזוהים עם AI</span>
                   </>
                 )}
@@ -367,7 +414,7 @@ export function SpendingCategories({
                 onClick={onGoToAiStudio}
                 className="h-10 px-4 border border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-xs font-black text-white dark:text-zinc-900 cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkle className="h-3.5 w-3.5" weight="duotone" />
                 <span>הוספת ספק AI</span>
               </button>
               <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
@@ -380,6 +427,22 @@ export function SpendingCategories({
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
         <div className="space-y-3">
+          {cardOptions.length > 0 ? (
+            <div className="space-y-1.5">
+              <FilterChips
+                options={cardOptions}
+                selectedIds={Array.from(selectedCardKeys)}
+                onChange={(ids) => setSelectedCardKeys(new Set(ids))}
+                allLabel="כל הכרטיסים"
+                disabled={isWidgetBusy}
+              />
+              {selectedCardKeys.size > 0 && unmappedTransactionsCount > 0 ? (
+                <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  חלק מהתנועות אינן משויכות לכרטיס ספציפי ומוצגות רק בתצוגת "כל הכרטיסים".
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider text-right">
               התפלגות הוצאות לפי קטגוריות
@@ -395,7 +458,22 @@ export function SpendingCategories({
             ) : null}
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-3">
-            {visibleCategories.map((category) => {
+            {showShimmer ? (
+              Array.from({ length: 10 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="aspect-square border border-zinc-100 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-900/20 p-2 space-y-2 animate-pulse"
+                >
+                  <div className="mx-auto h-6 w-6 rounded-full bg-zinc-200/80 dark:bg-zinc-800/80" />
+                  <div className="h-3 w-full bg-zinc-200/80 dark:bg-zinc-800/80" />
+                  <div className="h-4 w-2/3 mx-auto bg-zinc-200/80 dark:bg-zinc-800/80" />
+                </div>
+              ))
+            ) : visibleCategories.length === 0 ? (
+              <div className="col-span-full py-10 text-center">
+                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">אין נתונים להצגה בטווח התאריכים הנבחר</p>
+              </div>
+            ) : visibleCategories.map((category) => {
               const isActive = activeCategory?.name === category.name;
               return (
                 <button
@@ -414,7 +492,11 @@ export function SpendingCategories({
                     {category.name}
                   </span>
                   <span className="text-xs font-black text-rose-600 dark:text-rose-400 leading-none" dir="ltr">
-                    -{category.amount.toLocaleString()} ₪
+                    {shouldShimmerSpendingValues ? (
+                      <span className="inline-block h-3.5 w-14 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
+                    ) : (
+                      <>-{category.amount.toLocaleString()} ₪</>
+                    )}
                   </span>
                 </button>
               );
@@ -423,7 +505,17 @@ export function SpendingCategories({
         </div>
 
         <div className="hidden lg:block border border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 p-4">
-          {activeCategory ? (
+          {showShimmer ? (
+            <div className="space-y-4">
+              <div className="h-5 w-1/2 bg-zinc-200/80 dark:bg-zinc-800/80 animate-pulse" />
+              <div className="h-3 w-1/3 bg-zinc-200/80 dark:bg-zinc-800/80 animate-pulse" />
+              <div className="space-y-2 pt-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-16 w-full bg-zinc-100 dark:bg-zinc-900 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ) : activeCategory ? (
             <div className="space-y-3">
               <div className="space-y-1 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <h4 className="text-base font-black text-zinc-950 dark:text-white flex items-center gap-2">

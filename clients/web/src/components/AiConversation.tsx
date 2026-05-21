@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Loader2, MessageSquareText, Send, Sliders } from 'lucide-react';
+import { CircleNotch, ChatText, PaperPlaneRight, Sliders } from '@phosphor-icons/react';
 import ReactMarkdown from 'react-markdown';
 import { useFetchAiModels } from '@/hooks/useAi';
 import { api } from '@/lib/api';
@@ -209,7 +209,7 @@ export function AiConversation({ provider, preferredModel }: AiConversationProps
             variant="outline"
             className="h-12 w-12 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-0 text-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-100 flex items-center justify-center shrink-0 cursor-pointer"
           >
-            <Sliders className="h-4.5 w-4.5" />
+            <Sliders className="h-4.5 w-4.5" weight="duotone" />
           </Button>
         )}
         <PremiumInput
@@ -224,10 +224,10 @@ export function AiConversation({ provider, preferredModel }: AiConversationProps
           disabled={!prompt.trim() || isLoading || !selectedModel}
           className="h-12 rounded-full px-5 font-bold text-sm bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100"
         >
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {isLoading ? <CircleNotch className="h-4 w-4 animate-spin" /> : <PaperPlaneRight className="h-4 w-4" weight="duotone" />}
           <span className="hidden sm:inline">{isLoading ? 'שולח...' : 'שלח'}</span>
           <span className="sm:hidden">
-            <MessageSquareText className="h-4 w-4" />
+            <ChatText className="h-4 w-4" weight="duotone" />
           </span>
         </Button>
       </form>

@@ -9,7 +9,12 @@ export class UsersController {
   @MessagePattern('user_create')
   create(
     @Payload()
-    data: { username: string; email: string; lockProfile?: boolean; unlockKey?: string },
+    data: {
+      username: string;
+      email: string;
+      lockProfile?: boolean;
+      unlockKey?: string;
+    },
   ) {
     return this.usersService.create(data);
   }
@@ -26,7 +31,11 @@ export class UsersController {
 
   @MessagePattern('user_update')
   update(
-    @Payload() payload: { id: string; data: { username?: string; email?: string } },
+    @Payload()
+    payload: {
+      id: string;
+      data: { username?: string; email?: string };
+    },
   ) {
     return this.usersService.update(payload.id, payload.data);
   }
@@ -37,8 +46,13 @@ export class UsersController {
   }
 
   @MessagePattern('user_delete_confirmed')
-  removeConfirmed(@Payload() payload: { id: string; confirmationEmail: string }) {
-    return this.usersService.deleteWithConfirmation(payload.id, payload.confirmationEmail);
+  removeConfirmed(
+    @Payload() payload: { id: string; confirmationEmail: string },
+  ) {
+    return this.usersService.deleteWithConfirmation(
+      payload.id,
+      payload.confirmationEmail,
+    );
   }
 
   @MessagePattern('user_verify_unlock')

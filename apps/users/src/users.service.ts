@@ -20,9 +20,10 @@ export class UsersService {
   }): Promise<User> {
     const isLocked = !!data.lockProfile;
     const salt = isLocked ? randomBytes(16).toString('hex') : null;
-    const hash = isLocked && data.unlockKey
-      ? scryptSync(data.unlockKey, salt!, 64).toString('hex')
-      : null;
+    const hash =
+      isLocked && data.unlockKey
+        ? scryptSync(data.unlockKey, salt!, 64).toString('hex')
+        : null;
 
     const user = this.userRepository.create({
       username: data.username,
@@ -77,13 +78,18 @@ export class UsersService {
     return { deleted: true };
   }
 
-  async verifyUnlockKey(id: string, unlockKey: string): Promise<{ valid: boolean }> {
+  async verifyUnlockKey(
+    id: string,
+    unlockKey: string,
+  ): Promise<{ valid: boolean }> {
     const user = await this.findOne(id);
     if (!user || !user.isLocked || !user.unlockKeyHash || !user.unlockKeySalt) {
       return { valid: false };
     }
 
-    const derived = scryptSync(unlockKey, user.unlockKeySalt, 64).toString('hex');
+    const derived = scryptSync(unlockKey, user.unlockKeySalt, 64).toString(
+      'hex',
+    );
     const left = Buffer.from(user.unlockKeyHash, 'hex');
     const right = Buffer.from(derived, 'hex');
     if (left.length !== right.length) return { valid: false };
@@ -123,7 +129,8 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const provider = (user.activeAiProvider as 'openai' | 'claude' | 'gemini' | null) ?? null;
+    const provider =
+      (user.activeAiProvider as 'openai' | 'claude' | 'gemini' | null) ?? null;
     let encrypted: string | null = null;
     if (provider === 'openai') encrypted = user.openaiKeyEncrypted;
     if (provider === 'claude') encrypted = user.claudeKeyEncrypted;

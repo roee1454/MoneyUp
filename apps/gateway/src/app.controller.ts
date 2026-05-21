@@ -19,11 +19,11 @@ import {
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import type { Request, Response } from 'express';
-import { firstValueFrom, Observable } from 'rxjs';
+import { firstValueFrom, Observable, Subject } from 'rxjs';
 import { map, timeout } from 'rxjs/operators';
 
 import { ConnectScraperDto, SubmitChallengeDto } from '@moneyup/types';
-import { RedisCacheService } from './redis-cache.service';
+import { SyncJobService } from './sync-job.service';
 
 type UserPayload = {
   id: string;
@@ -36,20 +36,23 @@ type UserPayload = {
   updatedAt: string;
 };
 
-type ScanIncomeCategory = {
+type SpendingScanCategory = {
   name: string;
   amount: number;
   count: number;
 };
 
-type ScanIncomeResponse = {
+type SpendingScansResponse = {
   totalIncome: number;
   totalExpenses: number;
-  categories: ScanIncomeCategory[];
+  categories: SpendingScanCategory[];
   categoryTransactions: Record<
     string,
     Array<{
       transactionId: string;
+      bankId: string;
+      accountNumber: string;
+      cardLast4?: string;
       merchant: string;
       date: string;
       amount: number;
@@ -88,7 +91,7 @@ type ScanIncomeResponse = {
     finalTotals: {
       totalIncome: number;
       totalExpenses: number;
-      categories: ScanIncomeCategory[];
+      categories: SpendingScanCategory[];
     };
   };
 };
@@ -101,20 +104,23 @@ type UserAiConfig = {
 
 @Controller()
 export class AppController {
-  private readonly aiScansDebugEnabled =
-    String(process.env.MONEYUP_AI_SCANS_DEBUG ?? '').toLowerCase() === 'true';
+  private readonly spendingScansDebugEnabled =
+    String(
+      process.env.MONEYUP_SPENDING_SCANS_DEBUG ??
+      process.env.MONEYUP_AI_SCANS_DEBUG ??
+      '',
+    ).toLowerCase() === 'true';
   private readonly aiCategoryBatchSize = Math.max(
     1,
     Number(process.env.MONEYUP_AI_CATEGORY_BATCH_SIZE ?? 50),
   );
-
   constructor(
     @Inject('AI_SERVICE') private readonly aiServiceClient: ClientProxy,
     @Inject('SCRAPER_SERVICE')
     private readonly scraperServiceClient: ClientProxy,
     @Inject('AUTH_SERVICE') private readonly authServiceClient: ClientProxy,
     @Inject('USERS_SERVICE') private readonly usersServiceClient: ClientProxy,
-    private readonly redisCacheService: RedisCacheService,
+    private readonly syncJobService: SyncJobService,
   ) { }
 
   @Get('ai')
@@ -122,32 +128,46 @@ export class AppController {
     return 'AI gateway endpoint is ready';
   }
 
-  @Get('ai/scans')
-  async getAiScans(
+  @Get('spending/scans')
+  async getSpendingScans(
     @Req() request: Request,
     @Query('period') period?: 'current' | 'previous' | 'both',
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-  ): Promise<ScanIncomeResponse> {
+  ): Promise<SpendingScansResponse> {
     const userId = this.requireSessionUserId(request);
     const normalizedPeriod = this.normalizePeriod(period);
-    return this.getOrCreateAiScans(userId, normalizedPeriod, startDate, endDate);
+    return this.computeSpendingScans(
+      userId,
+      undefined,
+      normalizedPeriod,
+      false,
+      startDate,
+      endDate,
+    );
   }
 
-  @Get('ai/scans/debug')
-  async getAiScansDebug(
+  @Get('spending/scans/debug')
+  async getSpendingScansDebug(
     @Req() request: Request,
     @Query('period') period?: 'current' | 'previous' | 'both',
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-  ): Promise<ScanIncomeResponse> {
+  ): Promise<SpendingScansResponse> {
     const userId = this.requireSessionUserId(request);
     const normalizedPeriod = this.normalizePeriod(period);
-    return this.computeAiScans(userId, undefined, normalizedPeriod, true, startDate, endDate);
+    return this.computeSpendingScans(
+      userId,
+      undefined,
+      normalizedPeriod,
+      true,
+      startDate,
+      endDate,
+    );
   }
 
-  @Post('ai/scans/annotate')
-  async annotateAiScans(
+  @Post('spending/scans/annotate')
+  async annotateSpendingScans(
     @Req() request: Request,
     @Body()
     payload: {
@@ -155,25 +175,30 @@ export class AppController {
       startDate?: string;
       endDate?: string;
     },
-  ): Promise<ScanIncomeResponse> {
+  ): Promise<SpendingScansResponse> {
     const userId = this.requireSessionUserId(request);
     const normalizedPeriod = this.normalizePeriod(payload.period);
-    const result = await this.runAiAnnotationPass(
+    const result = await this.runSpendingAnnotationPass(
       userId,
       normalizedPeriod,
       payload.startDate,
       payload.endDate,
     );
-    await this.clearAllAiScansCachePeriods(userId);
     return result;
   }
 
   @Post('ai/verify')
   async verifyAiConnection(
-    @Body() payload: { provider: 'openai' | 'claude' | 'gemini'; apiKey: string },
+    @Body()
+    payload: {
+      provider: 'openai' | 'claude' | 'gemini';
+      apiKey: string;
+    },
   ) {
     return firstValueFrom(
-      this.aiServiceClient.send('ai_verify_connection', payload).pipe(timeout(30000)),
+      this.aiServiceClient
+        .send('ai_verify_connection', payload)
+        .pipe(timeout(30000)),
     );
   }
 
@@ -183,20 +208,28 @@ export class AppController {
     @Query('apiKey') apiKey?: string,
     @Req() request?: Request,
   ) {
-    const resolved = await this.resolveAiModelsPayload({ provider, apiKey }, request);
+    const resolved = await this.resolveAiModelsPayload(
+      { provider, apiKey },
+      request,
+    );
     return firstValueFrom(
-      this.aiServiceClient.send('ai_list_models', resolved).pipe(timeout(30000)),
+      this.aiServiceClient
+        .send('ai_list_models', resolved)
+        .pipe(timeout(30000)),
     );
   }
 
   @Post('ai/models')
   async listAiModelsPost(
-    @Body() payload: { provider: 'openai' | 'claude' | 'gemini'; apiKey?: string },
+    @Body()
+    payload: { provider: 'openai' | 'claude' | 'gemini'; apiKey?: string },
     @Req() request?: Request,
   ) {
     const resolved = await this.resolveAiModelsPayload(payload, request);
     return firstValueFrom(
-      this.aiServiceClient.send('ai_list_models', resolved).pipe(timeout(30000)),
+      this.aiServiceClient
+        .send('ai_list_models', resolved)
+        .pipe(timeout(30000)),
     );
   }
 
@@ -214,7 +247,9 @@ export class AppController {
     },
   ) {
     const resolved = await this.resolveAiPayload(payload, request);
-    return firstValueFrom(this.aiServiceClient.send('ai_prompt', resolved).pipe(timeout(180000)));
+    return firstValueFrom(
+      this.aiServiceClient.send('ai_prompt', resolved).pipe(timeout(180000)),
+    );
   }
 
   @Sse('ai/prompt/stream')
@@ -243,18 +278,20 @@ export class AppController {
             },
             request,
           );
-          this.aiServiceClient.send<string>('ai_prompt_stream', payload).subscribe({
-            next: (v) => subscriber.next(v),
-            error: (e) => subscriber.error(e),
-            complete: () => subscriber.complete(),
-          });
+          this.aiServiceClient
+            .send<string>('ai_prompt_stream', payload)
+            .subscribe({
+              next: (v) => subscriber.next(v),
+              error: (e) => subscriber.error(e),
+              complete: () => subscriber.complete(),
+            });
         } catch (err) {
           subscriber.error(err);
         }
       })();
     });
 
-    return stream$.pipe(map((chunk) => ({ data: chunk } as MessageEvent)));
+    return stream$.pipe(map((chunk) => ({ data: chunk })));
   }
 
   @Get('scraper')
@@ -272,30 +309,135 @@ export class AppController {
   }
 
   @Get('scrapers/accounts')
-  async getConnectedAccounts(@Req() request: Request) {
+  async getConnectedAccounts(
+    @Req() request: Request,
+    @Query('fresh') fresh?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
     const sessionToken = request.cookies?.moneyup_session;
     if (!sessionToken) {
       throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
     }
     const user = this.verifyJwtToken(sessionToken);
+    const forceFresh = String(fresh ?? '').toLowerCase() === 'true';
 
-    return firstValueFrom(
+    const response = await firstValueFrom(
       this.scraperServiceClient
-        .send('get_connected_accounts', { userId: user.userId })
+        .send<{ accounts: any[]; isCovered: boolean }>('get_connected_accounts', {
+          userId: user.userId,
+          fresh: forceFresh,
+          startDate,
+          endDate,
+        })
         .pipe(timeout(60000)),
     );
+
+    if (forceFresh || !response.isCovered) {
+        if (!this.syncJobService.isRunning(user.userId)) {
+            this.syncJobService.startOrReuseSyncJob(
+                user.userId,
+                forceFresh ? 'manual' : 'initial',
+                startDate,
+                endDate,
+            );
+        }
+    }
+
+    return response.accounts;
+  }
+
+  @Sse('sync/events')
+  streamSyncEvents(@Req() request: Request): Observable<MessageEvent> {
+    const userId = this.requireSessionUserId(request);
+    const stream$ = new Subject<MessageEvent>();
+    const unsubscribe = this.syncJobService.subscribeStream(userId, stream$);
+
+    return new Observable<MessageEvent>((subscriber) => {
+      const subscription = stream$.subscribe(subscriber);
+      return () => {
+        subscription.unsubscribe();
+        unsubscribe();
+      };
+    });
+  }
+
+  @Post('sync/start')
+  async startSync(
+    @Req() request: Request,
+    @Body()
+    payload?: {
+      mode?: 'initial' | 'manual';
+      startDate?: string;
+      endDate?: string;
+    },
+    @Query('mode') mode?: 'initial' | 'manual',
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const userId = this.requireSessionUserId(request);
+    const resolvedMode: 'initial' | 'manual' =
+      mode === 'initial' || payload?.mode === 'initial' ? 'initial' : 'manual';
+    const resolvedStartDate = startDate ?? payload?.startDate;
+    const resolvedEndDate = endDate ?? payload?.endDate;
+    const { snapshot, reused } = this.syncJobService.startOrReuseSyncJob(
+      userId,
+      resolvedMode,
+      resolvedStartDate,
+      resolvedEndDate,
+    );
+    return {
+      jobId: snapshot.jobId,
+      reused,
+      status: snapshot.status,
+      phase: snapshot.phase,
+      progress: snapshot.progress,
+      message: snapshot.message,
+      source: snapshot.source,
+      syncPolicy: snapshot.syncPolicy,
+      startDate: snapshot.startDate,
+      endDate: snapshot.endDate,
+      sourcesChecked: snapshot.sourcesChecked,
+      sourcesScraped: snapshot.sourcesScraped,
+      sourcesSkippedCovered: snapshot.sourcesSkippedCovered,
+      startedAt: snapshot.startedAt,
+      updatedAt: snapshot.updatedAt,
+    };
   }
 
   @Post('scrapers/sync')
-  async syncAccounts(@Req() request: Request) {
+  async syncAccounts(
+    @Req() request: Request,
+    @Body() payload?: { startDate?: string; endDate?: string },
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
     const userId = this.requireSessionUserId(request);
-    const syncedAccounts = await firstValueFrom(
-      this.scraperServiceClient
-        .send<any[]>('sync_accounts', { userId })
-        .pipe(timeout(120000)),
+    const resolvedStartDate = startDate ?? payload?.startDate;
+    const resolvedEndDate = endDate ?? payload?.endDate;
+    const { snapshot, reused } = this.syncJobService.startOrReuseSyncJob(
+      userId,
+      'manual',
+      resolvedStartDate,
+      resolvedEndDate,
     );
-    await this.tryRefreshAiScansCache(userId, syncedAccounts);
-    return syncedAccounts;
+    return {
+      jobId: snapshot.jobId,
+      reused,
+      status: snapshot.status,
+      phase: snapshot.phase,
+      progress: snapshot.progress,
+      message: snapshot.message,
+      source: snapshot.source,
+      syncPolicy: snapshot.syncPolicy,
+      startDate: snapshot.startDate,
+      endDate: snapshot.endDate,
+      sourcesChecked: snapshot.sourcesChecked,
+      sourcesScraped: snapshot.sourcesScraped,
+      sourcesSkippedCovered: snapshot.sourcesSkippedCovered,
+      startedAt: snapshot.startedAt,
+      updatedAt: snapshot.updatedAt,
+    };
   }
 
   @Post('scrapers/connect')
@@ -316,7 +458,6 @@ export class AppController {
         .pipe(timeout(180000)),
     );
 
-    await this.clearAllAiScansCachePeriods(userId);
     return response;
   }
 
@@ -336,10 +477,6 @@ export class AppController {
         .send('get_scraper_status', { sessionId })
         .pipe(timeout(10000)),
     );
-
-    if (response?.status === 'SUCCESS') {
-      await this.tryRefreshAiScansCache(userId);
-    }
 
     return response;
   }
@@ -368,7 +505,8 @@ export class AppController {
 
   @Post('auth/login')
   async login(
-    @Body() payload: { userId: string; username: string; unlockTicket?: string },
+    @Body()
+    payload: { userId: string; username: string; unlockTicket?: string },
     @Res({ passthrough: true }) response: Response,
   ) {
     const user = await firstValueFrom(
@@ -384,7 +522,9 @@ export class AppController {
     if (user.isLocked) {
       const ticket = payload.unlockTicket;
       if (!ticket || !this.verifyUnlockTicket(ticket, user.id)) {
-        throw new UnauthorizedException('Profile is locked. Unlock key required.');
+        throw new UnauthorizedException(
+          'Profile is locked. Unlock key required.',
+        );
       }
     }
 
@@ -428,7 +568,13 @@ export class AppController {
 
   @Post('users')
   async createUser(
-    @Body() payload: { username: string; email: string; lockProfile?: boolean; unlockKey?: string },
+    @Body()
+    payload: {
+      username: string;
+      email: string;
+      lockProfile?: boolean;
+      unlockKey?: string;
+    },
   ) {
     return firstValueFrom(
       this.usersServiceClient.send('user_create', payload).pipe(timeout(2000)),
@@ -498,9 +644,6 @@ export class AppController {
         .pipe(timeout(30000)),
     );
 
-    await this.clearAllAiScansCachePeriods(userId);
-    await this.tryRefreshAiScansCache(userId);
-
     return this.toPublicUser(user);
   }
 
@@ -510,7 +653,9 @@ export class AppController {
     @Body() data: { username?: string; email?: string },
   ) {
     return firstValueFrom(
-      this.usersServiceClient.send('user_update', { id, data }).pipe(timeout(2000)),
+      this.usersServiceClient
+        .send('user_update', { id, data })
+        .pipe(timeout(2000)),
     );
   }
 
@@ -528,7 +673,10 @@ export class AppController {
   ) {
     return firstValueFrom(
       this.usersServiceClient
-        .send('user_delete_confirmed', { id, confirmationEmail: payload.confirmationEmail })
+        .send('user_delete_confirmed', {
+          id,
+          confirmationEmail: payload.confirmationEmail,
+        })
         .pipe(timeout(2000)),
     );
   }
@@ -582,7 +730,9 @@ export class AppController {
     const checks = Object.entries(serviceClients).map(
       async ([name, client]) => {
         try {
-          await firstValueFrom(client.send<string>('ping', {}).pipe(timeout(500)));
+          await firstValueFrom(
+            client.send<string>('ping', {}).pipe(timeout(500)),
+          );
           return [name, 'up'] as const;
         } catch {
           return [name, 'down'] as const;
@@ -661,57 +811,7 @@ export class AppController {
     return this.verifyJwtToken(sessionToken).userId;
   }
 
-  private getAiScansCacheKey(
-    userId: string,
-    period: 'current' | 'previous' | 'both',
-    startDate?: string,
-    endDate?: string,
-  ): string {
-    if (startDate && endDate) {
-      return `ai_scans:user:${userId}:range:${startDate}:${endDate}`;
-    }
-    return `ai_scans:user:${userId}:period:${period}`;
-  }
-
-  private async getOrCreateAiScans(
-    userId: string,
-    period: 'current' | 'previous' | 'both',
-    startDate?: string,
-    endDate?: string,
-  ): Promise<ScanIncomeResponse> {
-    const cacheKey = this.getAiScansCacheKey(userId, period, startDate, endDate);
-    const cached = await this.redisCacheService.get<ScanIncomeResponse>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const computed = await this.computeAiScans(userId, undefined, period, false, startDate, endDate);
-    await this.redisCacheService.set(cacheKey, computed);
-    return computed;
-  }
-
-  private async tryRefreshAiScansCache(
-    userId: string,
-    accountsOverride?: Array<{
-      bankId: string;
-      accountNumber: string;
-      balance?: number;
-      transactions: any[];
-    }>,
-  ): Promise<void> {
-    try {
-      const periods: Array<'current' | 'previous' | 'both'> = ['current', 'previous', 'both'];
-      for (const period of periods) {
-        const computed = await this.computeAiScans(userId, accountsOverride, period);
-        await this.redisCacheService.set(this.getAiScansCacheKey(userId, period), computed);
-      }
-    } catch {
-      // Keep primary flows resilient; next /ai/scans request will recompute on cache miss.
-      await this.clearAllAiScansCachePeriods(userId);
-    }
-  }
-
-  private async computeAiScans(
+  private async computeSpendingScans(
     userId: string,
     accountsOverride?: Array<{
       bankId: string;
@@ -723,20 +823,42 @@ export class AppController {
     debug = false,
     startDate?: string,
     endDate?: string,
-  ): Promise<ScanIncomeResponse> {
-    const accounts =
-      accountsOverride ??
-      (await firstValueFrom(
-        this.scraperServiceClient.send<any[]>('get_connected_accounts', { userId }).pipe(timeout(60000)),
-      ));
+  ): Promise<SpendingScansResponse> {
+    let accounts: any[];
 
-    if (this.aiScansDebugEnabled) {
+    if (accountsOverride) {
+      accounts = accountsOverride;
+    } else {
+      const response = await firstValueFrom(
+        this.scraperServiceClient
+          .send<{ accounts: any[]; isCovered: boolean }>(
+            'get_connected_accounts',
+            {
+              userId,
+              startDate,
+              endDate,
+            },
+          )
+          .pipe(timeout(60000)),
+      );
+      accounts = response.accounts;
+
+      if (!response.isCovered) {
+        if (!this.syncJobService.isRunning(userId)) {
+            this.syncJobService.startOrReuseSyncJob(userId, 'initial', startDate, endDate);
+        }
+      }
+    }
+
+    if (this.spendingScansDebugEnabled) {
       const accountsSummary = (accounts ?? []).map((account) => ({
         bankId: account?.bankId,
         accountNumber: account?.accountNumber,
-        transactionCount: Array.isArray(account?.transactions) ? account.transactions.length : 0,
+        transactionCount: Array.isArray(account?.transactions)
+          ? account.transactions.length
+          : 0,
       }));
-      console.log('[AI_SCANS_DEBUG] raw_accounts', {
+      console.log('[SPENDING_SCANS_DEBUG] raw_accounts', {
         userId,
         period,
         accountsCount: accountsSummary.length,
@@ -746,7 +868,7 @@ export class AppController {
 
     const scanResult = await firstValueFrom(
       this.scraperServiceClient
-        .send<ScanIncomeResponse>('scraper_scan_income', {
+        .send<SpendingScansResponse>('spending_scan_income', {
           accounts,
           period,
           startDate,
@@ -756,8 +878,8 @@ export class AppController {
         .pipe(timeout(180000)),
     );
 
-    if (this.aiScansDebugEnabled) {
-      console.log('[AI_SCANS_DEBUG] computed_categories', {
+    if (this.spendingScansDebugEnabled) {
+      console.log('[SPENDING_SCANS_DEBUG] computed_categories', {
         userId,
         period,
         totalIncome: scanResult.totalIncome,
@@ -766,7 +888,8 @@ export class AppController {
           name: category.name,
           amount: category.amount,
           count: category.count,
-          transactionCount: scanResult.categoryTransactions?.[category.name]?.length ?? 0,
+          transactionCount:
+            scanResult.categoryTransactions?.[category.name]?.length ?? 0,
         })),
       });
     }
@@ -774,18 +897,25 @@ export class AppController {
     return scanResult;
   }
 
-  private async runAiAnnotationPass(
+  private async runSpendingAnnotationPass(
     userId: string,
     period: 'current' | 'previous' | 'both',
     startDate?: string,
     endDate?: string,
-  ): Promise<ScanIncomeResponse> {
-    const accounts = await firstValueFrom(
-      this.scraperServiceClient.send<any[]>('get_connected_accounts', { userId }).pipe(timeout(60000)),
+  ): Promise<SpendingScansResponse> {
+    const response = await firstValueFrom(
+      this.scraperServiceClient
+        .send<{ accounts: any[]; isCovered: boolean }>('get_connected_accounts', {
+          userId,
+          startDate,
+          endDate,
+        })
+        .pipe(timeout(60000)),
     );
+    const accounts = response.accounts ?? [];
     const initial = await firstValueFrom(
       this.scraperServiceClient
-        .send<ScanIncomeResponse>('scraper_scan_income', {
+        .send<SpendingScansResponse>('spending_scan_income', {
           accounts,
           period,
           startDate,
@@ -798,18 +928,23 @@ export class AppController {
     if (unresolvedMerchants.length === 0) {
       return initial;
     }
-    const aiCategoryAnnotations = await this.classifyUnknownMerchantsWithAi(userId, unresolvedMerchants);
+    const aiCategoryAnnotations = await this.classifyUnknownMerchantsWithAi(
+      userId,
+      unresolvedMerchants,
+    );
     if (aiCategoryAnnotations.length === 0) {
       return initial;
     }
     await firstValueFrom(
       this.scraperServiceClient
-        .send('scraper_upsert_annotations', { annotations: aiCategoryAnnotations })
+        .send('spending_upsert_annotations', {
+          annotations: aiCategoryAnnotations,
+        })
         .pipe(timeout(60000)),
     );
     return firstValueFrom(
       this.scraperServiceClient
-        .send<ScanIncomeResponse>('scraper_scan_income', {
+        .send<SpendingScansResponse>('spending_scan_income', {
           accounts,
           period,
           startDate,
@@ -844,10 +979,12 @@ export class AppController {
       if (!key || uniqueMap.has(key)) continue;
       uniqueMap.set(key, item.displayMerchant || key);
     }
-    const uniqueUnknowns = Array.from(uniqueMap.entries()).map(([normalizedMerchant, displayMerchant]) => ({
-      normalizedMerchant,
-      displayMerchant,
-    }));
+    const uniqueUnknowns = Array.from(uniqueMap.entries()).map(
+      ([normalizedMerchant, displayMerchant]) => ({
+        normalizedMerchant,
+        displayMerchant,
+      }),
+    );
     const results: Array<{
       normalizedMerchant: string;
       displayMerchant: string;
@@ -915,11 +1052,15 @@ export class AppController {
   private parseCategoryAiResponse(
     raw: string,
   ): Map<string, { category: string; confidence?: number }> {
-    const direct = this.tryParseJsonArray(raw) ?? this.tryParseJsonArray(this.extractJsonBlock(raw));
+    const direct =
+      this.tryParseJsonArray(raw) ??
+      this.tryParseJsonArray(this.extractJsonBlock(raw));
     const map = new Map<string, { category: string; confidence?: number }>();
     for (const entry of direct ?? []) {
       if (!entry || typeof entry !== 'object') continue;
-      const normalizedMerchant = String((entry as any).normalizedMerchant ?? '').trim();
+      const normalizedMerchant = String(
+        (entry as any).normalizedMerchant ?? '',
+      ).trim();
       if (!normalizedMerchant) continue;
       const category = String((entry as any).category ?? '').trim();
       const confidenceRaw = Number((entry as any).confidence);
@@ -931,10 +1072,14 @@ export class AppController {
     return map;
   }
 
-  private tryParseJsonArray(value: string): Array<Record<string, unknown>> | null {
+  private tryParseJsonArray(
+    value: string,
+  ): Array<Record<string, unknown>> | null {
     try {
       const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? (parsed as Array<Record<string, unknown>>) : null;
+      return Array.isArray(parsed)
+        ? (parsed as Array<Record<string, unknown>>)
+        : null;
     } catch {
       return null;
     }
@@ -964,15 +1109,6 @@ export class AppController {
     return allowed.has(category) ? category : 'לא מסווג';
   }
 
-  private async clearAllAiScansCachePeriods(userId: string): Promise<void> {
-    await Promise.all([
-      this.redisCacheService.del(this.getAiScansCacheKey(userId, 'current')),
-      this.redisCacheService.del(this.getAiScansCacheKey(userId, 'previous')),
-      this.redisCacheService.del(this.getAiScansCacheKey(userId, 'both')),
-      this.redisCacheService.delByPrefix(`ai_scans:user:${userId}:range:`),
-    ]);
-  }
-
   private normalizePeriod(period?: string): 'current' | 'previous' | 'both' {
     if (period === 'previous' || period === 'both' || period === 'current') {
       return period;
@@ -982,7 +1118,9 @@ export class AppController {
 
   private async resolveUserAiConfig(userId: string): Promise<UserAiConfig> {
     return firstValueFrom(
-      this.usersServiceClient.send<UserAiConfig>('user_get_ai_config', userId).pipe(timeout(30000)),
+      this.usersServiceClient
+        .send<UserAiConfig>('user_get_ai_config', userId)
+        .pipe(timeout(30000)),
     );
   }
 
@@ -993,18 +1131,24 @@ export class AppController {
         exp: Date.now() + 5 * 60 * 1000,
       }),
     ).toString('base64url');
-    const signature = Buffer.from(`${payload}.moneyup-unlock`).toString('base64url');
+    const signature = Buffer.from(`${payload}.moneyup-unlock`).toString(
+      'base64url',
+    );
     return `${payload}.${signature}`;
   }
 
   private verifyUnlockTicket(ticket: string, userId: string): boolean {
     const [payload, signature] = ticket.split('.');
     if (!payload || !signature) return false;
-    const expectedSignature = Buffer.from(`${payload}.moneyup-unlock`).toString('base64url');
+    const expectedSignature = Buffer.from(`${payload}.moneyup-unlock`).toString(
+      'base64url',
+    );
     if (signature !== expectedSignature) return false;
 
     try {
-      const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      const decoded = JSON.parse(
+        Buffer.from(payload, 'base64url').toString('utf8'),
+      ) as {
         userId: string;
         exp: number;
       };

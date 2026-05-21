@@ -1,6 +1,6 @@
 # AI Microservice
 - Make sure methods for scanning bank & credit data exist.
-- Make sure to cache scan results (server & client), use redis & tanstack query.
+- Make sure to cache scan results (server & client), use tanstack query.
 - Construct AI prompt for categories widget
 
 # AI Client

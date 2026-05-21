@@ -1,13 +1,13 @@
-const BASE = 'http://localhost:3000';
+export const API_BASE = 'http://localhost:3000';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     ...init,
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({} as { message?: string }));
+    const err = await res.json().catch(() => ({}) as { message?: string });
     throw new Error(err.message || `Request failed: ${res.status}`);
   }
 

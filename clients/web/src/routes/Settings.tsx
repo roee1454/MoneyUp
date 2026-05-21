@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Sparkles, Building2, Plus, PenSquare } from 'lucide-react';
+import { CircleNotch, Sparkle, Bank, Plus, NotePencil } from '@phosphor-icons/react';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
 import { useAccounts, isCreditCompanyBankId } from '@/hooks/useAccounts';
@@ -22,7 +22,7 @@ export default function Settings() {
     return (
       <div className="h-[60vh] flex items-center justify-center text-center animate-in fade-in-50 duration-300" dir="rtl">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+          <CircleNotch className="h-8 w-8 animate-spin text-zinc-500" />
           <span className="text-sm font-semibold text-zinc-400">טוען הגדרות מערכת...</span>
         </div>
       </div>
@@ -50,14 +50,14 @@ export default function Settings() {
               onClick={() => setIsBankDialogOpen(true)}
               className="h-8 text-xs font-bold bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 rounded-none flex items-center gap-1.5"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5" weight="bold" />
               <span>חבר בנק חדש</span>
             </Button>
           </div>
 
           {accounts.length === 0 ? (
             <PremiumCard className="p-6 border border-dashed border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/20 text-center flex flex-col items-center justify-center min-h-48">
-              <Building2 className="h-8 w-8 text-zinc-400 mb-2" />
+              <Bank className="h-8 w-8 text-zinc-400 mb-2" weight="duotone" />
               <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">לא נמצאו חשבונות בנק מחוברים</p>
               <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 mt-1 max-w-xs">
                 חבר חשבון בנק כדי שנוכל לנתח את ההוצאות שלך ולהציג אותן בלוח הבקרה.
@@ -72,7 +72,7 @@ export default function Settings() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center border border-zinc-200 dark:border-zinc-800">
-                      <Building2 className="h-4.5 w-4.5 text-zinc-500 dark:text-zinc-400" />
+                      <Bank className="h-4.5 w-4.5 text-zinc-500 dark:text-zinc-400" weight="duotone" />
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{acc.bankId}</h4>
@@ -117,7 +117,7 @@ export default function Settings() {
                 onClick={() => setIsAiDialogOpen(true)}
                 className="h-8 text-xs font-bold bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 rounded-none flex items-center gap-1.5"
               >
-                <PenSquare className="h-3.5 w-3.5" />
+                <NotePencil className="h-3.5 w-3.5" weight="duotone" />
                 <span>שינוי הגדרות</span>
               </Button>
             )}
@@ -128,7 +128,7 @@ export default function Settings() {
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="h-10 w-10 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                    <Sparkles className="h-5 w-5" />
+                    <Sparkle className="h-5 w-5" weight="duotone" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-zinc-900 dark:text-white">ספק AI פעיל</h3>
@@ -154,7 +154,7 @@ export default function Settings() {
             </PremiumCard>
           ) : (
             <PremiumCard className="p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-center flex flex-col items-center justify-center min-h-48">
-              <Sparkles className="h-8 w-8 text-zinc-400 mb-2 animate-pulse" />
+              <Sparkle className="h-8 w-8 text-zinc-400 mb-2 animate-pulse" weight="duotone" />
               <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">לא מוגדר ספק בינה מלאכותית</p>
               <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 mt-1 max-w-xs">
                 הגדר ספק API של OpenAI, Claude או Gemini כדי לאפשר ניתוחי הוצאות מתקדמים.
@@ -164,7 +164,7 @@ export default function Settings() {
                 className="mt-5 text-xs font-bold rounded-none bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 h-9 px-5"
               >
                 <span>הגדר ספק AI</span>
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkle className="h-3.5 w-3.5" weight="duotone" />
               </Button>
             </PremiumCard>
           )}

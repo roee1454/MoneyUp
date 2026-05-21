@@ -129,3 +129,44 @@ body {
   padding: 0;
   font-size: 0.8em;
 }
+
+@keyframes soft-shimmer {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0.28;
+  }
+  50% {
+    opacity: 0.52;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0.3;
+  }
+}
+
+.animate-soft-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-soft-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.46) 45%,
+    transparent 100%
+  );
+  animation: soft-shimmer 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.dark .animate-soft-shimmer::after {
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 45%,
+    transparent 100%
+  );
+}

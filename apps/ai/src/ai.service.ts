@@ -13,10 +13,13 @@ export class AiService {
 
   getProvider(providerName: ProviderName, customApiKey?: string): AIProvider {
     const apiKey =
-      customApiKey || this.configService.get<string>(`${providerName.toUpperCase()}_API_KEY`);
+      customApiKey ||
+      this.configService.get<string>(`${providerName.toUpperCase()}_API_KEY`);
 
     if (!apiKey) {
-      throw new InternalServerErrorException(`API Key for ${providerName} is not configured`);
+      throw new InternalServerErrorException(
+        `API Key for ${providerName} is not configured`,
+      );
     }
 
     switch (providerName) {
@@ -27,7 +30,9 @@ export class AiService {
       case 'gemini':
         return new GeminiProvider(apiKey);
       default:
-        throw new InternalServerErrorException(`Unsupported provider: ${providerName}`);
+        throw new InternalServerErrorException(
+          `Unsupported provider: ${providerName}`,
+        );
     }
   }
 }

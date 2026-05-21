@@ -1,18 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseScraper } from '../base';
-import { CompanyTypes, createScraper, ScraperCredentials } from 'israeli-bank-scrapers';
+import { BrowserManagerService } from '../../browser-manager.service';
+import {
+  CompanyTypes,
+  createScraper,
+  ScraperCredentials,
+} from 'israeli-bank-scrapers';
 import { ScraperResponse } from '@moneyup/types';
 
 @Injectable()
 export class IsracardScraper extends BaseScraper {
-  constructor(configService: ConfigService) {
-    super(configService);
+  constructor(
+    configService: ConfigService,
+    browserManager: BrowserManagerService,
+  ) {
+    super(configService, browserManager);
   }
 
   readonly companyId = CompanyTypes.isracard;
 
-  protected async simulateScrape(_credentials: ScraperCredentials): Promise<ScraperResponse> {
+  protected async simulateScrape(
+    _credentials: ScraperCredentials,
+  ): Promise<ScraperResponse> {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
@@ -25,8 +35,12 @@ export class IsracardScraper extends BaseScraper {
             transactions: [
               {
                 id: 'txn_isracard_1',
-                date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                date: new Date(
+                  Date.now() - 1 * 24 * 60 * 60 * 1000,
+                ).toISOString(),
+                processedDate: new Date(
+                  Date.now() - 1 * 24 * 60 * 60 * 1000,
+                ).toISOString(),
                 amount: -120,
                 chargedAmount: -120,
                 description: 'וולט מרקט',
@@ -34,8 +48,12 @@ export class IsracardScraper extends BaseScraper {
               },
               {
                 id: 'txn_isracard_2',
-                date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                date: new Date(
+                  Date.now() - 5 * 24 * 60 * 60 * 1000,
+                ).toISOString(),
+                processedDate: new Date(
+                  Date.now() - 5 * 24 * 60 * 60 * 1000,
+                ).toISOString(),
                 amount: -350,
                 chargedAmount: -350,
                 description: 'זארה קניון',
@@ -53,42 +71,62 @@ export class IsracardScraper extends BaseScraper {
     }
   }
 
-  protected async liveScrape(credentials: ScraperCredentials, startDate: Date): Promise<ScraperResponse> {
+  protected async liveScrape(
+    credentials: ScraperCredentials,
+    startDate: Date,
+  ): Promise<ScraperResponse> {
     try {
-      const debugEnabled = this.configService.get<string>('SCRAPER_DEBUG') === '1';
-      const timeoutMs = Number(this.configService.get<string>('SCRAPER_TIMEOUT_MS') || 90000);
+      const debugEnabled =
+        this.configService.get<string>('SCRAPER_DEBUG') === '1';
+      const timeoutMs = Number(
+        this.configService.get<string>('SCRAPER_TIMEOUT_MS') || 90000,
+      );
       const defaultTimeoutMs = Number(
-        this.configService.get<string>('SCRAPER_DEFAULT_TIMEOUT_MS') || timeoutMs,
+        this.configService.get<string>('SCRAPER_DEFAULT_TIMEOUT_MS') ||
+          timeoutMs,
       );
 
-      const scraper = createScraper({
-        companyId: this.companyId,
-        startDate,
-        combineInstallments: false,
-        showBrowser: debugEnabled,
-        verbose: debugEnabled,
-        timeout: timeoutMs,
-        defaultTimeout: defaultTimeoutMs,
-        storeFailureScreenShotPath: debugEnabled ? 'data/scraper-failures' : undefined,
-      });
+      return await this.withIsolatedBrowserContext(async (browserContext) => {
+        const scraper = createScraper({
+          companyId: this.companyId,
+          startDate,
+          combineInstallments: false,
+          browserContext,
+          verbose: debugEnabled,
+          timeout: timeoutMs,
+          defaultTimeout: defaultTimeoutMs,
+          storeFailureScreenShotPath: debugEnabled
+            ? 'data/scraper-failures'
+            : undefined,
+          additionalTransactionInformation: false,
+          futureMonthsToScrape: 1,
+          skipCloseBrowser: true,
+          
 
-      const scrapeResult = await scraper.scrape(credentials);
+        });
 
-      if (!scrapeResult.success) {
-        const errorParts = [scrapeResult.errorType, scrapeResult.errorMessage].filter(Boolean);
+        const scrapeResult = await scraper.scrape(credentials);
+
+        if (!scrapeResult.success) {
+          const errorParts = [
+            scrapeResult.errorType,
+            scrapeResult.errorMessage,
+          ].filter(Boolean);
+          return {
+            status: 'FAILED',
+            error:
+              errorParts.length > 0
+                ? errorParts.join(': ')
+                : 'Unknown error occurred during credit card scraping',
+          };
+        }
+
+        const rawAccounts = scrapeResult.accounts || [];
         return {
-          status: 'FAILED',
-          error: errorParts.length > 0
-            ? errorParts.join(': ')
-            : 'Unknown error occurred during credit card scraping',
+          status: 'SUCCESS',
+          accounts: this.normalizeAccounts(rawAccounts),
         };
-      }
-
-      const rawAccounts = scrapeResult.accounts || [];
-      return {
-        status: 'SUCCESS',
-        accounts: this.normalizeAccounts(rawAccounts),
-      };
+      });
     } catch (err: any) {
       return {
         status: 'FAILED',

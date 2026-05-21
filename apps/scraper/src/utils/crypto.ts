@@ -17,11 +17,11 @@ export function encrypt(text: string, secretKey?: string): string {
     const paddedKey = getPaddedKey(secretKey);
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv(ALGORITHM, paddedKey, iv);
-    
+
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     const authTag = cipher.getAuthTag().toString('hex');
-    
+
     return `${iv.toString('hex')}:${encrypted}:${authTag}`;
   } catch (err: any) {
     throw new Error(`Encryption failed: ${err.message}`);
@@ -34,18 +34,18 @@ export function decrypt(token: string, secretKey?: string): string {
     if (parts.length !== 3) {
       throw new Error('Invalid encrypted credentials token format');
     }
-    
+
     const [ivHex, encryptedHex, authTagHex] = parts;
     const paddedKey = getPaddedKey(secretKey);
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
-    
+
     const decipher = crypto.createDecipheriv(ALGORITHM, paddedKey, iv);
     decipher.setAuthTag(authTag);
-    
+
     let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   } catch (err: any) {
     throw new Error(`Decryption failed: ${err.message}`);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { type BankAccount, isCreditCompanyBankId } from '@/hooks/useAccounts';
 import { BankIcon } from '@/components/BankIcon';
@@ -15,7 +15,8 @@ import {
 interface AccountStripProps {
   accounts: BankAccount[];
   onAddClick: () => void;
-  isSyncing?: boolean;
+  isInitialLoading?: boolean;
+  isRefreshingValues?: boolean;
 }
 
 const getAccountId = (account: BankAccount) => {
@@ -57,25 +58,30 @@ const formatBalance = (value: number) => {
 const getTransactionsCount = (accounts: BankAccount[]) =>
   accounts.reduce((sum, account) => sum + (account.transactions?.length ?? 0), 0);
 
-export function AccountStrip({ accounts, onAddClick, isSyncing = false }: AccountStripProps) {
+export function AccountStrip({
+  accounts,
+  onAddClick,
+  isInitialLoading = false,
+  isRefreshingValues = false,
+}: AccountStripProps) {
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
 
-  if (isSyncing) {
+  if (isInitialLoading) {
     return (
       <div className="flex items-stretch gap-3 overflow-x-auto pb-1">
-        {[0, 1, 2].map((idx) => (
+        {Array.from({ length: 3 }).map((_, idx) => (
           <div
             key={idx}
-            className="h-16 min-w-[230px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2 rounded-none flex items-center justify-between animate-pulse"
+            className="h-16 min-w-[230px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2 rounded-none flex items-center justify-between"
           >
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-zinc-200 dark:bg-zinc-800" />
+              <div className="h-8 w-8 rounded-full bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
               <div className="space-y-1.5">
-                <div className="h-2.5 w-20 bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-2.5 w-20 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
                 <div className="h-2 w-14 bg-zinc-100 dark:bg-zinc-900" />
               </div>
             </div>
-            <div className="h-3 w-16 bg-zinc-200 dark:bg-zinc-800" />
+            <div className="h-3 w-16 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
           </div>
         ))}
       </div>
@@ -84,18 +90,21 @@ export function AccountStrip({ accounts, onAddClick, isSyncing = false }: Accoun
 
   if (accounts.length === 0) {
     return (
-      <div className="bg-zinc-50 dark:bg-zinc-900/30 border border-dashed border-zinc-300 dark:border-zinc-800/80 p-6 rounded-none space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-lg font-bold text-zinc-950 dark:text-white">בוא נחבר את חשבון הבנק הראשון שלך</h2>
-          <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-            הוסף חשבון כדי להתחיל לראות נתונים ותובנות.
+      <div className="bg-zinc-50 dark:bg-zinc-900/30 border border-dashed border-zinc-300 dark:border-zinc-800/80 p-6 rounded-none space-y-4 text-right">
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-bold text-zinc-950 dark:text-white">בוא נחבר את חברת האשראי כדי להתחיל</h2>
+          <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            חיבור לחברת האשראי (Cal, Max או Isracard) יאפשר ל-AI לסווג ולנתח את ההוצאות שלך אוטומטית. 
+            <span className="block mt-1.5 text-xs text-zinc-450 dark:text-zinc-500">
+              לאחר מכן, מומלץ לחבר גם חשבון בנק לצורך מעקב מלא אחר יתרת העו״ש, משכורות והפקדות.
+            </span>
           </p>
         </div>
         <Button
           onClick={onAddClick}
-          className="h-11 rounded-none px-6 font-bold text-xs bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100"
+          className="h-11 rounded-none px-6 font-bold text-xs bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 cursor-pointer"
         >
-          הוספת חשבון בנק ראשון
+          חבר את חברת האשראי
         </Button>
       </div>
     );
@@ -146,19 +155,29 @@ export function AccountStrip({ accounts, onAddClick, isSyncing = false }: Accoun
             </div>
             {isCard ? (
               <div className="text-right leading-tight">
-                <p className="text-xs md:text-sm font-black text-zinc-700 dark:text-zinc-200">
-                  {transactionsCount.toLocaleString('he-IL')}
-                </p>
+                {isRefreshingValues ? (
+                  <div className="h-4 w-12 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
+                ) : (
+                  <p className="text-xs md:text-sm font-black text-zinc-700 dark:text-zinc-200">
+                    {transactionsCount.toLocaleString('he-IL')}
+                  </p>
+                )}
                 <p className="text-[9px] font-semibold text-zinc-450 dark:text-zinc-500">תנועות</p>
               </div>
             ) : (
-              <div
-                className={`text-right text-xs md:text-sm font-black leading-tight ${
-                  totalBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                }`}
-              >
-                {formatBalance(totalBalance)}
-              </div>
+              <>
+                {isRefreshingValues ? (
+                  <div className="h-4 w-20 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
+                ) : (
+                  <div
+                    className={`text-right text-xs md:text-sm font-black leading-tight ${
+                      totalBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                    }`}
+                  >
+                    {formatBalance(totalBalance)}
+                  </div>
+                )}
+              </>
             )}
           </button>
         );
@@ -169,7 +188,7 @@ export function AccountStrip({ accounts, onAddClick, isSyncing = false }: Accoun
         className="h-16 min-w-[64px] border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/40 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center justify-center transition-colors cursor-pointer rounded-none"
         aria-label="הוסף חשבון"
       >
-        <Plus className="h-5 w-5" />
+        <Plus className="h-5 w-5" weight="bold" />
       </button>
 
       {/* Connection Accounts Dialog */}

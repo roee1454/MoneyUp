@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ChevronDown, Check } from "lucide-react"
+import { CaretDown, Check } from '@phosphor-icons/react'
 import { cn } from "@/lib/utils"
 
 type SelectItemProps = {
@@ -58,7 +58,7 @@ export function Select({ value, onValueChange, placeholder, children, className 
         <span className={cn(!selectedItem && "text-zinc-500")}>
           {selectedItem ? selectedItem.label : placeholder || "בחר..."}
         </span>
-        <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+        <CaretDown className="h-4 w-4 opacity-50 shrink-0" weight="bold" />
       </button>
 
       {open && (
@@ -101,7 +101,7 @@ export function SelectItem({
       )}
     >
       <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-950 dark:text-zinc-50" />}
+        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-950 dark:text-zinc-50" weight="bold" />}
       </span>
       <span className="truncate w-full">{children}</span>
     </button>

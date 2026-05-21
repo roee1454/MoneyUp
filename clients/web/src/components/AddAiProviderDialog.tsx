@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '@phosphor-icons/react';
 import { AiIcon, type AiProvider } from '@/components/AiIcon';
 import { Button } from '@/components/ui/button';
 import {

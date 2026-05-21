@@ -11,7 +11,7 @@ export class ClaudeProvider extends AIProvider {
         headers: {
           'x-api-key': this.apiKey,
           'anthropic-version': '2023-06-01',
-        }
+        },
       });
       return res.ok;
     } catch {
@@ -29,7 +29,9 @@ export class ClaudeProvider extends AIProvider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Claude list models failed (${res.status}): ${text || 'unknown error'}`);
+      throw new Error(
+        `Claude list models failed (${res.status}): ${text || 'unknown error'}`,
+      );
     }
 
     const json = (await res.json()) as { data?: Array<{ id?: string }> };
@@ -63,7 +65,9 @@ export class ClaudeProvider extends AIProvider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Claude request failed (${res.status}): ${text || 'unknown error'}`);
+      throw new Error(
+        `Claude request failed (${res.status}): ${text || 'unknown error'}`,
+      );
     }
 
     if (!stream) {
@@ -77,10 +81,14 @@ export class ClaudeProvider extends AIProvider {
       throw new Error('Claude stream response body is empty');
     }
 
-    return this.createSseObservable(res.body as ReadableStream<Uint8Array<ArrayBuffer>>);
+    return this.createSseObservable(
+      res.body as ReadableStream<Uint8Array<ArrayBuffer>>,
+    );
   }
 
-  private createSseObservable(body: ReadableStream<Uint8Array>): Observable<string> {
+  private createSseObservable(
+    body: ReadableStream<Uint8Array>,
+  ): Observable<string> {
     return new Observable<string>((subscriber) => {
       const reader = body.getReader();
       const decoder = new TextDecoder();
@@ -107,7 +115,10 @@ export class ClaudeProvider extends AIProvider {
                   type?: string;
                   delta?: { text?: string };
                 };
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                if (
+                  parsed.type === 'content_block_delta' &&
+                  parsed.delta?.text
+                ) {
                   subscriber.next(parsed.delta.text);
                 }
               } catch {

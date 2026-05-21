@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { emitScraperSocket } from '@/lib/scraper-socket';
 import { useAppStore } from '@/store';
 
 interface Transaction {
@@ -20,6 +21,12 @@ export interface BankAccount {
   balance?: number;
   transactions: Transaction[];
 }
+
+type SyncRangePayload = {
+  startDate?: string;
+  endDate?: string;
+  silent?: boolean;
+};
 
 export function isCreditCompanyBankId(bankId: string): boolean {
   const normalized = String(bankId ?? '').toLowerCase();
@@ -59,17 +66,17 @@ export function useBankAccount() {
 }
 
 export function useSyncAccounts() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: () => api.post('/scrapers/sync'),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
-      await queryClient.invalidateQueries({ queryKey: ['ai-scans'] });
-      toast.success('הנתונים סונכרנו בהצלחה מהבנק!');
+    mutationFn: (payload?: SyncRangePayload) => {
+      return emitScraperSocket('sync:start', { mode: 'manual', ...payload });
+    },
+    onSuccess: (_data, variables) => {
+      if (!variables?.silent) {
+        toast.success('הסנכרון התחיל ברקע.');
+      }
     },
     onError: () => {
-      toast.error('אירעה שגיאה במהלך הסנכרון החי מול הבנק. אנא נסה שנית.');
+      toast.error('אירעה שגיאה בהפעלת הסנכרון. אנא נסה שנית.');
     },
   });
 }

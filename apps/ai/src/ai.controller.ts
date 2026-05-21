@@ -9,7 +9,11 @@ export class AiController {
 
   @MessagePattern('ai_verify_connection')
   async verifyConnection(
-    @Payload() data: { provider: 'openai' | 'claude' | 'gemini'; apiKey: string },
+    @Payload()
+    data: {
+      provider: 'openai' | 'claude' | 'gemini';
+      apiKey: string;
+    },
   ) {
     const p = this.aiService.getProvider(data.provider, data.apiKey);
     return { success: await p.verifyConnection() };
@@ -17,7 +21,11 @@ export class AiController {
 
   @MessagePattern('ai_list_models')
   async listModels(
-    @Payload() data: { provider: 'openai' | 'claude' | 'gemini'; apiKey?: string },
+    @Payload()
+    data: {
+      provider: 'openai' | 'claude' | 'gemini';
+      apiKey?: string;
+    },
   ) {
     const p = this.aiService.getProvider(data.provider, data.apiKey);
     return p.listModels();

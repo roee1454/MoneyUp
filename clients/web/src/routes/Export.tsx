@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { Download, FileText, Database, FileSpreadsheet } from 'lucide-react';
+import { DownloadSimple, FileText, Database, FileXls } from '@phosphor-icons/react';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { Button } from '@/components/ui/button';
 
@@ -21,7 +21,7 @@ export default function Export() {
         <PremiumCard className="p-5 flex flex-col justify-between h-48 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
           <div>
             <div className="h-10 w-10 rounded-none bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4">
-              <FileSpreadsheet className="h-5 w-5" />
+              <FileXls className="h-5 w-5" weight="duotone" />
             </div>
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">קובץ Excel / CSV</h3>
             <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 mt-1">
@@ -33,14 +33,14 @@ export default function Export() {
             className="w-full h-9 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-none flex items-center justify-center gap-1.5 mt-4"
           >
             <span>הורד CSV</span>
-            <Download className="h-3.5 w-3.5" />
+            <DownloadSimple className="h-3.5 w-3.5" weight="duotone" />
           </Button>
         </PremiumCard>
 
         <PremiumCard className="p-5 flex flex-col justify-between h-48 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
           <div>
             <div className="h-10 w-10 rounded-none bg-rose-50 dark:bg-rose-950/30 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-4">
-              <FileText className="h-5 w-5" />
+              <FileText className="h-5 w-5" weight="duotone" />
             </div>
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">דוח PDF מעוצב</h3>
             <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 mt-1">
@@ -52,14 +52,14 @@ export default function Export() {
             className="w-full h-9 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-none flex items-center justify-center gap-1.5 mt-4"
           >
             <span>הורד PDF</span>
-            <Download className="h-3.5 w-3.5" />
+            <DownloadSimple className="h-3.5 w-3.5" weight="duotone" />
           </Button>
         </PremiumCard>
 
         <PremiumCard className="p-5 flex flex-col justify-between h-48 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
           <div>
             <div className="h-10 w-10 rounded-none bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4">
-              <Database className="h-5 w-5" />
+              <Database className="h-5 w-5" weight="duotone" />
             </div>
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">גיבוי מלא JSON</h3>
             <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 mt-1">
@@ -71,7 +71,7 @@ export default function Export() {
             className="w-full h-9 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-none flex items-center justify-center gap-1.5 mt-4"
           >
             <span>הורד JSON</span>
-            <Download className="h-3.5 w-3.5" />
+            <DownloadSimple className="h-3.5 w-3.5" weight="duotone" />
           </Button>
         </PremiumCard>
       </div>

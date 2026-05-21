@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AppController } from './app.controller';
-import { RedisCacheService } from './redis-cache.service';
+import { ScraperSocketGateway } from './scraper-socket.gateway';
+import { SyncJobService } from './sync-job.service';
 
 @Module({
   imports: [
@@ -38,9 +39,9 @@ import { RedisCacheService } from './redis-cache.service';
           port: Number(process.env.USERS_SERVICE_PORT ?? 3004),
         },
       },
-  ]),
+    ]),
   ],
   controllers: [AppController],
-  providers: [RedisCacheService],
+  providers: [ScraperSocketGateway, SyncJobService],
 })
 export class AppModule {}

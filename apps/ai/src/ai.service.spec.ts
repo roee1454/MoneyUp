@@ -29,6 +29,8 @@ describe('AiService', () => {
     } as unknown as ConfigService;
     const service = new AiService(configServiceMock);
 
-    expect(() => service.getProvider('claude')).toThrow(InternalServerErrorException);
+    expect(() => service.getProvider('claude')).toThrow(
+      InternalServerErrorException,
+    );
   });
 });

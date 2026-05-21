@@ -10,7 +10,7 @@ export class ScraperFactory {
     private readonly hapoalimScraper: HapoalimScraper,
     private readonly maxScraper: MaxScraper,
     private readonly isracardScraper: IsracardScraper,
-  ) { }
+  ) {}
 
   getScraper(bankId: string): BaseScraper {
     switch (bankId) {
@@ -21,7 +21,9 @@ export class ScraperFactory {
       case 'isracard':
         return this.isracardScraper;
       default:
-        throw new Error(`Scraper provider for '${bankId}' is not implemented or supported.`);
+        throw new Error(
+          `Scraper provider for '${bankId}' is not implemented or supported.`,
+        );
     }
   }
 }

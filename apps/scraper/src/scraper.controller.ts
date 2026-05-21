@@ -31,11 +31,22 @@ export class ScraperController {
   }
 
   @MessagePattern('scrape_and_connect')
-  async scrapeAndConnect(data: { userId: string; bankId: string; credentials: ScraperCredentials; startDate?: string }): Promise<any> {
+  async scrapeAndConnect(data: {
+    userId: string;
+    bankId: string;
+    credentials: ScraperCredentials;
+    startDate?: string;
+  }): Promise<any> {
     const { userId, bankId, startDate } = data;
     try {
-      const normalizedCredentials = this.normalizeCredentials(bankId, data.credentials as Record<string, string>);
-      const validationError = this.validateCredentials(bankId, normalizedCredentials);
+      const normalizedCredentials = this.normalizeCredentials(
+        bankId,
+        data.credentials as Record<string, string>,
+      );
+      const validationError = this.validateCredentials(
+        bankId,
+        normalizedCredentials,
+      );
       if (validationError) {
         const sanitized = this.buildSanitizedError('INVALID_CREDENTIALS');
         return {
@@ -50,11 +61,17 @@ export class ScraperController {
         userId,
         bankId,
         status: 'PROCESSING',
-        credentials: normalizedCredentials
+        credentials: normalizedCredentials,
       });
 
       // Run scraping in the background
-      this.runBackgroundScrape(sessionId, userId, bankId, normalizedCredentials as ScraperCredentials, startDate);
+      this.runBackgroundScrape(
+        sessionId,
+        userId,
+        bankId,
+        normalizedCredentials as ScraperCredentials,
+        startDate,
+      );
 
       return {
         status: 'PROCESSING',
@@ -70,36 +87,79 @@ export class ScraperController {
     }
   }
 
-  private async runBackgroundScrape(sessionId: string, userId: string, bankId: string, credentials: ScraperCredentials, startDate?: string) {
+  private async runBackgroundScrape(
+    sessionId: string,
+    userId: string,
+    bankId: string,
+    credentials: ScraperCredentials,
+    startDate?: string,
+  ) {
     try {
       const scraper = this.scraperFactory.getScraper(bankId);
-      const parsedDate = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const requestedRange = this.scraperService.normalizeRequestedRangeForBank(
+        bankId,
+        startDate,
+        this.scraperService.getTodayUtcDateString(),
+      );
+      const coverageStartDate =
+        requestedRange?.startDate ??
+        this.scraperService.clampStartDateForBank(bankId, startDate);
+      const coverageEndDate =
+        requestedRange?.endDate ?? this.scraperService.getTodayUtcDateString();
+      const parsedDate = this.scraperService.resolveScrapeStartDate(
+        bankId,
+        coverageStartDate,
+      );
 
       // Inject otpCodeRetriever
       const credentialsWithOtp = {
         ...credentials,
         otpCodeRetriever: () => {
           return new Promise<string>((resolve, reject) => {
-             this.scraperService.updateSession(sessionId, {
-                status: 'CHALLENGE_REQUIRED',
-                challenge: { type: 'SMS', message: 'הזן את קוד ה-SMS שנשלח אל מכשיר הטלפון שלך לצורך סנכרון' },
-                resolveOtp: resolve,
-                rejectOtp: reject
-             });
+            this.scraperService.updateSession(sessionId, {
+              status: 'CHALLENGE_REQUIRED',
+              challenge: {
+                type: 'SMS',
+                message:
+                  'הזן את קוד ה-SMS שנשלח אל מכשיר הטלפון שלך לצורך סנכרון',
+              },
+              resolveOtp: resolve,
+              rejectOtp: reject,
+            });
           });
-        }
+        },
       };
 
-      const response = await scraper.scrape(credentialsWithOtp as any, parsedDate);
+      const response = await scraper.scrape(credentialsWithOtp, parsedDate);
 
       if (response.status === 'SUCCESS') {
-        await this.scraperService.saveCredentials(userId, bankId, credentials as Record<string, string>);
+        await this.scraperService.saveCredentials(
+          userId,
+          bankId,
+          credentials as Record<string, string>,
+        );
         if (response.accounts) {
-          await this.scraperService.setCachedAccounts(userId, bankId, response.accounts);
+          await this.scraperService.setCachedAccounts(
+            userId,
+            bankId,
+            response.accounts,
+          );
+          await this.scraperService.saveCoveredInterval(userId, bankId, {
+            startDate: coverageStartDate,
+            endDate: coverageEndDate,
+          });
         }
-        this.scraperService.updateSession(sessionId, { status: 'SUCCESS', resultData: response });
+        this.scraperService.updateSession(sessionId, {
+          status: 'SUCCESS',
+          resultData: response,
+        });
       } else {
         const sanitized = this.normalizeScraperError(response.error);
+        await this.scraperService.markConnectionFailed(
+          userId,
+          bankId,
+          response.error ?? sanitized.code,
+        );
         this.scraperService.updateSession(sessionId, {
           status: 'FAILED',
           errorCode: sanitized.code,
@@ -110,6 +170,7 @@ export class ScraperController {
     } catch (err: any) {
       const raw = err?.message || String(err);
       const sanitized = this.normalizeScraperError(raw);
+      await this.scraperService.markConnectionFailed(userId, bankId, raw);
       this.scraperService.updateSession(sessionId, {
         status: 'FAILED',
         errorCode: sanitized.code,
@@ -121,105 +182,127 @@ export class ScraperController {
 
   @MessagePattern('get_scraper_status')
   async getScraperStatus(data: { sessionId: string }): Promise<any> {
-     const session = this.scraperService.getSession(data.sessionId);
-     if (!session) {
-        const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
-        return { status: 'FAILED', errorCode: sanitized.code, error: sanitized.message };
-     }
-     return {
-        status: session.status,
-        challenge: session.challenge,
-        errorCode: session.errorCode,
-        error: session.error,
-        resultData: session.resultData
-     };
+    const session = this.scraperService.getSession(data.sessionId);
+    if (!session) {
+      const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
+      return {
+        status: 'FAILED',
+        errorCode: sanitized.code,
+        error: sanitized.message,
+      };
+    }
+    return {
+      status: session.status,
+      challenge: session.challenge,
+      errorCode: session.errorCode,
+      error: session.error,
+      resultData: session.resultData,
+    };
   }
 
   @MessagePattern('submit_challenge')
-  async submitChallenge(data: { sessionId: string; code: string }): Promise<any> {
-     const session = this.scraperService.getSession(data.sessionId);
-     if (!session) {
-        const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
-        return { status: 'FAILED', errorCode: sanitized.code, error: sanitized.message };
-     }
-     if (session.status !== 'CHALLENGE_REQUIRED') {
-        const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
-        return { status: 'FAILED', errorCode: sanitized.code, error: sanitized.message };
-     }
-     if (session.resolveOtp) {
-        session.resolveOtp(data.code);
-        this.scraperService.updateSession(data.sessionId, { status: 'PROCESSING' });
-        return { status: 'PROCESSING' };
-     }
-     const sanitized = this.buildSanitizedError('CHALLENGE_FAILED');
-     return { status: 'FAILED', errorCode: sanitized.code, error: sanitized.message };
+  async submitChallenge(data: {
+    sessionId: string;
+    code: string;
+  }): Promise<any> {
+    const session = this.scraperService.getSession(data.sessionId);
+    if (!session) {
+      const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
+      return {
+        status: 'FAILED',
+        errorCode: sanitized.code,
+        error: sanitized.message,
+      };
+    }
+    if (session.status !== 'CHALLENGE_REQUIRED') {
+      const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
+      return {
+        status: 'FAILED',
+        errorCode: sanitized.code,
+        error: sanitized.message,
+      };
+    }
+    if (session.resolveOtp) {
+      session.resolveOtp(data.code);
+      this.scraperService.updateSession(data.sessionId, {
+        status: 'PROCESSING',
+      });
+      return { status: 'PROCESSING' };
+    }
+    const sanitized = this.buildSanitizedError('CHALLENGE_FAILED');
+    return {
+      status: 'FAILED',
+      errorCode: sanitized.code,
+      error: sanitized.message,
+    };
   }
 
   @MessagePattern('get_connected_accounts')
-  async getConnectedAccounts(data: { userId: string }): Promise<any[]> {
-    const { userId } = data;
-    const connections = await this.scraperService.getUserConnections(userId);
-    const cachedAccounts = await this.scraperService.getCachedAccounts(userId);
-    
-    const results = [...cachedAccounts];
-    const cachedBankIds = new Set(cachedAccounts.map((a) => a.bankId));
-    
-    for (const conn of connections) {
-      if (!cachedBankIds.has(conn.bankId)) {
-        try {
-          const scraper = this.scraperFactory.getScraper(conn.bankId);
-          const credentials = await this.scraperService.getCredentials(userId, conn.bankId);
-          if (credentials) {
-            const response = await scraper.scrape(credentials as ScraperCredentials, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
-            if (response.status === 'SUCCESS' && response.accounts) {
-              await this.scraperService.setCachedAccounts(userId, conn.bankId, response.accounts);
-              for (const acc of response.accounts) {
-                results.push({
-                  bankId: conn.bankId,
-                  accountNumber: acc.accountNumber,
-                  balance: acc.balance,
-                  transactions: acc.transactions,
-                });
-              }
-            }
-          }
-        } catch (err) {
-          // Skip failed initialization scrapes to remain robust
-        }
-      }
-    }
-    return results;
+  async getConnectedAccounts(data: {
+    userId: string;
+    fresh?: boolean;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ accounts: any[]; isCovered: boolean }> {
+    const { userId, startDate, endDate } = data;
+    const accounts = await this.scraperService.getCachedAccountsForRange(
+      userId,
+      startDate,
+      endDate,
+    );
+    const isCovered = await this.scraperService.isRangeCoveredForAllConnections(
+      userId,
+      startDate,
+      endDate,
+    );
+    return { accounts, isCovered };
+  }
+
+  @MessagePattern('get_user_connections_count')
+  async getUserConnectionsCount(data: {
+    userId: string;
+  }): Promise<{ count: number }> {
+    const count = await this.scraperService.getUserConnectionsCount(
+      data.userId,
+    );
+    return { count };
+  }
+
+  @MessagePattern('check_last_error')
+  async checkLastError(data: {
+    userId: string;
+    bankId: string;
+  }): Promise<{ error: string | null }> {
+    const error = await this.scraperService.getLastError(
+      data.userId,
+      data.bankId,
+    );
+    return { error };
+  }
+
+  @MessagePattern('get_vault_entry')
+  async getVaultEntry(data: { userId: string; bankId: string }): Promise<any> {
+    const entry = await this.scraperService.getUserConnections(data.userId);
+    return entry.find((e) => e.bankId === data.bankId);
   }
 
   @MessagePattern('sync_accounts')
-  async syncAccounts(data: { userId: string }): Promise<any[]> {
-    const { userId } = data;
-    const connections = await this.scraperService.getUserConnections(userId);
-    const results: any[] = [];
-    
-    for (const conn of connections) {
-      try {
-        const scraper = this.scraperFactory.getScraper(conn.bankId);
-        const credentials = await this.scraperService.getCredentials(userId, conn.bankId);
-        if (!credentials) continue;
-        
-        const response = await scraper.scrape(credentials as ScraperCredentials, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
-        if (response.status === 'SUCCESS' && response.accounts) {
-          await this.scraperService.setCachedAccounts(userId, conn.bankId, response.accounts);
-          for (const acc of response.accounts) {
-            results.push({
-              bankId: conn.bankId,
-              accountNumber: acc.accountNumber,
-              balance: acc.balance,
-              transactions: acc.transactions,
-            });
-          }
-        }
-      } catch (err) {
-        // Skip failed sync scrapes to remain robust
-      }
-    }
-    return results;
+  async syncAccounts(data: {
+    userId: string;
+    startDate?: string;
+    endDate?: string;
+    mode?: 'initial' | 'manual';
+  }): Promise<any[]> {
+    await this.scraperService.syncUserAccounts(data.userId, {
+      startDate: data.startDate,
+      endDate: data.endDate,
+      mode: data.mode,
+    });
+    return this.scraperService.getCachedAccountsForRange(
+      data.userId,
+      data.startDate,
+      data.endDate,
+    );
   }
 
   @MessagePattern('ping')
@@ -227,20 +310,18 @@ export class ScraperController {
     return 'pong';
   }
 
-  @MessagePattern('scraper_scan_income')
-  async scanIncome(
-    data: {
-      accounts: Array<{
-        bankId: string;
-        accountNumber?: string;
-        transactions?: UnifiedTransaction[];
-      }>;
-      period?: 'current' | 'previous' | 'both';
-      startDate?: string;
-      endDate?: string;
-      debug?: boolean;
-    },
-  ) {
+  @MessagePattern('spending_scan_income')
+  async scanIncome(data: {
+    accounts: Array<{
+      bankId: string;
+      accountNumber?: string;
+      transactions?: UnifiedTransaction[];
+    }>;
+    period?: 'current' | 'previous' | 'both';
+    startDate?: string;
+    endDate?: string;
+    debug?: boolean;
+  }) {
     const payload: ScanIncomeRequest = {
       accounts: data.accounts ?? [],
       period: data.period,
@@ -251,24 +332,31 @@ export class ScraperController {
     return this.scraperService.scanIncome(payload);
   }
 
-  @MessagePattern('scraper_upsert_annotations')
-  async upsertAnnotations(
-    data: {
-      annotations: Array<{
-        normalizedMerchant: string;
-        displayMerchant: string;
-        category: string;
-        source?: 'ai' | 'manual' | 'rule_seed';
-        model?: string;
-        confidence?: number;
-      }>;
-    },
-  ) {
-    return this.scraperService.upsertMerchantAnnotations(data.annotations ?? []);
+  @MessagePattern('spending_upsert_annotations')
+  async upsertAnnotations(data: {
+    annotations: Array<{
+      normalizedMerchant: string;
+      displayMerchant: string;
+      category: string;
+      source?: 'ai' | 'manual' | 'rule_seed';
+      model?: string;
+      confidence?: number;
+    }>;
+  }) {
+    return this.scraperService.upsertMerchantAnnotations(
+      data.annotations ?? [],
+    );
   }
 
-  private normalizeCredentials(bankId: string, credentials: Record<string, string>): Record<string, string> {
-    if (bankId === 'hapoalim' && credentials.username && !credentials.userCode) {
+  private normalizeCredentials(
+    bankId: string,
+    credentials: Record<string, string>,
+  ): Record<string, string> {
+    if (
+      bankId === 'hapoalim' &&
+      credentials.username &&
+      !credentials.userCode
+    ) {
       return {
         ...credentials,
         userCode: credentials.username,
@@ -278,8 +366,12 @@ export class ScraperController {
     return credentials;
   }
 
-  private validateCredentials(bankId: string, credentials: Record<string, string>): string | null {
-    const isMissing = (value: string | undefined) => !value || value.trim().length === 0;
+  private validateCredentials(
+    bankId: string,
+    credentials: Record<string, string>,
+  ): string | null {
+    const isMissing = (value: string | undefined) =>
+      !value || value.trim().length === 0;
 
     if (bankId === 'hapoalim') {
       if (isMissing(credentials.userCode) || isMissing(credentials.password)) {
@@ -294,7 +386,11 @@ export class ScraperController {
     }
 
     if (bankId === 'isracard') {
-      if (isMissing(credentials.id) || isMissing(credentials.card6Digits) || isMissing(credentials.password)) {
+      if (
+        isMissing(credentials.id) ||
+        isMissing(credentials.card6Digits) ||
+        isMissing(credentials.password)
+      ) {
         return "Missing required isracard credentials. Expected 'id', 'card6Digits', and 'password'.";
       }
     }
@@ -302,7 +398,10 @@ export class ScraperController {
     return null;
   }
 
-  private normalizeScraperError(rawError?: string): { code: PublicScraperErrorCode; message: string } {
+  private normalizeScraperError(rawError?: string): {
+    code: PublicScraperErrorCode;
+    message: string;
+  } {
     const text = (rawError || '').toLowerCase();
 
     if (
@@ -329,7 +428,11 @@ export class ScraperController {
       text.includes('econnreset') ||
       text.includes('enotfound') ||
       text.includes('navigation') ||
-      text.includes('bank unavailable')
+      text.includes('bank unavailable') ||
+      text.includes('block automation') ||
+      text.includes('cloudflare') ||
+      text.includes('waf') ||
+      text.includes('sorry, you have been blocked')
     ) {
       return this.buildSanitizedError('BANK_UNAVAILABLE');
     }
@@ -337,18 +440,27 @@ export class ScraperController {
     return this.buildSanitizedError('UNKNOWN_CONNECT_ERROR');
   }
 
-  private buildSanitizedError(code: PublicScraperErrorCode): { code: PublicScraperErrorCode; message: string } {
+  private buildSanitizedError(code: PublicScraperErrorCode): {
+    code: PublicScraperErrorCode;
+    message: string;
+  } {
     switch (code) {
       case 'INVALID_CREDENTIALS':
         return { code, message: 'שם משתמש או סיסמה אינם נכונים' };
       case 'CHALLENGE_FAILED':
         return { code, message: 'קוד האימות שגוי' };
       case 'BANK_UNAVAILABLE':
-        return { code, message: 'שירות הבנק לא זמין כרגע. נסה שוב בעוד כמה דקות.' };
+        return {
+          code,
+          message: 'שירות הבנק לא זמין כרגע. נסה שוב בעוד כמה דקות.',
+        };
       case 'SESSION_EXPIRED':
         return { code, message: 'פג תוקף הסשן. התחל מחדש את תהליך החיבור.' };
       default:
-        return { code: 'UNKNOWN_CONNECT_ERROR', message: 'ההתחברות נכשלה. נסה שוב.' };
+        return {
+          code: 'UNKNOWN_CONNECT_ERROR',
+          message: 'ההתחברות נכשלה. נסה שוב.',
+        };
     }
   }
 }

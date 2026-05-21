@@ -17,6 +17,8 @@ import { useRouterState, useNavigate } from '@tanstack/react-router';
 import { useAppStore } from '@/store';
 import { Navbar } from '@/components/Navbar';
 import { useSession } from '@/hooks/useAuth';
+import { useGlobalSyncManager } from '@/hooks/useGlobalSync';
+import { GlobalSyncBubble } from '@/components/GlobalSyncBubble';
 
 const privatePaths = ['/dashboard', '/export', '/ai-studio', '/settings'];
 
@@ -56,6 +58,7 @@ function AppLayout() {
   }, [session, isLoadingSession, routerState.location.pathname, navigate, isHydrated]);
 
   const showNavbar = isHydrated && !isLoadingSession && session && privatePaths.includes(routerState.location.pathname);
+  useGlobalSyncManager(Boolean(isHydrated && !isLoadingSession && session));
 
   if (isHydrated && isLoadingSession) {
     return (
@@ -71,6 +74,7 @@ function AppLayout() {
       <div className="mx-auto max-w-7xl p-6">
         <Outlet />
       </div>
+      <GlobalSyncBubble />
     </main>
   );
 }

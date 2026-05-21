@@ -107,6 +107,7 @@ docker compose -f infra/compose.yml up
 ---
 
 ## Terms of Service & Legal Notice
+# PLEASE READ THIS DISCLAIMER CAREFULLY BEFORE USING THIS SOFTWARE.
 
 > [!IMPORTANT]
 > **By using MoneyUp you agree to the following:**

@@ -27,7 +27,9 @@ export class OpenAIProvider extends AIProvider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`OpenAI list models failed (${res.status}): ${text || 'unknown error'}`);
+      throw new Error(
+        `OpenAI list models failed (${res.status}): ${text || 'unknown error'}`,
+      );
     }
 
     const json = (await res.json()) as { data?: Array<{ id?: string }> };
@@ -62,7 +64,9 @@ export class OpenAIProvider extends AIProvider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`OpenAI request failed (${res.status}): ${text || 'unknown error'}`);
+      throw new Error(
+        `OpenAI request failed (${res.status}): ${text || 'unknown error'}`,
+      );
     }
 
     if (!stream) {
@@ -76,9 +80,12 @@ export class OpenAIProvider extends AIProvider {
       throw new Error('OpenAI stream response body is empty');
     }
 
-    return this.createSseObservable(res.body as ReadableStream<Uint8Array<ArrayBuffer>>, (json) => {
-      return json?.choices?.[0]?.delta?.content || '';
-    });
+    return this.createSseObservable(
+      res.body as ReadableStream<Uint8Array<ArrayBuffer>>,
+      (json) => {
+        return json?.choices?.[0]?.delta?.content || '';
+      },
+    );
   }
 
   private createSseObservable(

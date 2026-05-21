@@ -19,7 +19,9 @@ export class GeminiProvider extends AIProvider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Gemini list models failed (${res.status}): ${text || 'unknown error'}`);
+      throw new Error(
+        `Gemini list models failed (${res.status}): ${text || 'unknown error'}`,
+      );
     }
 
     const json = (await res.json()) as {
@@ -31,8 +33,9 @@ export class GeminiProvider extends AIProvider {
 
     return (json.models ?? [])
       .filter((m) =>
-        (m.supportedGenerationMethods ?? []).some((method) =>
-          method === 'generateContent' || method === 'streamGenerateContent',
+        (m.supportedGenerationMethods ?? []).some(
+          (method) =>
+            method === 'generateContent' || method === 'streamGenerateContent',
         ),
       )
       .map((m) => (m.name || '').replace(/^models\//, ''))
@@ -66,7 +69,9 @@ export class GeminiProvider extends AIProvider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Gemini request failed (${res.status}): ${text || 'unknown error'}`);
+      throw new Error(
+        `Gemini request failed (${res.status}): ${text || 'unknown error'}`,
+      );
     }
 
     if (!stream) {
@@ -80,10 +85,14 @@ export class GeminiProvider extends AIProvider {
       throw new Error('Gemini stream response body is empty');
     }
 
-    return this.createSseObservable(res.body as ReadableStream<Uint8Array<ArrayBuffer>>);
+    return this.createSseObservable(
+      res.body as ReadableStream<Uint8Array<ArrayBuffer>>,
+    );
   }
 
-  private createSseObservable(body: ReadableStream<Uint8Array>): Observable<string> {
+  private createSseObservable(
+    body: ReadableStream<Uint8Array>,
+  ): Observable<string> {
     return new Observable<string>((subscriber) => {
       const reader = body.getReader();
       const decoder = new TextDecoder();
@@ -107,11 +116,20 @@ export class GeminiProvider extends AIProvider {
 
               try {
                 const parsed = JSON.parse(data) as
-                  | Array<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }>
-                  | { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+                  | Array<{
+                      candidates?: Array<{
+                        content?: { parts?: Array<{ text?: string }> };
+                      }>;
+                    }>
+                  | {
+                      candidates?: Array<{
+                        content?: { parts?: Array<{ text?: string }> };
+                      }>;
+                    };
 
                 const first = Array.isArray(parsed) ? parsed[0] : parsed;
-                const chunk = first?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+                const chunk =
+                  first?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
                 if (chunk) subscriber.next(chunk);
               } catch {
                 // Ignore malformed partial frame
