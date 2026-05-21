@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { type BankAccount } from '@/hooks/useAccounts';
+import { type BankAccount, isCreditCompanyBankId } from '@/hooks/useAccounts';
 import { BankIcon } from '@/components/BankIcon';
 import { getBankName, normalizeBankId } from '@/lib/bank-branding';
 import {
@@ -15,6 +15,7 @@ import {
 interface AccountStripProps {
   accounts: BankAccount[];
   onAddClick: () => void;
+  isSyncing?: boolean;
 }
 
 const getAccountId = (account: BankAccount) => {
@@ -53,13 +54,33 @@ const formatBalance = (value: number) => {
   });
 };
 
-const isCreditCardCompany = (bankId: string) => {
-  const norm = bankId.toLowerCase();
-  return norm === 'max' || norm === 'isracard';
-};
+const getTransactionsCount = (accounts: BankAccount[]) =>
+  accounts.reduce((sum, account) => sum + (account.transactions?.length ?? 0), 0);
 
-export function AccountStrip({ accounts, onAddClick }: AccountStripProps) {
+export function AccountStrip({ accounts, onAddClick, isSyncing = false }: AccountStripProps) {
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+
+  if (isSyncing) {
+    return (
+      <div className="flex items-stretch gap-3 overflow-x-auto pb-1">
+        {[0, 1, 2].map((idx) => (
+          <div
+            key={idx}
+            className="h-16 min-w-[230px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2 rounded-none flex items-center justify-between animate-pulse"
+          >
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-zinc-200 dark:bg-zinc-800" />
+              <div className="space-y-1.5">
+                <div className="h-2.5 w-20 bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-2 w-14 bg-zinc-100 dark:bg-zinc-900" />
+              </div>
+            </div>
+            <div className="h-3 w-16 bg-zinc-200 dark:bg-zinc-800" />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (accounts.length === 0) {
     return (
@@ -98,10 +119,11 @@ export function AccountStrip({ accounts, onAddClick }: AccountStripProps) {
     <div className="flex items-stretch gap-3 overflow-x-auto pb-1">
       {activeConnections.map((bankId) => {
         const bankAccounts = groupedConnections[bankId];
-        const isCard = isCreditCardCompany(bankId);
-        
-        // Sum all balances in this connection
+        const isCard = isCreditCompanyBankId(bankId);
+
+        // Sum all balances in this connection (bank accounts only)
         const totalBalance = bankAccounts.reduce((sum, acc) => sum + (acc.balance ?? 0), 0);
+        const transactionsCount = getTransactionsCount(bankAccounts);
 
         return (
           <button
@@ -116,19 +138,28 @@ export function AccountStrip({ accounts, onAddClick }: AccountStripProps) {
                   {getBankName(bankId)}
                 </p>
                 <p className="text-[10px] font-semibold text-zinc-450 dark:text-zinc-500">
-                  {bankAccounts.length === 1 
-                    ? (isCard ? 'כרטיס אחד' : 'חשבון אחד') 
+                  {bankAccounts.length === 1
+                    ? (isCard ? 'כרטיס אחד' : 'חשבון אחד')
                     : `${bankAccounts.length} ${isCard ? 'כרטיסים' : 'חשבונות'}`}
                 </p>
               </div>
             </div>
-            <div
-              className={`text-right text-xs md:text-sm font-black leading-tight ${
-                totalBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'
-              }`}
-            >
-              {formatBalance(totalBalance)}
-            </div>
+            {isCard ? (
+              <div className="text-right leading-tight">
+                <p className="text-xs md:text-sm font-black text-zinc-700 dark:text-zinc-200">
+                  {transactionsCount.toLocaleString('he-IL')}
+                </p>
+                <p className="text-[9px] font-semibold text-zinc-450 dark:text-zinc-500">תנועות</p>
+              </div>
+            ) : (
+              <div
+                className={`text-right text-xs md:text-sm font-black leading-tight ${
+                  totalBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                }`}
+              >
+                {formatBalance(totalBalance)}
+              </div>
+            )}
           </button>
         );
       })}
@@ -162,7 +193,8 @@ export function AccountStrip({ accounts, onAddClick }: AccountStripProps) {
             <div className="py-4 space-y-2 max-h-80 overflow-y-auto pr-1">
               {selectedAccounts.map((account) => {
                 const balance = account.balance ?? 0;
-                const isCard = isCreditCardCompany(account.bankId);
+                const isCard = isCreditCompanyBankId(account.bankId);
+                const transactionCount = account.transactions?.length ?? 0;
 
                 return (
                   <div
@@ -177,13 +209,24 @@ export function AccountStrip({ accounts, onAddClick }: AccountStripProps) {
                         מספר: {getAccountId(account)}
                       </p>
                     </div>
-                    <p
-                      className={`text-sm font-black ${
-                        balance >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                      }`}
-                    >
-                      {formatBalance(balance)}
-                    </p>
+                    {isCard ? (
+                      <div className="text-left">
+                        <p className="text-sm font-black text-zinc-700 dark:text-zinc-200">
+                          {transactionCount.toLocaleString('he-IL')}
+                        </p>
+                        <p className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 mt-0.5">
+                          תנועות
+                        </p>
+                      </div>
+                    ) : (
+                      <p
+                        className={`text-sm font-black ${
+                          balance >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                        }`}
+                      >
+                        {formatBalance(balance)}
+                      </p>
+                    )}
                   </div>
                 );
               })}

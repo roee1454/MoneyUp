@@ -5,14 +5,13 @@ import { OpenAIProvider } from './providers/openai-provider';
 import { ClaudeProvider } from './providers/claude-provider';
 import { GeminiProvider } from './providers/gemini-provider';
 
+type ProviderName = 'openai' | 'claude' | 'gemini';
+
 @Injectable()
 export class AiService {
   constructor(private readonly configService: ConfigService) {}
 
-  getProvider(
-    providerName: 'openai' | 'claude' | 'gemini',
-    customApiKey?: string,
-  ): AIProvider {
+  getProvider(providerName: ProviderName, customApiKey?: string): AIProvider {
     const apiKey =
       customApiKey || this.configService.get<string>(`${providerName.toUpperCase()}_API_KEY`);
 

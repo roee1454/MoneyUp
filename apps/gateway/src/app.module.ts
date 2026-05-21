@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AppController } from './app.controller';
+import { RedisCacheService } from './redis-cache.service';
 
 @Module({
   imports: [
@@ -37,9 +38,9 @@ import { AppController } from './app.controller';
           port: Number(process.env.USERS_SERVICE_PORT ?? 3004),
         },
       },
-    ]),
+  ]),
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [RedisCacheService],
 })
 export class AppModule {}

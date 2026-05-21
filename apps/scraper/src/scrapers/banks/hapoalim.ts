@@ -1,44 +1,55 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BaseScraper } from './base-scraper';
+import { BaseScraper } from '../base';
 import { CompanyTypes, createScraper, ScraperCredentials } from 'israeli-bank-scrapers';
 import { ScraperResponse } from '@moneyup/types';
 
 @Injectable()
-export class IsracardScraper extends BaseScraper {
+export class HapoalimScraper extends BaseScraper {
   constructor(configService: ConfigService) {
     super(configService);
   }
 
-  readonly companyId = CompanyTypes.isracard;
+  readonly companyId = CompanyTypes.hapoalim;
 
-  protected async simulateScrape(_credentials: ScraperCredentials): Promise<ScraperResponse> {
+  protected async simulateScrape(credentials: ScraperCredentials): Promise<ScraperResponse> {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      if ('otpCodeRetriever' in credentials && credentials.otpCodeRetriever) {
+        try {
+          const code = await credentials.otpCodeRetriever();
+          if (code !== '123456') {
+            return { status: 'FAILED', error: 'Invalid OTP code' };
+          }
+        } catch (err: any) {
+          return { status: 'FAILED', error: err?.message || 'OTP challenge failed' };
+        }
+      }
 
       return {
         status: 'SUCCESS',
         accounts: [
           {
-            accountNumber: 'ISRACARD-1122',
-            balance: -2450,
+            accountNumber: '12-345-67890',
+            balance: 14500,
             transactions: [
               {
-                id: 'txn_isracard_1',
-                date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-                amount: -120,
-                chargedAmount: -120,
-                description: 'וולט מרקט',
+                id: 'txn_hapoalim_1',
+                date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                processedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: -250,
+                chargedAmount: -250,
+                description: 'שופרסל שלי',
                 originalCurrency: 'ILS',
               },
               {
-                id: 'txn_isracard_2',
-                date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-                amount: -350,
-                chargedAmount: -350,
-                description: 'זארה קניון',
+                id: 'txn_hapoalim_2',
+                date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+                processedDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: 5200,
+                chargedAmount: 5200,
+                description: 'העברה נכנסת - מעסיק',
                 originalCurrency: 'ILS',
               },
             ],
@@ -48,7 +59,7 @@ export class IsracardScraper extends BaseScraper {
     } catch (err: any) {
       return {
         status: 'FAILED',
-        error: err?.message || 'Unexpected credit card scraper crash occurred',
+        error: err?.message || 'Unexpected bank scraper crash occurred',
       };
     }
   }
@@ -70,6 +81,8 @@ export class IsracardScraper extends BaseScraper {
         timeout: timeoutMs,
         defaultTimeout: defaultTimeoutMs,
         storeFailureScreenShotPath: debugEnabled ? 'data/scraper-failures' : undefined,
+        additionalTransactionInformation: true,
+        includeRawTransaction: true,
       });
 
       const scrapeResult = await scraper.scrape(credentials);
@@ -80,7 +93,7 @@ export class IsracardScraper extends BaseScraper {
           status: 'FAILED',
           error: errorParts.length > 0
             ? errorParts.join(': ')
-            : 'Unknown error occurred during credit card scraping',
+            : 'Unknown error occurred during bank scraping',
         };
       }
 
@@ -92,7 +105,7 @@ export class IsracardScraper extends BaseScraper {
     } catch (err: any) {
       return {
         status: 'FAILED',
-        error: err?.message || 'Unexpected credit card scraper crash occurred',
+        error: err?.message || 'Unexpected bank scraper crash occurred',
       };
     }
   }

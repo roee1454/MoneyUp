@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, Sparkles, TrendingDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,12 +8,16 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { PremiumCard } from '@/components/ui/premium-card';
-import { type BankAccount } from '@/hooks/useAccounts';
+import type { AiScansResponse } from '@/hooks/useAi';
 
 interface Transaction {
+  id?: string;
   merchant: string;
   date: string;
   amount: number;
+  confidence?: number;
+  reason?: string;
+  tags?: string[];
 }
 
 interface Category {
@@ -21,393 +25,574 @@ interface Category {
   emoji: string;
   amount: number;
   transactions: Transaction[];
+  count?: number;
+  totalCount?: number;
+  excludedCount?: number;
 }
 
 interface SpendingCategoriesProps {
-  accounts?: BankAccount[];
+  scans?: AiScansResponse | null;
+  period: 'current' | 'previous' | 'both';
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  isLoadingScans?: boolean;
+  isSyncing?: boolean;
+  hasConnectedAccounts?: boolean;
+  canUseAiAnnotation?: boolean;
+  isAnnotatingWithAi?: boolean;
+  isWidgetBusy?: boolean;
+  onAnnotateWithAi?: () => void;
+  onGoToAiStudio?: () => void;
 }
 
 const staticCategories: Category[] = [
-  {
-    name: 'מזון',
-    emoji: '🍔',
-    amount: 1240,
-    transactions: [
-      { merchant: "וולט (Wolt)", date: "18/05/2026", amount: 120 },
-      { merchant: "מקדונלדס", date: "17/05/2026", amount: 65 },
-      { merchant: "ג'ירף מסעדה", date: "15/05/2026", amount: 240 },
-      { merchant: "פיצה האט", date: "12/05/2026", amount: 95 },
-      { merchant: "וולט (Wolt)", date: "10/05/2026", amount: 180 },
-      { merchant: "קפה לנדוור", date: "08/05/2026", amount: 80 },
-      { merchant: "וולט (Wolt)", date: "05/05/2026", amount: 160 },
-      { merchant: "ארומה אספרסו", date: "03/05/2026", amount: 40 },
-      { merchant: "וולט (Wolt)", date: "02/05/2026", amount: 140 },
-      { merchant: "קופיקס", date: "01/05/2026", amount: 12 },
-      { merchant: "וולט (Wolt)", date: "01/05/2026", amount: 108 },
-    ],
-  },
-  {
-    name: 'ביגוד',
-    emoji: '👗',
-    amount: 640,
-    transactions: [
-      { merchant: "זארה (Zara)", date: "14/05/2026", amount: 320 },
-      { merchant: "H&M", date: "11/05/2026", amount: 180 },
-      { merchant: "אסוס (ASOS)", date: "06/05/2026", amount: 140 },
-    ],
-  },
-  {
-    name: 'בידור',
-    emoji: '🎬',
-    amount: 280,
-    transactions: [
-      { merchant: "סינמה סיטי", date: "16/05/2026", amount: 90 },
-      { merchant: "נטפליקס", date: "15/05/2026", amount: 70 },
-      { merchant: "בר קוקטיילים", date: "09/05/2026", amount: 120 },
-    ],
-  },
-  {
-    name: 'דלק/תחבורה',
-    emoji: '⛽',
-    amount: 420,
-    transactions: [
-      { merchant: "פז תחנת דלק", date: "16/05/2026", amount: 210 },
-      { merchant: "רכבת ישראל", date: "14/05/2026", amount: 30 },
-      { merchant: "סונול", date: "02/05/2026", amount: 180 },
-    ],
-  },
-  {
-    name: 'סופר',
-    emoji: '🛒',
-    amount: 890,
-    transactions: [
-      { merchant: "שופרסל דיל", date: "16/05/2026", amount: 450 },
-      { merchant: "רמי לוי", date: "10/05/2026", amount: 320 },
-      { merchant: "טיב טעם", date: "03/05/2026", amount: 120 },
-    ],
-  },
-  {
-    name: 'מנויים',
-    emoji: '📱',
-    amount: 180,
-    transactions: [
-      { merchant: "ספוטיפיי", date: "15/05/2026", amount: 40 },
-      { merchant: "אפל מיוזיק", date: "12/05/2026", amount: 30 },
-      { merchant: "הוסטרינג דומיין", date: "04/05/2026", amount: 110 },
-    ],
-  },
+  { name: 'מזון', emoji: '🍔', amount: 1240, transactions: [] },
+  { name: 'ביגוד', emoji: '👗', amount: 640, transactions: [] },
+  { name: 'בידור', emoji: '🎬', amount: 280, transactions: [] },
+  { name: 'בילויים', emoji: '🎉', amount: 300, transactions: [] },
+  { name: 'אלקטרוניקה', emoji: '💻', amount: 450, transactions: [] },
+  { name: 'אונליין', emoji: '🛍️', amount: 260, transactions: [] },
+  { name: 'דלק/תחבורה', emoji: '⛽', amount: 420, transactions: [] },
+  { name: 'סופר', emoji: '🛒', amount: 890, transactions: [] },
+  { name: 'מנויים', emoji: '📱', amount: 180, transactions: [] },
+  { name: 'לא מסווג', emoji: '📦', amount: 210, transactions: [] },
 ];
 
 const categoryEmojis: Record<string, string> = {
-  'מזון': '🍔',
-  'ביגוד': '👗',
-  'בידור': '🎬',
+  מזון: '🍔',
+  ביגוד: '👗',
+  בידור: '🎬',
+  בילויים: '🎉',
+  אלקטרוניקה: '💻',
+  אונליין: '🛍️',
   'דלק/תחבורה': '⛽',
-  'סופר': '🛒',
-  'מנויים': '📱',
+  סופר: '🛒',
+  מנויים: '📱',
+  'לא מסווג': '📦',
 };
 
-function categorizeTransaction(description: string): string | null {
-  const desc = description.toLowerCase();
-  if (
-    desc.includes('וולט') ||
-    desc.includes('wolt') ||
-    desc.includes('מסעדה') ||
-    desc.includes('מקדונלד') ||
-    desc.includes('קפה') ||
-    desc.includes('ארומה') ||
-    desc.includes('קופיקס') ||
-    desc.includes('אוכל') ||
-    desc.includes('פיצה')
-  ) {
-    return 'מזון';
-  }
-  if (
-    desc.includes('זארה') ||
-    desc.includes('zara') ||
-    desc.includes('h&m') ||
-    desc.includes('אסוס') ||
-    desc.includes('asos') ||
-    desc.includes('ביגוד') ||
-    desc.includes('בגדים') ||
-    desc.includes('נעליים')
-  ) {
-    return 'ביגוד';
-  }
-  if (
-    desc.includes('סינמה') ||
-    desc.includes('נטפליקס') ||
-    desc.includes('netflix') ||
-    desc.includes('בר ') ||
-    desc.includes('הופעה') ||
-    desc.includes('סרט') ||
-    desc.includes('בידור') ||
-    desc.includes('קולנוע')
-  ) {
-    return 'בידור';
-  }
-  if (
-    desc.includes('פז') ||
-    desc.includes('סונול') ||
-    desc.includes('דלק') ||
-    desc.includes('רכבת') ||
-    desc.includes('אוטובוס') ||
-    desc.includes('מונית') ||
-    desc.includes('גט') ||
-    desc.includes('gett') ||
-    desc.includes('תחבורה')
-  ) {
-    return 'דלק/תחבורה';
-  }
-  if (
-    desc.includes('שופרסל') ||
-    desc.includes('רמי לוי') ||
-    desc.includes('טיב טעם') ||
-    desc.includes('סופר') ||
-    desc.includes('מכולת') ||
-    desc.includes('יוחננוף') ||
-    desc.includes('חצי חינם') ||
-    desc.includes('ויקטורי')
-  ) {
-    return 'סופר';
-  }
-  if (
-    desc.includes('ספוטיפיי') ||
-    desc.includes('spotify') ||
-    desc.includes('אפל') ||
-    desc.includes('apple') ||
-    desc.includes('מנוי') ||
-    desc.includes('אינטרנט') ||
-    desc.includes('טלפון') ||
-    desc.includes('הוסט') ||
-    desc.includes('domain')
-  ) {
-    return 'מנויים';
-  }
-  return null;
-}
-
-function getCleanDescription(description: string, memo?: string): string | null {
-  const desc = description || '';
-  const mem = memo || '';
-
-  const genericNames = [
-    'דירקט',
-    'דירקט מצטבר',
-    'עברה',
-    'העברה נכנסת',
-    'העברה',
-    'הוראת קבע',
-    'חיוב כרטיס',
-    'חיוב כרטיס אשראי',
-    'מזומן',
-    'הפקדה',
-    'משיכה',
-    'עמלה',
-    'עמלת',
-    'bit',
-    'ביט',
-    'paybox',
-    'פייבוקס',
-    'העברת כסף',
-  ];
-  
-  const isDescGeneric = genericNames.some(g => desc.trim() === g || desc.toLowerCase().includes(g.toLowerCase()));
-
-  if (isDescGeneric) {
-    if (mem.trim()) {
-      const isMemGeneric = genericNames.some(g => mem.trim() === g || mem.toLowerCase().includes(g.toLowerCase()));
-      if (!isMemGeneric) {
-        return mem.trim();
-      }
-    }
-    // If both are generic or no memo, it is a generic transaction -> return null to hide it
-    return null;
-  }
-
-  return desc || mem || null;
-}
-
-export function SpendingCategories({ accounts = [] }: SpendingCategoriesProps) {
+export function SpendingCategories({
+  scans,
+  period,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  isLoadingScans = false,
+  isSyncing = false,
+  hasConnectedAccounts = false,
+  canUseAiAnnotation = false,
+  isAnnotatingWithAi = false,
+  isWidgetBusy = false,
+  onAnnotateWithAi,
+  onGoToAiStudio,
+}: SpendingCategoriesProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [isMobileDialogOpen, setIsMobileDialogOpen] = useState(false);
+  const [excludedTransactionKeys, setExcludedTransactionKeys] = useState<Set<string>>(new Set());
 
-  const isCreditCardCompany = (bankId: string) => {
-    const norm = bankId.toLowerCase();
-    return norm === 'max' || norm === 'isracard';
-  };
+  function getTransactionKey(categoryName: string, txn: Transaction): string {
+    return `${categoryName}::${txn.id ?? `${txn.merchant}|${txn.date}|${txn.amount}`}`;
+  }
 
-  const allTransactions = accounts.flatMap((acc) =>
-    (acc.transactions || []).map((t) => ({ ...t, bankId: acc.bankId }))
-  );
-  
-  // Decide whether to use real synced accounts or fallback previews
-  const hasConnectedAccounts = accounts.length > 0;
+  function isTransactionExcluded(categoryName: string, txn: Transaction): boolean {
+    return excludedTransactionKeys.has(getTransactionKey(categoryName, txn));
+  }
 
-  // 1. Calculate Live Totals
-  // Bank income: positive transactions that have a non-generic identifiable description
-  // (generic bank credits like credit-card billing debits, Bit transfers, etc. are excluded)
-  const bankIncomeTxns = allTransactions.filter(
-    (t) =>
-      t.chargedAmount > 0 &&
-      !isCreditCardCompany(t.bankId) &&
-      !!getCleanDescription(t.description, t.memo)
-  );
-  // Credit card income: positive transactions from credit card companies (refunds, cashback)
-  const creditCardIncomeTxns = allTransactions.filter(
-    (t) => t.chargedAmount > 0 && isCreditCardCompany(t.bankId)
-  );
-  const liveEarned = [...bankIncomeTxns, ...creditCardIncomeTxns].reduce(
-    (sum, t) => sum + t.chargedAmount,
-    0
-  );
-
-  const liveSpent = Math.abs(
-    allTransactions
-      .filter((t) => t.chargedAmount < 0 && isCreditCardCompany(t.bankId))
-      .reduce((sum, t) => sum + t.chargedAmount, 0)
-  );
-
-  // 2. Classify Live Transactions
-  const categorizedTxnsMap: Record<string, { merchant: string; date: string; amount: number }[]> = {
-    'מזון': [],
-    'ביגוד': [],
-    'בידור': [],
-    'דלק/תחבורה': [],
-    'סופר': [],
-    'מנויים': [],
-  };
-
-  if (hasConnectedAccounts) {
-    const expenseTxns = allTransactions.filter((t) => t.chargedAmount < 0 && isCreditCardCompany(t.bankId));
-    expenseTxns.forEach((txn) => {
-      const merchantName = getCleanDescription(txn.description, txn.memo);
-      if (!merchantName) return; // Skip/hide generic transactions!
-
-      const cat = categorizeTransaction(merchantName);
-      if (!cat) return; // Skip transactions that do not match any specific category (e.g. no "other" allowed)
-
-      const dateFormatted = txn.date ? new Date(txn.date).toLocaleDateString('he-IL') : '';
-      categorizedTxnsMap[cat].push({
-        merchant: merchantName,
-        date: dateFormatted,
-        amount: Math.abs(txn.chargedAmount),
-      });
+  function toggleTransactionExcluded(categoryName: string, txn: Transaction) {
+    const key = getTransactionKey(categoryName, txn);
+    setExcludedTransactionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
     });
   }
 
-  const liveCategories: Category[] = Object.keys(categorizedTxnsMap)
-    .map((name) => {
-      const txns = categorizedTxnsMap[name];
-      const amount = txns.reduce((sum, t) => sum + t.amount, 0);
+  const displayCategories = useMemo<Category[]>(() => {
+    if (!hasConnectedAccounts || !scans) {
+      return staticCategories;
+    }
+
+    return scans.categories.map((category) => ({
+      name: category.name,
+      emoji: categoryEmojis[category.name] || '📦',
+      amount: category.amount,
+      count: category.count,
+      transactions: (scans.categoryTransactions[category.name] ?? []).map((txn) => ({
+        id: txn.transactionId,
+        merchant: txn.merchant,
+        date: txn.date ? new Date(txn.date).toLocaleDateString('he-IL') : '',
+        amount: txn.amount,
+        confidence: txn.confidence,
+        reason: txn.reason,
+        tags: txn.tags,
+      })),
+    }));
+  }, [hasConnectedAccounts, scans]);
+
+  const displayCategoriesWithExclusionMeta = useMemo<Category[]>(() => {
+    return displayCategories.map((category) => {
+      const excludedCount = category.transactions.filter((txn) =>
+        excludedTransactionKeys.has(getTransactionKey(category.name, txn)),
+      ).length;
       return {
-        name,
-        emoji: categoryEmojis[name] || '📦',
-        amount,
-        transactions: txns,
+        ...category,
+        totalCount: category.transactions.length,
+        excludedCount,
       };
-    })
-    .filter((c) => c.amount > 0);
+    });
+  }, [displayCategories, excludedTransactionKeys]);
+  const excludedTotalAmount = useMemo(() => {
+    return displayCategories.reduce((sum, category) => {
+      const categoryExcludedSum = category.transactions.reduce((categorySum, txn) => {
+        if (excludedTransactionKeys.has(getTransactionKey(category.name, txn))) {
+          return categorySum + txn.amount;
+        }
+        return categorySum;
+      }, 0);
+      return sum + categoryExcludedSum;
+    }, 0);
+  }, [displayCategories, excludedTransactionKeys]);
 
-  // Fallbacks
-  const displayEarned = hasConnectedAccounts ? liveEarned : 14200;
-  const displaySpent = hasConnectedAccounts ? liveSpent : 3650;
-  const displayCategories = hasConnectedAccounts ? liveCategories : staticCategories;
+  const baseTotalExpenses = hasConnectedAccounts && scans ? scans.totalExpenses : 3650;
+  const displaySpent = Math.max(baseTotalExpenses - excludedTotalAmount, 0);
+  const sortedCategories = useMemo(
+    () => [...displayCategoriesWithExclusionMeta].sort((a, b) => b.amount - a.amount),
+    [displayCategoriesWithExclusionMeta],
+  );
+  const topCategories = useMemo(() => sortedCategories.slice(0, 6), [sortedCategories]);
+  const visibleCategories = showAllCategories ? sortedCategories : topCategories;
+  const hiddenCategoriesCount = Math.max(sortedCategories.length - topCategories.length, 0);
+  const activeCategory = useMemo(() => {
+    if (selectedCategory && sortedCategories.some((category) => category.name === selectedCategory.name)) {
+      return sortedCategories.find((category) => category.name === selectedCategory.name) ?? selectedCategory;
+    }
+    return sortedCategories[0] ?? null;
+  }, [selectedCategory, sortedCategories]);
+  const dialogCategory = useMemo(() => {
+    if (!selectedCategory) return null;
+    return sortedCategories.find((category) => category.name === selectedCategory.name) ?? selectedCategory;
+  }, [selectedCategory, sortedCategories]);
 
-  return (
-    <PremiumCard className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-lg font-black text-zinc-950 dark:text-white">סיכום פיננסי חודשי</h2>
-        <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-          {hasConnectedAccounts
-            ? 'מחושב מתוך נתוני הסנכרון החיים של חשבונות הבנק שלך'
-            : 'תצוגה מקדימה - סנכרן חשבון בנק כדי לראות נתונים חיים'}
-        </p>
-      </div>
+  function handleCategorySelect(category: Category) {
+    setSelectedCategory(category);
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+      setIsMobileDialogOpen(true);
+    }
+  }
 
-      {/* Financial Indicators Row */}
-      <div dir='ltr' className="grid grid-cols-2 gap-4">
-        <div className="border border-zinc-100 dark:border-zinc-800 bg-emerald-50/20 dark:bg-emerald-950/10 p-4 space-y-1.5 rounded-none text-right">
-          <div className="flex items-center gap-1.5 justify-end text-emerald-600 dark:text-emerald-500">
-            <span className="text-[11px] font-black">הכנסות החודש</span>
-            <TrendingUp className="h-4 w-4" />
+  useEffect(() => {
+    if (selectedCategory && !sortedCategories.some((category) => category.name === selectedCategory.name)) {
+      setSelectedCategory(null);
+    }
+  }, [selectedCategory, sortedCategories]);
+
+  useEffect(() => {
+    setExcludedTransactionKeys(new Set());
+  }, [period, scans, startDate, endDate, hasConnectedAccounts]);
+
+  useEffect(() => {
+    if (!hasConnectedAccounts || !scans) return;
+
+    const debugEnabled =
+      import.meta.env.DEV ||
+      String(import.meta.env.VITE_AI_SCANS_DEBUG ?? '').toLowerCase() === 'true';
+
+    if (!debugEnabled) return;
+
+    console.log('[AI_SCANS_DEBUG] displayed_categories', {
+      period,
+      totalExpenses: displaySpent,
+      categories: displayCategories.map((category) => ({
+        name: category.name,
+        amount: category.amount,
+        count: category.count ?? category.transactions.length,
+        transactions: category.transactions.map((txn) => ({
+          id: txn.id,
+          merchant: txn.merchant,
+          date: txn.date,
+          amount: txn.amount,
+          reason: txn.reason,
+          confidence: txn.confidence,
+          tags: txn.tags,
+        })),
+      })),
+    });
+  }, [displayCategories, displaySpent, hasConnectedAccounts, period, scans]);
+
+  if (isSyncing || (hasConnectedAccounts && isLoadingScans)) {
+    return (
+      <PremiumCard className="space-y-6 animate-pulse">
+        <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
+          <div className="space-y-3 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 p-4">
+            <div className="h-5 w-44 bg-zinc-200 dark:bg-zinc-800" />
+            <div className="h-3 w-64 bg-zinc-100 dark:bg-zinc-900" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+              <div className="h-9 bg-zinc-200 dark:bg-zinc-800" />
+              <div className="h-9 bg-zinc-200 dark:bg-zinc-800" />
+            </div>
           </div>
-          <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-            +{displayEarned.toLocaleString('he-IL')} ₪
-          </p>
-        </div>
-
-        <div className="border border-zinc-100 dark:border-zinc-800 bg-rose-50/20 dark:bg-rose-950/10 p-4 space-y-1.5 rounded-none text-right">
-          <div className="flex items-center gap-1.5 justify-end text-rose-600 dark:text-rose-500">
-            <span className="text-[11px] font-black">הוצאות החודש</span>
-            <TrendingDown className="h-4 w-4" />
+          <div className="space-y-3 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 p-4">
+            <div className="h-4 w-28 bg-zinc-200 dark:bg-zinc-800" />
+            <div className="h-10 w-40 bg-zinc-200 dark:bg-zinc-800" />
+            <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-900" />
           </div>
-          <p className="text-xl font-black text-rose-600 dark:text-rose-400">
-            -{displaySpent.toLocaleString('he-IL')} ₪
-          </p>
         </div>
-      </div>
-
-      {/* Category Squares Grid */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider text-right">
-          התפלגות הוצאות לפי קטגוריות
-        </h3>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {displayCategories.map((category) => (
-            <button
-              key={category.name}
-              onClick={() => setSelectedCategory(category)}
-              className="w-full aspect-square border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/90 transition-all hover:scale-102 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-center select-none rounded-none"
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="aspect-square border border-zinc-100 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-900/20 p-3 space-y-2"
             >
-              <span className="text-2xl">{category.emoji}</span>
-              <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 leading-none">
-                {category.name}
-              </span>
-              <span className="text-xs font-black text-rose-600 dark:text-rose-400 leading-none" dir="ltr">
-                -{category.amount.toLocaleString()} ₪
-              </span>
-            </button>
+              <div className="h-4 w-7 bg-zinc-200 dark:bg-zinc-800" />
+              <div className="h-3 w-full bg-zinc-200 dark:bg-zinc-800" />
+              <div className="h-4 w-2/3 bg-zinc-200 dark:bg-zinc-800" />
+            </div>
           ))}
         </div>
+      </PremiumCard>
+    );
+  }
+
+  return (
+    <PremiumCard className="space-y-6 relative overflow-hidden">
+      {isWidgetBusy ? (
+        <div className="absolute inset-0 z-20 bg-white/75 dark:bg-zinc-950/75 backdrop-blur-[1px] flex items-center justify-center">
+          <div className="flex items-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+            <Loader2 className="h-4 w-4 animate-spin text-zinc-700 dark:text-zinc-200" />
+            <span className="text-xs font-black text-zinc-800 dark:text-zinc-100">
+              מסווג בתי עסק ומעדכן נתונים...
+            </span>
+          </div>
+        </div>
+      ) : null}
+      <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
+        <div className="border border-zinc-100 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-900/20 p-4 space-y-4">
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-black text-zinc-950 dark:text-white">סיכום הוצאות חודשי</h2>
+            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              {hasConnectedAccounts
+                ? 'מחושב לפי תנועות מחברות אשראי מסונכרנות'
+                : 'התצוגה זמינה לאחר סנכרון חברת אשראי'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label className="space-y-1 text-xs font-bold text-zinc-600 dark:text-zinc-300">
+              <span className="block">מתאריך</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => onStartDateChange(e.target.value)}
+                disabled={isWidgetBusy}
+                className="h-9 w-full px-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200"
+              />
+            </label>
+            <label className="space-y-1 text-xs font-bold text-zinc-600 dark:text-zinc-300">
+              <span className="block">עד תאריך</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => onEndDateChange(e.target.value)}
+                disabled={isWidgetBusy}
+                className="h-9 w-full px-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="border border-zinc-100 dark:border-zinc-800 bg-rose-50/20 dark:bg-rose-950/10 p-4 space-y-3 text-right">
+          <div dir="ltr" className="space-y-1.5">
+            <div className="flex items-center gap-1.5 justify-end text-rose-600 dark:text-rose-500">
+              <span className="text-[11px] font-black">הוצאות</span>
+              <TrendingDown className="h-4 w-4" />
+            </div>
+            <p className="text-2xl font-black text-rose-600 dark:text-rose-400">
+              -{displaySpent.toLocaleString('he-IL')} ₪
+            </p>
+            {excludedTransactionKeys.size > 0 ? (
+              <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400" dir="rtl">
+                הוחרגו {excludedTransactionKeys.size} תנועות מהחישוב
+              </p>
+            ) : null}
+          </div>
+
+          {excludedTransactionKeys.size > 0 ? (
+            <button
+              type="button"
+              onClick={() => setExcludedTransactionKeys(new Set())}
+              className="h-8 px-3 border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors w-fit"
+            >
+              אפס החרגות
+            </button>
+          ) : null}
+
+          {hasConnectedAccounts && canUseAiAnnotation && onAnnotateWithAi ? (
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={onAnnotateWithAi}
+                disabled={isAnnotatingWithAi || isWidgetBusy}
+                className="h-10 px-4 border border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-xs font-black text-white dark:text-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+              >
+                {isAnnotatingWithAi ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>מסווג עם AI...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>סווג בתי עסק לא מזוהים עם AI</span>
+                  </>
+                )}
+              </button>
+              <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                הפעולה מסווגת בתי עסק לא מזוהים ושומרת ללמידה עתידית
+              </p>
+            </div>
+          ) : null}
+
+          {hasConnectedAccounts && !canUseAiAnnotation && onGoToAiStudio ? (
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={onGoToAiStudio}
+                className="h-10 px-4 border border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-xs font-black text-white dark:text-zinc-900 cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>הוספת ספק AI</span>
+              </button>
+              <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                כדי להפעיל סיווג בינה מלאכותית, יש להוסיף ספק.
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      {/* Category Transactions Dialog */}
-      {selectedCategory && (
-        <Dialog open={!!selectedCategory} onOpenChange={(open) => !open && setSelectedCategory(null)}>
-          <DialogContent className="max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none" dir='rtl' showCloseButton={false}>
+      <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider text-right">
+              התפלגות הוצאות לפי קטגוריות
+            </h3>
+            {hiddenCategoriesCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllCategories((prev) => !prev)}
+                className="h-8 px-3 border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+              >
+                {showAllCategories ? 'הצג פחות' : `הצג הכל (+${hiddenCategoriesCount})`}
+              </button>
+            ) : null}
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-3">
+            {visibleCategories.map((category) => {
+              const isActive = activeCategory?.name === category.name;
+              return (
+                <button
+                  key={category.name}
+                  type="button"
+                  onClick={() => handleCategorySelect(category)}
+                  disabled={isWidgetBusy}
+                  className={`w-full aspect-square border p-2 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer text-center select-none disabled:opacity-60 disabled:cursor-not-allowed ${
+                    isActive
+                      ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-100 dark:bg-zinc-900'
+                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 hover:bg-zinc-100 dark:hover:bg-zinc-900/90'
+                  }`}
+                >
+                  <span className="text-2xl">{category.emoji}</span>
+                  <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 leading-none">
+                    {category.name}
+                  </span>
+                  <span className="text-xs font-black text-rose-600 dark:text-rose-400 leading-none" dir="ltr">
+                    -{category.amount.toLocaleString()} ₪
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="hidden lg:block border border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 p-4">
+          {activeCategory ? (
+            <div className="space-y-3">
+              <div className="space-y-1 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <h4 className="text-base font-black text-zinc-950 dark:text-white flex items-center gap-2">
+                  <span>קטגוריה: {activeCategory.name}</span>
+                  <span>{activeCategory.emoji}</span>
+                </h4>
+                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  סכום הוצאות: {activeCategory.amount.toLocaleString()} ₪
+                  {typeof activeCategory.count === 'number'
+                    ? ` • מספר תנועות: ${activeCategory.count}`
+                    : ''}
+                  {typeof activeCategory.excludedCount === 'number' && activeCategory.excludedCount > 0
+                    ? ` • הוחרגו: ${activeCategory.excludedCount}`
+                    : ''}
+                </p>
+              </div>
+              <div className="space-y-2 h-80 overflow-y-auto pr-1">
+                {activeCategory.transactions.length === 0 ? (
+                  <p className="text-center text-xs font-semibold text-zinc-400 dark:text-zinc-500 py-6">
+                    אין תנועות זמינות בקטגוריה זו
+                  </p>
+                ) : (
+                  activeCategory.transactions.map((txn, index) => (
+                    <div
+                      key={txn.id || index}
+                      className="border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/30 px-3 py-2 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                            {txn.merchant}
+                          </p>
+                          <p className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+                            {txn.date}
+                          </p>
+                        </div>
+                        <p
+                          className={`text-xs font-black ${
+                            isTransactionExcluded(activeCategory.name, txn)
+                              ? 'text-zinc-400 dark:text-zinc-500 line-through'
+                              : 'text-rose-600 dark:text-rose-400'
+                          }`}
+                          dir="ltr"
+                        >
+                          -{txn.amount.toLocaleString()} ₪
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleTransactionExcluded(activeCategory.name, txn)}
+                        className={`h-7 px-2 text-[10px] font-bold border cursor-pointer ${
+                          isTransactionExcluded(activeCategory.name, txn)
+                            ? 'border-zinc-400 text-zinc-600 dark:text-zinc-300'
+                            : 'border-rose-300 text-rose-700 dark:text-rose-400'
+                        }`}
+                      >
+                        {isTransactionExcluded(activeCategory.name, txn) ? 'החזר לחישוב' : 'החרג מהחישוב'}
+                      </button>
+                      {txn.reason ? (
+                        <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+                          {txn.reason}
+                        </p>
+                      ) : null}
+                      <div className="flex items-center justify-between gap-2">
+                        {typeof txn.confidence === 'number' ? (
+                          <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
+                            confidence: {(txn.confidence * 100).toFixed(0)}%
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+                        {txn.tags && txn.tags.length > 0 ? (
+                          <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
+                            {txn.tags.join(', ')}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              בחר קטגוריה כדי לצפות בתנועות.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {dialogCategory && (
+        <Dialog
+          open={isMobileDialogOpen}
+          onOpenChange={(open) => {
+            setIsMobileDialogOpen(open);
+            if (!open) setSelectedCategory(null);
+          }}
+        >
+          <DialogContent className="max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none" dir="rtl" showCloseButton={false}>
             <DialogHeader>
               <DialogTitle className="text-base font-black text-zinc-950 dark:text-white flex items-center gap-2">
-                <span>תנועות בקטגוריית {selectedCategory.name}</span>
-                <span>{selectedCategory.emoji}</span>
+                <span>קטגוריה: {dialogCategory.name}</span>
+                <span>{dialogCategory.emoji}</span>
               </DialogTitle>
               <DialogDescription className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                סה"כ הוצאות בקטגוריה זו: {selectedCategory.amount.toLocaleString()} ₪
+                סכום הוצאות: {dialogCategory.amount.toLocaleString()} ₪
+                {typeof dialogCategory.count === 'number' ? ` • מספר תנועות: ${dialogCategory.count}` : ''}
+                {typeof dialogCategory.excludedCount === 'number' && dialogCategory.excludedCount > 0
+                  ? ` • הוחרגו: ${dialogCategory.excludedCount}`
+                  : ''}
               </DialogDescription>
             </DialogHeader>
-
-            {/* Scrollable list of transactions */}
-            <div className="py-4 space-y-2 max-h-80 overflow-y-auto pr-1">
-              {selectedCategory.transactions.length === 0 ? (
+            <div className="py-3 space-y-2 h-80 overflow-y-auto pr-1">
+              {dialogCategory.transactions.length === 0 ? (
                 <p className="text-center text-xs font-semibold text-zinc-400 dark:text-zinc-500 py-6">
                   אין תנועות זמינות בקטגוריה זו
                 </p>
               ) : (
-                selectedCategory.transactions.map((txn, index) => (
+                dialogCategory.transactions.map((txn, index) => (
                   <div
-                    key={index}
-                    className="border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/30 px-3 py-2 flex items-center justify-between"
+                    key={txn.id || index}
+                    className="border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/30 px-3 py-2 space-y-1.5"
                   >
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        {txn.merchant}
-                      </p>
-                      <p className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
-                        {txn.date}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{txn.merchant}</p>
+                        <p className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">{txn.date}</p>
+                      </div>
+                      <p
+                        className={`text-xs font-black ${
+                          isTransactionExcluded(dialogCategory.name, txn)
+                            ? 'text-zinc-400 dark:text-zinc-500 line-through'
+                            : 'text-rose-600 dark:text-rose-400'
+                        }`}
+                        dir="ltr"
+                      >
+                        -{txn.amount.toLocaleString()} ₪
                       </p>
                     </div>
-                    <p className="text-xs font-black text-rose-600 dark:text-rose-400" dir="ltr">
-                      -{txn.amount.toLocaleString()} ₪
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => toggleTransactionExcluded(dialogCategory.name, txn)}
+                      className={`h-7 px-2 text-[10px] font-bold border cursor-pointer ${
+                        isTransactionExcluded(dialogCategory.name, txn)
+                          ? 'border-zinc-400 text-zinc-600 dark:text-zinc-300'
+                          : 'border-rose-300 text-rose-700 dark:text-rose-400'
+                      }`}
+                    >
+                      {isTransactionExcluded(dialogCategory.name, txn) ? 'החזר לחישוב' : 'החרג מהחישוב'}
+                    </button>
+                    {txn.reason ? (
+                      <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+                        {txn.reason}
+                      </p>
+                    ) : null}
+                    <div className="flex items-center justify-between">
+                      {typeof txn.confidence === 'number' ? (
+                        <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
+                          confidence: {(txn.confidence * 100).toFixed(0)}%
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      {txn.tags && txn.tags.length > 0 ? (
+                        <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
+                          {txn.tags.join(', ')}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 ))
               )}

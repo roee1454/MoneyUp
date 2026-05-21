@@ -3,12 +3,13 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScraperController } from './scraper.controller';
 import { ScraperService } from './scraper.service';
-import { HapoalimScraper } from './scrapers/hapoalim-scraper';
-import { MaxScraper } from './scrapers/max-scraper';
-import { IsracardScraper } from './scrapers/isracard-scraper';
+import { HapoalimScraper } from './scrapers/banks/hapoalim';
+import { MaxScraper } from './scrapers/credit/max';
+import { IsracardScraper } from './scrapers/credit/isracard';
 import { ScraperFactory } from './scraper-factory.service';
 import { VaultEntity } from './entities/vault.entity';
 import { ScrapedCacheEntity } from './entities/cache.entity';
+import { MerchantAnnotationEntity } from './entities/merchant-annotation.entity';
 
 @Module({
   imports: [
@@ -19,10 +20,10 @@ import { ScrapedCacheEntity } from './entities/cache.entity';
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
       database: 'data/vault.db',
-      entities: [VaultEntity, ScrapedCacheEntity],
+      entities: [VaultEntity, ScrapedCacheEntity, MerchantAnnotationEntity],
       synchronize: true,
     }),
-    TypeOrmModule.forFeature([VaultEntity, ScrapedCacheEntity]),
+    TypeOrmModule.forFeature([VaultEntity, ScrapedCacheEntity, MerchantAnnotationEntity]),
   ],
   controllers: [ScraperController],
   providers: [

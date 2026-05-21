@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { HapoalimScraper } from './scrapers/hapoalim-scraper';
-import { MaxScraper } from './scrapers/max-scraper';
-import { IsracardScraper } from './scrapers/isracard-scraper';
-import { BaseScraper } from './scrapers/base-scraper';
+import { HapoalimScraper } from './scrapers/banks/hapoalim';
+import { MaxScraper } from './scrapers/credit/max';
+import { IsracardScraper } from './scrapers/credit/isracard';
+import { BaseScraper } from './scrapers/base';
 
 @Injectable()
 export class ScraperFactory {

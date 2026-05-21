@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BaseScraper } from './base-scraper';
+import { BaseScraper } from '../base';
 import { CompanyTypes, createScraper, ScraperCredentials } from 'israeli-bank-scrapers';
 import { ScraperResponse } from '@moneyup/types';
 
 @Injectable()
-export class MaxScraper extends BaseScraper {
+export class IsracardScraper extends BaseScraper {
   constructor(configService: ConfigService) {
     super(configService);
   }
 
-  readonly companyId = CompanyTypes.max;
+  readonly companyId = CompanyTypes.isracard;
 
   protected async simulateScrape(_credentials: ScraperCredentials): Promise<ScraperResponse> {
     try {
@@ -20,25 +20,25 @@ export class MaxScraper extends BaseScraper {
         status: 'SUCCESS',
         accounts: [
           {
-            accountNumber: 'MAX-5458',
-            balance: -1840,
+            accountNumber: 'ISRACARD-1122',
+            balance: -2450,
             transactions: [
               {
-                id: 'txn_max_1',
-                date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-                amount: -420,
-                chargedAmount: -420,
-                description: 'קנייה באמזון',
+                id: 'txn_isracard_1',
+                date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                processedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: -120,
+                chargedAmount: -120,
+                description: 'וולט מרקט',
                 originalCurrency: 'ILS',
               },
               {
-                id: 'txn_max_2',
-                date: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-                amount: -95,
-                chargedAmount: -95,
-                description: 'תחנת דלק פז',
+                id: 'txn_isracard_2',
+                date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                processedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: -350,
+                chargedAmount: -350,
+                description: 'זארה קניון',
                 originalCurrency: 'ILS',
               },
             ],
@@ -48,7 +48,7 @@ export class MaxScraper extends BaseScraper {
     } catch (err: any) {
       return {
         status: 'FAILED',
-        error: err?.message || 'Unexpected bank scraper crash occurred',
+        error: err?.message || 'Unexpected credit card scraper crash occurred',
       };
     }
   }
@@ -80,7 +80,7 @@ export class MaxScraper extends BaseScraper {
           status: 'FAILED',
           error: errorParts.length > 0
             ? errorParts.join(': ')
-            : 'Unknown error occurred during bank scraping',
+            : 'Unknown error occurred during credit card scraping',
         };
       }
 
@@ -92,7 +92,7 @@ export class MaxScraper extends BaseScraper {
     } catch (err: any) {
       return {
         status: 'FAILED',
-        error: err?.message || 'Unexpected bank scraper crash occurred',
+        error: err?.message || 'Unexpected credit card scraper crash occurred',
       };
     }
   }

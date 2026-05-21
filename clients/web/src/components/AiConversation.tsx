@@ -7,7 +7,6 @@ import { api } from '@/lib/api';
 import type { AiProvider } from '@/components/AiIcon';
 import { Button } from '@/components/ui/button';
 import { PremiumInput } from '@/components/ui/premium-input';
-import { PremiumCard } from '@/components/ui/premium-card';
 import { Select, SelectItem } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -149,34 +148,36 @@ export function AiConversation({ provider, preferredModel }: AiConversationProps
   }
 
   return (
-    <PremiumCard className="space-y-4 min-h-[560px] max-h-[800px] flex flex-col">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-black text-zinc-950 dark:text-white">שיחה עם עוזר AI</h2>
-        <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
-          {provider.toUpperCase()}
-        </span>
-      </div>
-
-      <div dir='rtl' className="flex-1 overflow-y-auto border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/30 p-3 space-y-2">
+    <div className="h-full min-h-0 flex flex-col gap-3">
+      <div
+        dir="rtl"
+        className={cn(
+          'flex-1 min-h-0 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 px-3 py-4 pb-6 md:px-5 md:py-5 md:pb-7 space-y-3',
+          messages.length > 0 ? 'overflow-y-auto' : 'overflow-hidden',
+        )}
+      >
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-center">
-            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
               שאל שאלה כדי להתחיל שיחה עם העוזר החכם
             </p>
           </div>
         ) : (
           messages.map((message) => (
-            <div key={message.id} className={`flex ${message.role === 'assistant' ? 'justify-end' : 'justify-start'}`}>
+            <div
+              key={message.id}
+              className={`flex ${message.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
+            >
               <div
                 className={
                   message.role === 'user'
-                    ? 'max-w-[85%] bg-zinc-800 text-white px-3 py-2 text-xs font-semibold'
-                    : 'max-w-[85%] border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200'
+                    ? 'max-w-[90%] rounded-[1.75rem] rounded-br-md bg-zinc-900 text-white px-5 py-3 text-sm font-semibold'
+                    : 'max-w-[90%] rounded-[1.75rem] rounded-bl-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-5 py-3 text-sm font-semibold text-zinc-800 dark:text-zinc-200'
                 }
               >
                 <div
                   className={cn(
-                    'markdown-content max-w-none wrap-break-word space-y-1.5 leading-relaxed text-right',
+                    'markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right',
                     message.role === 'user' ? 'text-white' : 'text-zinc-800 dark:text-zinc-200',
                   )}
                 >
@@ -192,33 +193,36 @@ export function AiConversation({ provider, preferredModel }: AiConversationProps
       </div>
 
       {error ? (
-        <p className="text-[11px] font-bold text-red-500 bg-red-50 dark:bg-red-950/30 p-2 border border-red-200/50 dark:border-red-900/30 text-right">
+        <p className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/30 px-4 py-2.5 rounded-2xl border border-red-200/50 dark:border-red-900/30 text-right">
           {error}
         </p>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+      <form
+        onSubmit={handleSubmit}
+        className="mt-auto flex items-center gap-2 rounded-4xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-2.5 py-2"
+      >
         {debugEnabled && (
           <Button
             type="button"
             onClick={() => setShowDebug(true)}
             variant="outline"
-            className="h-11 w-11 rounded-none border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-0 text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-100 flex items-center justify-center shrink-0 cursor-pointer"
+            className="h-12 w-12 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-0 text-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-100 flex items-center justify-center shrink-0 cursor-pointer"
           >
-            <Sliders className="h-4 w-4" />
+            <Sliders className="h-4.5 w-4.5" />
           </Button>
         )}
         <PremiumInput
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder="הקלד כאן שאלה..."
-          className="w-full h-11"
+          className="w-full h-12 rounded-full text-sm font-semibold"
           disabled={isLoading || !selectedModel}
         />
         <Button
           type="submit"
           disabled={!prompt.trim() || isLoading || !selectedModel}
-          className="h-11 rounded-none px-4 font-bold text-xs bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100"
+          className="h-12 rounded-full px-5 font-bold text-sm bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100"
         >
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           <span className="hidden sm:inline">{isLoading ? 'שולח...' : 'שלח'}</span>
@@ -231,7 +235,11 @@ export function AiConversation({ provider, preferredModel }: AiConversationProps
       {/* Debug Advanced Parameter Dialog */}
       {debugEnabled && (
         <Dialog open={showDebug} onOpenChange={setShowDebug}>
-          <DialogContent className="max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none text-right" dir="rtl" showCloseButton={true}>
+          <DialogContent
+            className="max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl text-right"
+            dir="rtl"
+            showCloseButton={true}
+          >
             <DialogHeader className="text-right">
               <DialogTitle className="text-base font-black text-zinc-950 dark:text-white">הגדרות דיבאג מתקדמות</DialogTitle>
               <DialogDescription className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
@@ -285,7 +293,7 @@ export function AiConversation({ provider, preferredModel }: AiConversationProps
               <Button
                 type="button"
                 onClick={() => setShowDebug(false)}
-                className="w-full sm:w-auto h-9 text-xs font-bold bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 rounded-none"
+                className="w-full sm:w-auto h-10 text-xs font-bold bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 rounded-full px-6"
               >
                 סגור הגדרות
               </Button>
@@ -293,6 +301,6 @@ export function AiConversation({ provider, preferredModel }: AiConversationProps
           </DialogContent>
         </Dialog>
       )}
-    </PremiumCard>
+    </div>
   );
 }

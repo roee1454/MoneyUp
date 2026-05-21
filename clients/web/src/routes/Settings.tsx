@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Loader2, Sparkles, Building2, Plus, PenSquare } from 'lucide-react';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
-import { useAccounts } from '@/hooks/useAccounts';
+import { useAccounts, isCreditCompanyBankId } from '@/hooks/useAccounts';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { Button } from '@/components/ui/button';
 import { AddBankAccountDialog } from '@/components/AddBankAccountDialog';
@@ -82,10 +82,25 @@ export default function Settings() {
                     </div>
                   </div>
                   <div className="text-left">
-                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      ₪{acc.balance}
-                    </p>
-                    <p className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 mt-0.5">מסונכרן</p>
+                    {isCreditCompanyBankId(acc.bankId) ? (
+                      <>
+                        <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                          {(acc.transactions?.length ?? 0).toLocaleString('he-IL')} תנועות
+                        </p>
+                        <p className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 mt-0.5">
+                          חברת אשראי
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          ₪{acc.balance}
+                        </p>
+                        <p className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 mt-0.5">
+                          עו״ש
+                        </p>
+                      </>
+                    )}
                   </div>
                 </PremiumCard>
               ))}

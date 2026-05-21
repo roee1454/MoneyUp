@@ -1,9 +1,10 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
-import { ScraperService } from './scraper.service';
+import { ScraperService, type ScanIncomeRequest } from './scraper.service';
 import { ScraperFactory } from './scraper-factory.service';
 import { ScraperCredentials } from 'israeli-bank-scrapers';
 import { randomUUID } from 'crypto';
+import type { UnifiedTransaction } from '@moneyup/types';
 
 type PublicScraperErrorCode =
   | 'INVALID_CREDENTIALS'
@@ -224,6 +225,46 @@ export class ScraperController {
   @MessagePattern('ping')
   ping(): string {
     return 'pong';
+  }
+
+  @MessagePattern('scraper_scan_income')
+  async scanIncome(
+    data: {
+      accounts: Array<{
+        bankId: string;
+        accountNumber?: string;
+        transactions?: UnifiedTransaction[];
+      }>;
+      period?: 'current' | 'previous' | 'both';
+      startDate?: string;
+      endDate?: string;
+      debug?: boolean;
+    },
+  ) {
+    const payload: ScanIncomeRequest = {
+      accounts: data.accounts ?? [],
+      period: data.period,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      debug: data.debug,
+    };
+    return this.scraperService.scanIncome(payload);
+  }
+
+  @MessagePattern('scraper_upsert_annotations')
+  async upsertAnnotations(
+    data: {
+      annotations: Array<{
+        normalizedMerchant: string;
+        displayMerchant: string;
+        category: string;
+        source?: 'ai' | 'manual' | 'rule_seed';
+        model?: string;
+        confidence?: number;
+      }>;
+    },
+  ) {
+    return this.scraperService.upsertMerchantAnnotations(data.annotations ?? []);
   }
 
   private normalizeCredentials(bankId: string, credentials: Record<string, string>): Record<string, string> {

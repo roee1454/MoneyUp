@@ -1,55 +1,44 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BaseScraper } from './base-scraper';
+import { BaseScraper } from '../base';
 import { CompanyTypes, createScraper, ScraperCredentials } from 'israeli-bank-scrapers';
 import { ScraperResponse } from '@moneyup/types';
 
 @Injectable()
-export class HapoalimScraper extends BaseScraper {
+export class MaxScraper extends BaseScraper {
   constructor(configService: ConfigService) {
     super(configService);
   }
 
-  readonly companyId = CompanyTypes.hapoalim;
+  readonly companyId = CompanyTypes.max;
 
-  protected async simulateScrape(credentials: ScraperCredentials): Promise<ScraperResponse> {
+  protected async simulateScrape(_credentials: ScraperCredentials): Promise<ScraperResponse> {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      if ('otpCodeRetriever' in credentials && credentials.otpCodeRetriever) {
-        try {
-          const code = await credentials.otpCodeRetriever();
-          if (code !== '123456') {
-            return { status: 'FAILED', error: 'Invalid OTP code' };
-          }
-        } catch (err: any) {
-          return { status: 'FAILED', error: err?.message || 'OTP challenge failed' };
-        }
-      }
 
       return {
         status: 'SUCCESS',
         accounts: [
           {
-            accountNumber: '12-345-67890',
-            balance: 14500,
+            accountNumber: 'MAX-5458',
+            balance: -1840,
             transactions: [
               {
-                id: 'txn_hapoalim_1',
-                date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-                amount: -250,
-                chargedAmount: -250,
-                description: 'שופרסל שלי',
+                id: 'txn_max_1',
+                date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+                processedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: -420,
+                chargedAmount: -420,
+                description: 'קנייה באמזון',
                 originalCurrency: 'ILS',
               },
               {
-                id: 'txn_hapoalim_2',
-                date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-                processedDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-                amount: 5200,
-                chargedAmount: 5200,
-                description: 'העברה נכנסת - מעסיק',
+                id: 'txn_max_2',
+                date: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+                processedDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: -95,
+                chargedAmount: -95,
+                description: 'תחנת דלק פז',
                 originalCurrency: 'ILS',
               },
             ],
@@ -81,8 +70,6 @@ export class HapoalimScraper extends BaseScraper {
         timeout: timeoutMs,
         defaultTimeout: defaultTimeoutMs,
         storeFailureScreenShotPath: debugEnabled ? 'data/scraper-failures' : undefined,
-        additionalTransactionInformation: true,
-        includeRawTransaction: true,
       });
 
       const scrapeResult = await scraper.scrape(credentials);

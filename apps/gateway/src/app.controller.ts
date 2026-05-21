@@ -23,6 +23,7 @@ import { firstValueFrom, Observable } from 'rxjs';
 import { map, timeout } from 'rxjs/operators';
 
 import { ConnectScraperDto, SubmitChallengeDto } from '@moneyup/types';
+import { RedisCacheService } from './redis-cache.service';
 
 type UserPayload = {
   id: string;
@@ -35,19 +36,136 @@ type UserPayload = {
   updatedAt: string;
 };
 
+type ScanIncomeCategory = {
+  name: string;
+  amount: number;
+  count: number;
+};
+
+type ScanIncomeResponse = {
+  totalIncome: number;
+  totalExpenses: number;
+  categories: ScanIncomeCategory[];
+  categoryTransactions: Record<
+    string,
+    Array<{
+      transactionId: string;
+      merchant: string;
+      date: string;
+      amount: number;
+      reason: string;
+      confidence: number;
+      tags: string[];
+    }>
+  >;
+  unresolvedMerchants?: Array<{
+    normalizedMerchant: string;
+    displayMerchant: string;
+  }>;
+  debugTrace?: {
+    period: 'current' | 'previous' | 'both';
+    periodStartIso: string;
+    periodEndIso: string;
+    accountsSummary: Array<{
+      bankId: string;
+      accountNumber: string;
+      isCreditCompany: boolean;
+      transactionCount: number;
+    }>;
+    transactions: Array<{
+      bankId: string;
+      accountNumber: string;
+      transactionId: string;
+      date: string;
+      amount: number;
+      description: string;
+      dedupKey: string;
+      isCreditCompany: boolean;
+      status: string;
+      category?: string;
+      reason: string;
+    }>;
+    finalTotals: {
+      totalIncome: number;
+      totalExpenses: number;
+      categories: ScanIncomeCategory[];
+    };
+  };
+};
+
+type UserAiConfig = {
+  activeAiProvider: 'openai' | 'claude' | 'gemini' | null;
+  preferredModel: string | null;
+  decryptedApiKey: string | null;
+};
+
 @Controller()
 export class AppController {
+  private readonly aiScansDebugEnabled =
+    String(process.env.MONEYUP_AI_SCANS_DEBUG ?? '').toLowerCase() === 'true';
+  private readonly aiCategoryBatchSize = Math.max(
+    1,
+    Number(process.env.MONEYUP_AI_CATEGORY_BATCH_SIZE ?? 50),
+  );
+
   constructor(
     @Inject('AI_SERVICE') private readonly aiServiceClient: ClientProxy,
     @Inject('SCRAPER_SERVICE')
     private readonly scraperServiceClient: ClientProxy,
     @Inject('AUTH_SERVICE') private readonly authServiceClient: ClientProxy,
     @Inject('USERS_SERVICE') private readonly usersServiceClient: ClientProxy,
+    private readonly redisCacheService: RedisCacheService,
   ) { }
 
   @Get('ai')
   async getAiGreeting(): Promise<string> {
     return 'AI gateway endpoint is ready';
+  }
+
+  @Get('ai/scans')
+  async getAiScans(
+    @Req() request: Request,
+    @Query('period') period?: 'current' | 'previous' | 'both',
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ): Promise<ScanIncomeResponse> {
+    const userId = this.requireSessionUserId(request);
+    const normalizedPeriod = this.normalizePeriod(period);
+    return this.getOrCreateAiScans(userId, normalizedPeriod, startDate, endDate);
+  }
+
+  @Get('ai/scans/debug')
+  async getAiScansDebug(
+    @Req() request: Request,
+    @Query('period') period?: 'current' | 'previous' | 'both',
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ): Promise<ScanIncomeResponse> {
+    const userId = this.requireSessionUserId(request);
+    const normalizedPeriod = this.normalizePeriod(period);
+    return this.computeAiScans(userId, undefined, normalizedPeriod, true, startDate, endDate);
+  }
+
+  @Post('ai/scans/annotate')
+  async annotateAiScans(
+    @Req() request: Request,
+    @Body()
+    payload: {
+      period?: 'current' | 'previous' | 'both';
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<ScanIncomeResponse> {
+    const userId = this.requireSessionUserId(request);
+    const normalizedPeriod = this.normalizePeriod(payload.period);
+    const result = await this.runAiAnnotationPass(
+      userId,
+      normalizedPeriod,
+      payload.startDate,
+      payload.endDate,
+    );
+    await this.clearAllAiScansCachePeriods(userId);
+    return result;
   }
 
   @Post('ai/verify')
@@ -170,17 +288,14 @@ export class AppController {
 
   @Post('scrapers/sync')
   async syncAccounts(@Req() request: Request) {
-    const sessionToken = request.cookies?.moneyup_session;
-    if (!sessionToken) {
-      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
-    }
-    const user = this.verifyJwtToken(sessionToken);
-
-    return firstValueFrom(
+    const userId = this.requireSessionUserId(request);
+    const syncedAccounts = await firstValueFrom(
       this.scraperServiceClient
-        .send('sync_accounts', { userId: user.userId })
+        .send<any[]>('sync_accounts', { userId })
         .pipe(timeout(120000)),
     );
+    await this.tryRefreshAiScansCache(userId, syncedAccounts);
+    return syncedAccounts;
   }
 
   @Post('scrapers/connect')
@@ -188,16 +303,12 @@ export class AppController {
     @Body() payload: ConnectScraperDto,
     @Req() request: Request,
   ) {
-    const sessionToken = request.cookies?.moneyup_session;
-    if (!sessionToken) {
-      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
-    }
-    const user = this.verifyJwtToken(sessionToken);
+    const userId = this.requireSessionUserId(request);
 
     const response = await firstValueFrom(
       this.scraperServiceClient
         .send('scrape_and_connect', {
-          userId: user.userId,
+          userId,
           bankId: payload.bankId,
           credentials: payload.credentials,
           startDate: payload.startDate,
@@ -205,6 +316,7 @@ export class AppController {
         .pipe(timeout(180000)),
     );
 
+    await this.clearAllAiScansCachePeriods(userId);
     return response;
   }
 
@@ -213,10 +325,7 @@ export class AppController {
     @Query('sessionId') sessionId: string,
     @Req() request: Request,
   ) {
-    const sessionToken = request.cookies?.moneyup_session;
-    if (!sessionToken) {
-      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
-    }
+    const userId = this.requireSessionUserId(request);
 
     if (!sessionId) {
       throw new Error('sessionId is required');
@@ -227,6 +336,10 @@ export class AppController {
         .send('get_scraper_status', { sessionId })
         .pipe(timeout(10000)),
     );
+
+    if (response?.status === 'SUCCESS') {
+      await this.tryRefreshAiScansCache(userId);
+    }
 
     return response;
   }
@@ -374,20 +487,19 @@ export class AppController {
       preferredModel: string;
     },
   ) {
-    const sessionToken = request.cookies?.moneyup_session;
-    if (!sessionToken) {
-      throw new UnauthorizedException('No active session found');
-    }
-    const session = this.verifyJwtToken(sessionToken);
+    const userId = this.requireSessionUserId(request);
 
     const user = await firstValueFrom(
       this.usersServiceClient
         .send<UserPayload>('user_save_ai_config', {
-          id: session.userId,
+          id: userId,
           ...payload,
         })
         .pipe(timeout(30000)),
     );
+
+    await this.clearAllAiScansCachePeriods(userId);
+    await this.tryRefreshAiScansCache(userId);
 
     return this.toPublicUser(user);
   }
@@ -541,6 +653,339 @@ export class AppController {
     }
   }
 
+  private requireSessionUserId(request: Request): string {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('No active session found');
+    }
+    return this.verifyJwtToken(sessionToken).userId;
+  }
+
+  private getAiScansCacheKey(
+    userId: string,
+    period: 'current' | 'previous' | 'both',
+    startDate?: string,
+    endDate?: string,
+  ): string {
+    if (startDate && endDate) {
+      return `ai_scans:user:${userId}:range:${startDate}:${endDate}`;
+    }
+    return `ai_scans:user:${userId}:period:${period}`;
+  }
+
+  private async getOrCreateAiScans(
+    userId: string,
+    period: 'current' | 'previous' | 'both',
+    startDate?: string,
+    endDate?: string,
+  ): Promise<ScanIncomeResponse> {
+    const cacheKey = this.getAiScansCacheKey(userId, period, startDate, endDate);
+    const cached = await this.redisCacheService.get<ScanIncomeResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const computed = await this.computeAiScans(userId, undefined, period, false, startDate, endDate);
+    await this.redisCacheService.set(cacheKey, computed);
+    return computed;
+  }
+
+  private async tryRefreshAiScansCache(
+    userId: string,
+    accountsOverride?: Array<{
+      bankId: string;
+      accountNumber: string;
+      balance?: number;
+      transactions: any[];
+    }>,
+  ): Promise<void> {
+    try {
+      const periods: Array<'current' | 'previous' | 'both'> = ['current', 'previous', 'both'];
+      for (const period of periods) {
+        const computed = await this.computeAiScans(userId, accountsOverride, period);
+        await this.redisCacheService.set(this.getAiScansCacheKey(userId, period), computed);
+      }
+    } catch {
+      // Keep primary flows resilient; next /ai/scans request will recompute on cache miss.
+      await this.clearAllAiScansCachePeriods(userId);
+    }
+  }
+
+  private async computeAiScans(
+    userId: string,
+    accountsOverride?: Array<{
+      bankId: string;
+      accountNumber: string;
+      balance?: number;
+      transactions: any[];
+    }>,
+    period: 'current' | 'previous' | 'both' = 'current',
+    debug = false,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<ScanIncomeResponse> {
+    const accounts =
+      accountsOverride ??
+      (await firstValueFrom(
+        this.scraperServiceClient.send<any[]>('get_connected_accounts', { userId }).pipe(timeout(60000)),
+      ));
+
+    if (this.aiScansDebugEnabled) {
+      const accountsSummary = (accounts ?? []).map((account) => ({
+        bankId: account?.bankId,
+        accountNumber: account?.accountNumber,
+        transactionCount: Array.isArray(account?.transactions) ? account.transactions.length : 0,
+      }));
+      console.log('[AI_SCANS_DEBUG] raw_accounts', {
+        userId,
+        period,
+        accountsCount: accountsSummary.length,
+        accountsSummary,
+      });
+    }
+
+    const scanResult = await firstValueFrom(
+      this.scraperServiceClient
+        .send<ScanIncomeResponse>('scraper_scan_income', {
+          accounts,
+          period,
+          startDate,
+          endDate,
+          debug,
+        })
+        .pipe(timeout(180000)),
+    );
+
+    if (this.aiScansDebugEnabled) {
+      console.log('[AI_SCANS_DEBUG] computed_categories', {
+        userId,
+        period,
+        totalIncome: scanResult.totalIncome,
+        totalExpenses: scanResult.totalExpenses,
+        categories: scanResult.categories.map((category) => ({
+          name: category.name,
+          amount: category.amount,
+          count: category.count,
+          transactionCount: scanResult.categoryTransactions?.[category.name]?.length ?? 0,
+        })),
+      });
+    }
+
+    return scanResult;
+  }
+
+  private async runAiAnnotationPass(
+    userId: string,
+    period: 'current' | 'previous' | 'both',
+    startDate?: string,
+    endDate?: string,
+  ): Promise<ScanIncomeResponse> {
+    const accounts = await firstValueFrom(
+      this.scraperServiceClient.send<any[]>('get_connected_accounts', { userId }).pipe(timeout(60000)),
+    );
+    const initial = await firstValueFrom(
+      this.scraperServiceClient
+        .send<ScanIncomeResponse>('scraper_scan_income', {
+          accounts,
+          period,
+          startDate,
+          endDate,
+          debug: false,
+        })
+        .pipe(timeout(180000)),
+    );
+    const unresolvedMerchants = initial.unresolvedMerchants ?? [];
+    if (unresolvedMerchants.length === 0) {
+      return initial;
+    }
+    const aiCategoryAnnotations = await this.classifyUnknownMerchantsWithAi(userId, unresolvedMerchants);
+    if (aiCategoryAnnotations.length === 0) {
+      return initial;
+    }
+    await firstValueFrom(
+      this.scraperServiceClient
+        .send('scraper_upsert_annotations', { annotations: aiCategoryAnnotations })
+        .pipe(timeout(60000)),
+    );
+    return firstValueFrom(
+      this.scraperServiceClient
+        .send<ScanIncomeResponse>('scraper_scan_income', {
+          accounts,
+          period,
+          startDate,
+          endDate,
+          debug: false,
+        })
+        .pipe(timeout(180000)),
+    );
+  }
+
+  private async classifyUnknownMerchantsWithAi(
+    userId: string,
+    unresolved: Array<{ normalizedMerchant: string; displayMerchant: string }>,
+  ): Promise<
+    Array<{
+      normalizedMerchant: string;
+      displayMerchant: string;
+      category: string;
+      source: 'ai';
+      model?: string;
+      confidence?: number;
+    }>
+  > {
+    const cfg = await this.resolveUserAiConfig(userId);
+    if (!cfg.activeAiProvider || !cfg.decryptedApiKey || !cfg.preferredModel) {
+      return [];
+    }
+
+    const uniqueMap = new Map<string, string>();
+    for (const item of unresolved) {
+      const key = String(item.normalizedMerchant ?? '').trim();
+      if (!key || uniqueMap.has(key)) continue;
+      uniqueMap.set(key, item.displayMerchant || key);
+    }
+    const uniqueUnknowns = Array.from(uniqueMap.entries()).map(([normalizedMerchant, displayMerchant]) => ({
+      normalizedMerchant,
+      displayMerchant,
+    }));
+    const results: Array<{
+      normalizedMerchant: string;
+      displayMerchant: string;
+      category: string;
+      source: 'ai';
+      model?: string;
+      confidence?: number;
+    }> = [];
+
+    for (let i = 0; i < uniqueUnknowns.length; i += this.aiCategoryBatchSize) {
+      const chunk = uniqueUnknowns.slice(i, i + this.aiCategoryBatchSize);
+      const prompt = this.buildMerchantCategorizationPrompt(chunk);
+      const response = await firstValueFrom(
+        this.aiServiceClient
+          .send<{ text: string }>('ai_prompt', {
+            provider: cfg.activeAiProvider,
+            model: cfg.preferredModel,
+            prompt,
+            apiKey: cfg.decryptedApiKey,
+            temperature: 0,
+            maxTokens: 1200,
+          })
+          .pipe(timeout(120000)),
+      );
+      const parsed = this.parseCategoryAiResponse(response?.text ?? '');
+      for (const item of chunk) {
+        const match = parsed.get(item.normalizedMerchant);
+        results.push({
+          normalizedMerchant: item.normalizedMerchant,
+          displayMerchant: item.displayMerchant,
+          category: this.normalizeCategory(match?.category),
+          source: 'ai',
+          model: cfg.preferredModel,
+          confidence: match?.confidence,
+        });
+      }
+    }
+    return results;
+  }
+
+  private buildMerchantCategorizationPrompt(
+    items: Array<{ normalizedMerchant: string; displayMerchant: string }>,
+  ): string {
+    const categories = [
+      'מזון',
+      'ביגוד',
+      'בידור',
+      'בילויים',
+      'אלקטרוניקה',
+      'אונליין',
+      'דלק/תחבורה',
+      'סופר',
+      'מנויים',
+      'לא מסווג',
+    ];
+    return [
+      'You classify merchants into one category.',
+      `Allowed categories: ${categories.join(', ')}`,
+      'Return ONLY strict JSON array with objects: { "normalizedMerchant": string, "category": string, "confidence": number }.',
+      'If unsure, set category to "לא מסווג".',
+      JSON.stringify(items),
+    ].join('\n');
+  }
+
+  private parseCategoryAiResponse(
+    raw: string,
+  ): Map<string, { category: string; confidence?: number }> {
+    const direct = this.tryParseJsonArray(raw) ?? this.tryParseJsonArray(this.extractJsonBlock(raw));
+    const map = new Map<string, { category: string; confidence?: number }>();
+    for (const entry of direct ?? []) {
+      if (!entry || typeof entry !== 'object') continue;
+      const normalizedMerchant = String((entry as any).normalizedMerchant ?? '').trim();
+      if (!normalizedMerchant) continue;
+      const category = String((entry as any).category ?? '').trim();
+      const confidenceRaw = Number((entry as any).confidence);
+      map.set(normalizedMerchant, {
+        category,
+        confidence: Number.isFinite(confidenceRaw) ? confidenceRaw : undefined,
+      });
+    }
+    return map;
+  }
+
+  private tryParseJsonArray(value: string): Array<Record<string, unknown>> | null {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as Array<Record<string, unknown>>) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private extractJsonBlock(value: string): string {
+    const start = value.indexOf('[');
+    const end = value.lastIndexOf(']');
+    if (start === -1 || end === -1 || end <= start) return '';
+    return value.slice(start, end + 1);
+  }
+
+  private normalizeCategory(category: string | undefined): string {
+    const allowed = new Set([
+      'מזון',
+      'ביגוד',
+      'בידור',
+      'בילויים',
+      'אלקטרוניקה',
+      'אונליין',
+      'דלק/תחבורה',
+      'סופר',
+      'מנויים',
+      'לא מסווג',
+    ]);
+    if (!category) return 'לא מסווג';
+    return allowed.has(category) ? category : 'לא מסווג';
+  }
+
+  private async clearAllAiScansCachePeriods(userId: string): Promise<void> {
+    await Promise.all([
+      this.redisCacheService.del(this.getAiScansCacheKey(userId, 'current')),
+      this.redisCacheService.del(this.getAiScansCacheKey(userId, 'previous')),
+      this.redisCacheService.del(this.getAiScansCacheKey(userId, 'both')),
+      this.redisCacheService.delByPrefix(`ai_scans:user:${userId}:range:`),
+    ]);
+  }
+
+  private normalizePeriod(period?: string): 'current' | 'previous' | 'both' {
+    if (period === 'previous' || period === 'both' || period === 'current') {
+      return period;
+    }
+    return 'current';
+  }
+
+  private async resolveUserAiConfig(userId: string): Promise<UserAiConfig> {
+    return firstValueFrom(
+      this.usersServiceClient.send<UserAiConfig>('user_get_ai_config', userId).pipe(timeout(30000)),
+    );
+  }
+
   private createUnlockTicket(userId: string): string {
     const payload = Buffer.from(
       JSON.stringify({
@@ -601,15 +1046,7 @@ export class AppController {
     }
     const session = this.verifyJwtToken(sessionToken);
 
-    const cfg = await firstValueFrom(
-      this.usersServiceClient
-        .send<{
-          activeAiProvider: 'openai' | 'claude' | 'gemini' | null;
-          preferredModel: string | null;
-          decryptedApiKey: string | null;
-        }>('user_get_ai_config', session.userId)
-        .pipe(timeout(30000)),
-    );
+    const cfg = await this.resolveUserAiConfig(session.userId);
 
     if (cfg.decryptedApiKey && cfg.activeAiProvider === payload.provider) {
       return {
@@ -644,14 +1081,7 @@ export class AppController {
     }
 
     const session = this.verifyJwtToken(sessionToken);
-    const cfg = await firstValueFrom(
-      this.usersServiceClient
-        .send<{
-          activeAiProvider: 'openai' | 'claude' | 'gemini' | null;
-          decryptedApiKey: string | null;
-        }>('user_get_ai_config', session.userId)
-        .pipe(timeout(30000)),
-    );
+    const cfg = await this.resolveUserAiConfig(session.userId);
 
     if (cfg.decryptedApiKey && cfg.activeAiProvider === payload.provider) {
       return {

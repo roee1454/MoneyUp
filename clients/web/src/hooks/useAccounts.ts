@@ -21,6 +21,15 @@ export interface BankAccount {
   transactions: Transaction[];
 }
 
+export function isCreditCompanyBankId(bankId: string): boolean {
+  const normalized = String(bankId ?? '').toLowerCase();
+  return normalized === 'max' || normalized === 'isracard' || normalized === 'cal';
+}
+
+export function isBankAccountBankId(bankId: string): boolean {
+  return !isCreditCompanyBankId(bankId);
+}
+
 export function useAccounts() {
   const session = useAppStore((s) => s.session);
 
@@ -31,6 +40,24 @@ export function useAccounts() {
   });
 }
 
+export function useCreditAccount() {
+  const query = useAccounts();
+  const accounts = (query.data ?? []).filter((account) => isCreditCompanyBankId(account.bankId));
+  return {
+    ...query,
+    accounts,
+  };
+}
+
+export function useBankAccount() {
+  const query = useAccounts();
+  const accounts = (query.data ?? []).filter((account) => isBankAccountBankId(account.bankId));
+  return {
+    ...query,
+    accounts,
+  };
+}
+
 export function useSyncAccounts() {
   const queryClient = useQueryClient();
 
@@ -38,6 +65,7 @@ export function useSyncAccounts() {
     mutationFn: () => api.post('/scrapers/sync'),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
+      await queryClient.invalidateQueries({ queryKey: ['ai-scans'] });
       toast.success('הנתונים סונכרנו בהצלחה מהבנק!');
     },
     onError: () => {
