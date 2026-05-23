@@ -10,7 +10,7 @@ const iconToneClasses: Record<MetricTone, string> = {
   rose: 'text-rose-600 dark:text-rose-400',
   emerald: 'text-emerald-600 dark:text-emerald-400',
   sky: 'text-sky-600 dark:text-sky-400',
-  zinc: 'text-zinc-700 dark:text-zinc-200',
+  zinc: 'text-foreground/80',
 };
 
 interface DashboardMetricCardProps {
@@ -39,23 +39,23 @@ export function DashboardMetricCard({
   return (
     <PremiumCard
       className={cn(
-        'relative min-h-40 overflow-hidden bg-white p-5 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100',
+        'relative min-h-40 overflow-hidden bg-card p-5 text-foreground',
         isLocked && 'opacity-75',
       )}
     >
       <div className="relative z-10 flex h-full flex-col justify-between gap-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1 text-right">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
               {title}
             </p>
-            <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs font-bold text-muted-foreground/80">
               {caption}
             </p>
           </div>
           <div
             className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center border border-zinc-200/80 bg-white/80 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80',
+              'flex h-10 w-10 shrink-0 items-center justify-center border border-border bg-background shadow-sm',
               iconToneClasses[tone],
             )}
           >
@@ -65,15 +65,15 @@ export function DashboardMetricCard({
 
         <div className="space-y-2 text-right">
           {isLoading ? (
-            <div className="ml-auto h-9 w-40 animate-soft-shimmer bg-zinc-200/80 dark:bg-zinc-800/80" />
+            <div className="ml-auto h-9 w-40 animate-soft-shimmer bg-muted/80" />
           ) : isLocked ? (
             <div className="space-y-2">
-              <p className="text-sm font-black text-zinc-500 dark:text-zinc-400">
+              <p className="text-sm font-black text-muted-foreground">
                 {lockedLabel}
               </p>
               <Link
                 to="/settings"
-                className="inline-block border border-zinc-200 bg-white/80 px-3 py-1.5 text-[11px] font-black text-zinc-600 transition-colors hover:border-zinc-400 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:text-white"
+                className="inline-block border border-border bg-background px-3 py-1.5 text-[11px] font-black text-foreground/70 transition-colors hover:border-primary/50 hover:text-primary"
               >
                 עבור להגדרות ←
               </Link>
@@ -84,14 +84,14 @@ export function DashboardMetricCard({
             </div>
           )}
           {isLoading ? (
-            <div className="ml-auto h-3 w-28 animate-soft-shimmer bg-zinc-100 dark:bg-zinc-900" />
+            <div className="ml-auto h-3 w-28 animate-soft-shimmer bg-muted" />
           ) : (
             footer
           )}
         </div>
       </div>
       {isLoading ? (
-        <CircleNotch className="absolute bottom-4 left-4 h-4 w-4 animate-spin text-zinc-400" />
+        <CircleNotch className="absolute bottom-4 left-4 h-4 w-4 animate-spin text-muted-foreground" />
       ) : null}
     </PremiumCard>
   );

@@ -9,7 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useFetchAiModels, useSaveAiConfig, useVerifyAiConnection } from '@/hooks/useAi';
+import {
+  useFetchAiModels,
+  useSaveAiConfig,
+  useVerifyAiConnection,
+} from '@/hooks/useAi';
 import { PremiumInput } from '@/components/ui/premium-input';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { PremiumGridButton } from '@/components/ui/premium-grid-button';
@@ -29,8 +33,14 @@ const providerLabels: Record<Provider, string> = {
   gemini: 'Gemini',
 };
 
-export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProviderDialogProps) {
-  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+export function AddAiProviderDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: AddAiProviderDialogProps) {
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
+    null,
+  );
   const [apiKey, setApiKey] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [isVerified, setIsVerified] = useState(false);
@@ -40,7 +50,7 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
   const verifyMutation = useVerifyAiConnection();
   const saveMutation = useSaveAiConfig();
   const modelsQuery = useFetchAiModels(
-    isVerified ? selectedProvider ?? undefined : undefined,
+    isVerified ? (selectedProvider ?? undefined) : undefined,
     isVerified ? apiKey : undefined,
   );
 
@@ -53,7 +63,10 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
     setIsVerified(false);
     setSelectedModel('');
     try {
-      const res = await verifyMutation.mutateAsync({ provider: selectedProvider, apiKey });
+      const res = await verifyMutation.mutateAsync({
+        provider: selectedProvider,
+        apiKey,
+      });
       if (!res.success) {
         setError('בדיקת החיבור נכשלה');
         return;
@@ -93,8 +106,15 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(v) : handleClose())}>
-      <DialogContent showCloseButton={false} className="max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none p-6 shadow-2xl" dir="rtl">
+    <Dialog
+      open={open}
+      onOpenChange={(v) => (v ? onOpenChange(v) : handleClose())}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
+        dir="rtl"
+      >
         {isDone && selectedProvider ? (
           <ConnectedView
             provider={selectedProvider}
@@ -103,9 +123,11 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
           />
         ) : !selectedProvider ? (
           <div className="space-y-5">
-            <DialogHeader className="text-right space-y-1 pb-4 border-b border-zinc-100 dark:border-zinc-900">
-              <DialogTitle className="text-xl font-black text-zinc-950 dark:text-white">חיבור עוזר AI חדש</DialogTitle>
-              <DialogDescription className="text-xs font-semibold text-zinc-400">
+            <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
+              <DialogTitle className="text-xl font-black text-foreground">
+                חיבור עוזר AI חדש
+              </DialogTitle>
+              <DialogDescription className="text-xs font-semibold text-muted-foreground">
                 סנכרן באופן מאובטח מפתח API עבור סוכן הבינה המלאכותית שלך
               </DialogDescription>
             </DialogHeader>
@@ -131,23 +153,23 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
           />
         ) : !isVerified ? (
           <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
-            <DialogHeader className="text-right space-y-1 pb-4 border-b border-zinc-100 dark:border-zinc-900">
+            <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <AiIcon provider={selectedProvider} size="md" />
                 <div>
-                  <DialogTitle className="text-lg font-black text-zinc-950 dark:text-white">
+                  <DialogTitle className="text-lg font-black text-foreground">
                     התחברות ל-{providerLabels[selectedProvider]}
                   </DialogTitle>
-                  <DialogDescription className="text-xs font-semibold text-zinc-400">
+                  <DialogDescription className="text-xs font-semibold text-muted-foreground">
                     הזן את מפתח ה-API כדי לאמת את החיבור
                   </DialogDescription>
                 </div>
               </div>
             </DialogHeader>
 
-             <div className="space-y-4 pt-4">
+            <div className="space-y-4 pt-4">
               <div className="space-y-1.5 text-right">
-                <label className="text-sm font-bold text-zinc-500 dark:text-zinc-400">
+                <label className="text-sm font-bold text-muted-foreground">
                   מפתח API
                 </label>
                 <PremiumInput
@@ -160,13 +182,14 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
               </div>
 
               <PremiumCard variant="warning">
-                <p className="text-sm font-black text-zinc-700 dark:text-zinc-200 leading-relaxed">
-                  מפתח ה-API אינו מועבר לשום צד שלישי. הוא מוצפן באופן מקומי על המחשב שלך בלבד!
+                <p className="text-sm font-black text-foreground/70 leading-relaxed">
+                  מפתח ה-API אינו מועבר לשום צד שלישי. הוא מוצפן באופן מקומי על
+                  המחשב שלך בלבד!
                 </p>
               </PremiumCard>
 
               {error && (
-                <p className="text-[11px] font-bold text-red-500 mt-2 bg-red-50 dark:bg-red-950/30 p-2.5 border border-red-200/50 dark:border-red-900/30 text-right">
+                <p className="text-[11px] font-bold text-destructive mt-2 bg-destructive/10 p-2.5 border border-destructive/20 text-right">
                   {error}
                 </p>
               )}
@@ -175,7 +198,7 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-none font-bold text-xs h-10 border-zinc-200 dark:border-zinc-850 cursor-pointer"
+                  className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
                   onClick={() => {
                     setSelectedProvider(null);
                     setApiKey('');
@@ -187,7 +210,7 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
                 <Button
                   onClick={() => void handleVerify()}
                   disabled={!canVerify}
-                  className="rounded-none font-bold text-xs h-10 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 cursor-pointer"
+                  className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
                 >
                   בדוק חיבור
                 </Button>
@@ -196,12 +219,14 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
           </div>
         ) : (
           <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
-            <DialogHeader className="text-right space-y-1 pb-4 border-b border-zinc-100 dark:border-zinc-900">
+            <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <AiIcon provider={selectedProvider} size="md" />
                 <div>
-                  <DialogTitle className="text-lg font-black text-zinc-950 dark:text-white">בחירת מודל מועדף</DialogTitle>
-                  <DialogDescription className="text-xs font-semibold text-zinc-400">
+                  <DialogTitle className="text-lg font-black text-foreground">
+                    בחירת מודל מועדף
+                  </DialogTitle>
+                  <DialogDescription className="text-xs font-semibold text-muted-foreground">
                     בחר מודל ברירת מחדל מתוך רשימת המודלים הזמינים בחשבונך
                   </DialogDescription>
                 </div>
@@ -210,7 +235,7 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
 
             <div className="space-y-4 pt-4">
               <div className="space-y-1.5 text-right">
-                <label className="text-sm font-bold text-zinc-500 dark:text-zinc-400">
+                <label className="text-sm font-bold text-muted-foreground">
                   מודל ברירת מחדל
                 </label>
                 <Select
@@ -228,7 +253,7 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
               </div>
 
               {error && (
-                <p className="text-[11px] font-bold text-red-500 mt-2 bg-red-50 dark:bg-red-950/30 p-2.5 border border-red-200/50 dark:border-red-900/30 text-right">
+                <p className="text-[11px] font-bold text-destructive mt-2 bg-destructive/10 p-2.5 border border-destructive/20 text-right">
                   {error}
                 </p>
               )}
@@ -237,7 +262,7 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-none font-bold text-xs h-10 border-zinc-200 dark:border-zinc-850 cursor-pointer"
+                  className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
                   onClick={() => {
                     setIsVerified(false);
                     setSelectedModel('');
@@ -263,19 +288,31 @@ export function AddAiProviderDialog({ open, onOpenChange, onSuccess }: AddAiProv
   );
 }
 
-function SyncingView({ provider, providerName }: { provider: Provider; providerName: string }) {
+function SyncingView({
+  provider,
+  providerName,
+}: {
+  provider: Provider;
+  providerName: string;
+}) {
   return (
     <div className="animate-in fade-in-50 duration-300 slide-in-from-bottom-1 min-h-[320px] flex flex-col items-center justify-center text-center gap-6">
       <div className="relative flex items-center justify-center h-44 w-44">
-        <span className="absolute h-32 w-32 rounded-full border border-zinc-300/70 dark:border-zinc-700/80 animate-ping [animation-duration:1.8s]" />
-        <span className="absolute h-24 w-24 rounded-full border border-zinc-400/60 dark:border-zinc-600/70 animate-ping [animation-duration:1.8s] [animation-delay:350ms]" />
-        <span className="absolute h-16 w-16 rounded-full bg-zinc-100/90 dark:bg-zinc-900/80 animate-pulse" />
-        <AiIcon provider={provider} size="xl" className="relative z-10 animate-pulse" />
+        <span className="absolute h-32 w-32 rounded-full border border-border animate-ping [animation-duration:1.8s]" />
+        <span className="absolute h-24 w-24 rounded-full border border-border animate-ping [animation-duration:1.8s] [animation-delay:350ms]" />
+        <span className="absolute h-16 w-16 rounded-full bg-muted animate-pulse" />
+        <AiIcon
+          provider={provider}
+          size="xl"
+          className="relative z-10 animate-pulse"
+        />
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">בודק חיבור...</p>
-        <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{providerName}</p>
+        <p className="text-sm font-black text-foreground">בודק חיבור...</p>
+        <p className="text-xs font-semibold text-muted-foreground">
+          {providerName}
+        </p>
       </div>
     </div>
   );
@@ -293,20 +330,24 @@ function ConnectedView({
   return (
     <div className="animate-in fade-in-50 duration-300 slide-in-from-bottom-1 min-h-[320px] flex flex-col items-center justify-center text-center gap-6">
       <div className="relative flex items-center justify-center h-44 w-44">
-        <div className="absolute -top-1 h-11 w-11 rounded-full bg-emerald-600 flex items-center justify-center shadow-lg z-20 border-4 border-white dark:border-zinc-950">
+        <div className="absolute -top-1 h-11 w-11 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg z-20 border-4 border-card">
           <Check className="h-6 w-6 text-white stroke-3" />
         </div>
         <AiIcon provider={provider} size="xl" className="relative z-10" />
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">עוזר AI הוגדר בהצלחה!</p>
-        <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{providerName} מוגדר כעת</p>
+        <p className="text-sm font-black text-foreground">
+          עוזר AI הוגדר בהצלחה!
+        </p>
+        <p className="text-xs font-semibold text-muted-foreground">
+          {providerName} מוגדר כעת
+        </p>
       </div>
 
       <Button
         onClick={onClose}
-        className="rounded-none font-bold text-xs h-10 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 cursor-pointer px-8"
+        className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-8"
       >
         סגור
       </Button>

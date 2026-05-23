@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowsDownUp, TrendDown, TrendUp, Wallet } from '@phosphor-icons/react';
+import {
+  ArrowsDownUp,
+  TrendDown,
+  TrendUp,
+  Wallet,
+} from '@phosphor-icons/react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   isBankAccountBankId,
@@ -130,10 +135,8 @@ export default function Dashboard() {
     setDashboardRange({
       startDate: range.startDate,
       endDate: range.endDate,
-      committedStartDate:
-        dashboardRange.committedStartDate ?? range.startDate,
-      committedEndDate:
-        dashboardRange.committedEndDate ?? range.endDate,
+      committedStartDate: dashboardRange.committedStartDate ?? range.startDate,
+      committedEndDate: dashboardRange.committedEndDate ?? range.endDate,
     });
   }, [
     dashboardRange.committedEndDate,
@@ -150,8 +153,12 @@ export default function Dashboard() {
     refetch,
   } = useAccounts({ startDate, endDate });
   const { data: userProfile } = useUserProfile(session?.userId);
-  const hasCreditAccounts = accounts.some((account) => isCreditCompanyBankId(account.bankId));
-  const hasBankAccounts = accounts.some((account) => isBankAccountBankId(account.bankId));
+  const hasCreditAccounts = accounts.some((account) =>
+    isCreditCompanyBankId(account.bankId),
+  );
+  const hasBankAccounts = accounts.some((account) =>
+    isBankAccountBankId(account.bankId),
+  );
   const hasAiProvider = !!userProfile?.activeAiProvider;
   const {
     data: scans,
@@ -164,17 +171,21 @@ export default function Dashboard() {
     endDate,
   });
   const annotateMutation = useAnnotateSpendingScans();
-  const isSyncing = syncState.status === 'running' || syncState.status === 'reconnecting';
+  const isSyncing =
+    syncState.status === 'running' || syncState.status === 'reconnecting';
   const isInitialLoad = isLoadingAccounts;
   const isAccountsRefreshing = isFetchingAccounts && !isInitialLoad;
   const isScansInitialLoading = isLoadingScans;
   const isScansRefreshing = isFetchingScans && !isLoadingScans;
   const maxEndDate = toDateInputValue(new Date());
   const minStartDate = useMemo(() => {
-    const limits = accounts.map((account) => getMinimumStartDateForBank(account.bankId));
+    const limits = accounts.map((account) =>
+      getMinimumStartDateForBank(account.bankId),
+    );
     return limits.length > 0 ? limits.sort().at(-1) : undefined;
   }, [accounts]);
-  const isAnyActionBusy = isSyncing || isScansInitialLoading || isScansRefreshing || isWidgetBusy;
+  const isAnyActionBusy =
+    isSyncing || isScansInitialLoading || isScansRefreshing || isWidgetBusy;
 
   useEffect(() => {
     setDashboardRange({
@@ -185,7 +196,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (syncState.status !== 'done') return;
-    if (syncState.rangeStartDate !== startDate || syncState.rangeEndDate !== endDate) {
+    if (
+      syncState.rangeStartDate !== startDate ||
+      syncState.rangeEndDate !== endDate
+    ) {
       return;
     }
     setDashboardRange({
@@ -244,7 +258,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (syncState.status !== 'failed') return;
-    if (syncState.rangeStartDate !== startDate || syncState.rangeEndDate !== endDate) {
+    if (
+      syncState.rangeStartDate !== startDate ||
+      syncState.rangeEndDate !== endDate
+    ) {
       return;
     }
     if (
@@ -278,12 +295,18 @@ export default function Dashboard() {
       .filter((account) => isBankAccountBankId(account.bankId))
       .reduce((sum, account) => sum + (Number(account.balance) || 0), 0);
   }, [accounts]);
-  const isCreditExpensesLoading = hasCreditAccounts && (isScansInitialLoading || !scans);
-  const isIncomeLoading = hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length);
+  const isCreditExpensesLoading =
+    hasCreditAccounts && (isScansInitialLoading || !scans);
+  const isIncomeLoading =
+    hasBankAccounts &&
+    (isInitialLoad || isAccountsRefreshing || !accounts.length);
   const isNetSpendingLoading =
     (hasCreditAccounts && (isScansInitialLoading || !scans)) ||
-    (hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length));
-  const isBalanceLoading = hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length);
+    (hasBankAccounts &&
+      (isInitialLoad || isAccountsRefreshing || !accounts.length));
+  const isBalanceLoading =
+    hasBankAccounts &&
+    (isInitialLoad || isAccountsRefreshing || !accounts.length);
 
   const recentIncomeTransactions = useMemo(() => {
     return accounts
@@ -300,7 +323,9 @@ export default function Dashboard() {
               accountLabel,
               amount,
               date: txn.date,
-              description: String(txn.description || txn.memo || 'הכנסה').trim(),
+              description: String(
+                txn.description || txn.memo || 'הכנסה',
+              ).trim(),
             };
           })
           .filter((txn) => Number.isFinite(txn.amount) && txn.amount > 0);
@@ -310,7 +335,10 @@ export default function Dashboard() {
   const dashboardTotalIncome = useMemo(() => {
     return recentIncomeTransactions.reduce((sum, txn) => sum + txn.amount, 0);
   }, [recentIncomeTransactions]);
-  const adjustedTotalExpenses = Math.max((scans?.totalExpenses ?? 0) - excludedExpenseAmount, 0);
+  const adjustedTotalExpenses = Math.max(
+    (scans?.totalExpenses ?? 0) - excludedExpenseAmount,
+    0,
+  );
   const netSpending = dashboardTotalIncome - adjustedTotalExpenses;
 
   function handleStartDateChange(value: string) {
@@ -339,8 +367,6 @@ export default function Dashboard() {
     }
   }, [endDate, minStartDate, startDate]);
 
-
-
   useEffect(() => {
     if (syncState.status === 'done' || syncState.status === 'failed') {
       void refetchScans();
@@ -367,27 +393,32 @@ export default function Dashboard() {
   return (
     <section className="space-y-7 py-8" dir="rtl">
       <div className="grid gap-5 lg:grid-cols-[1fr_380px] lg:items-stretch">
-        <div className="relative overflow-hidden border border-zinc-200 bg-linear-to-br from-white via-zinc-50 to-zinc-100/70 p-6 shadow-sm dark:border-zinc-800 dark:from-zinc-950 dark:via-zinc-950 dark:to-zinc-900/50">
-          <div className="absolute -left-16 top-0 h-32 w-32 rounded-full bg-emerald-200/30 blur-3xl dark:bg-emerald-500/10" />
+        <div className="relative overflow-hidden border border-border bg-linear-to-br from-background via-muted/20 to-muted/40 p-6 shadow-sm">
+          <div className="absolute -left-16 top-0 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />
           <div className="relative z-10 space-y-3 text-right">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
               דשבורד MoneyUp
             </p>
-            <h1 className="text-4xl font-black tracking-tight text-zinc-950 dark:text-white md:text-5xl">
-              {greeting}, <span className="text-zinc-400 dark:text-zinc-500">{session?.username}</span>
+            <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl">
+              {greeting},{' '}
+              <span className="text-muted-foreground">{session?.username}</span>
             </h1>
             {!isInitialLoad && !hasAccounts ? (
               <div className="flex flex-wrap items-center gap-3 pt-1">
-                <p className="text-sm font-semibold leading-relaxed text-zinc-500 dark:text-zinc-400">
+                <p className="text-sm font-semibold leading-relaxed text-muted-foreground">
                   חבר מקור נתונים כדי להתחיל.
                 </p>
-                <Link to="/settings" className="shrink-0 border border-zinc-300 bg-white/80 px-4 py-1.5 text-xs font-black text-zinc-700 transition-colors hover:border-zinc-500 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-white">
+                <Link
+                  to="/settings"
+                  className="shrink-0 border border-border bg-card/80 px-4 py-1.5 text-xs font-black text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                >
                   עבור להגדרות ←
                 </Link>
               </div>
             ) : (
-              <p className="max-w-2xl text-sm font-semibold leading-relaxed text-zinc-500 dark:text-zinc-400">
-                הוצאות מגיעות מכרטיסי אשראי. הכנסות ויתרה מגיעות מחשבונות בנק. טווח התאריכים משותף לכל הדשבורד.
+              <p className="max-w-2xl text-sm font-semibold leading-relaxed text-muted-foreground">
+                הוצאות מגיעות מכרטיסי אשראי. הכנסות ויתרה מגיעות מחשבונות בנק.
+                טווח התאריכים משותף לכל הדשבורד.
               </p>
             )}
           </div>
@@ -416,15 +447,23 @@ export default function Dashboard() {
           isLocked={!hasCreditAccounts}
           lockedLabel="נדרש חיבור לחברת אשראי"
           footer={
-            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
-              {hasCreditAccounts ? `${scans?.categories.length ?? 0} קטגוריות פעילות` : 'חבר חברת אשראי כדי לראות הוצאות'}
-              {excludedExpenseAmount > 0 ? ` • הוחרגו ${formatMoney(excludedExpenseAmount)}` : ''}
+            <p className="text-[11px] font-bold text-muted-foreground">
+              {hasCreditAccounts
+                ? `${scans?.categories.length ?? 0} קטגוריות פעילות`
+                : 'חבר חברת אשראי כדי לראות הוצאות'}
+              {excludedExpenseAmount > 0
+                ? ` • הוחרגו ${formatMoney(excludedExpenseAmount)}`
+                : ''}
             </p>
           }
         />
         <DashboardMetricCard
           title="סך הכנסות"
-          value={<span className="block translate-y-4">{formatMoney(dashboardTotalIncome)}</span>}
+          value={
+            <span className="block translate-y-4">
+              {formatMoney(dashboardTotalIncome)}
+            </span>
+          }
           caption="העברות, משכורות והפקדות"
           icon={<TrendUp className="h-5 w-5" weight="duotone" />}
           tone="emerald"
@@ -433,7 +472,7 @@ export default function Dashboard() {
           lockedLabel="נדרש חיבור לחשבון בנק"
           footer={
             <div className="flex flex-row justify-between items-end gap-2">
-              <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+              <p className="text-[11px] font-bold text-muted-foreground">
                 {hasBankAccounts
                   ? `${recentIncomeTransactions.length.toLocaleString('he-IL')} תנועות בטווח`
                   : 'יש לחבר חשבון בנק כדי לראות תנועות.'}
@@ -442,7 +481,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setIsIncomeDialogOpen(true)}
-                  className="h-8 border border-emerald-200 bg-white/70 px-3 text-[11px] font-black text-emerald-700 transition-colors hover:bg-emerald-50 dark:border-emerald-900 dark:bg-zinc-950/60 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
+                  className="h-8 border border-emerald-500/20 bg-emerald-500/5 px-3 text-[11px] font-black text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-emerald-400"
                 >
                   הצג הכנסות
                 </button>
@@ -457,17 +496,27 @@ export default function Dashboard() {
           icon={<ArrowsDownUp className="h-5 w-5" weight="duotone" />}
           tone={netSpending < 0 ? 'rose' : 'emerald'}
           isLoading={isNetSpendingLoading}
-          lockedLabel='נדרש חיבור לחשבון בנק'
+          lockedLabel="נדרש חיבור לחשבון בנק"
           isLocked={!hasBankAccounts}
           footer={
-            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
-              { hasBankAccounts ? <span>{netSpending < 0 ? 'הוצאה נטו' : 'יתרה חיובית בטווח'}</span> : <span className='text-[11px] font-bold text-zinc-500 dark:text-zinc-400'>יש לחבר חשבון בנק כדי לראות תזרים כולל.</span> }
+            <p className="text-[11px] font-bold text-muted-foreground">
+              {hasBankAccounts ? (
+                <span>
+                  {netSpending < 0 ? 'הוצאה נטו' : 'יתרה חיובית בטווח'}
+                </span>
+              ) : (
+                <span className="text-[11px] font-bold text-muted-foreground">
+                  יש לחבר חשבון בנק כדי לראות תזרים כולל.
+                </span>
+              )}
             </p>
           }
         />
         <DashboardMetricCard
           title="יתרה כוללת"
-          value={formatMoney(hasBankAccounts ? currentBankBalance : (scans?.totalBalance ?? 0))}
+          value={formatMoney(
+            hasBankAccounts ? currentBankBalance : (scans?.totalBalance ?? 0),
+          )}
           caption="יתרה עדכנית מחשבונות בנק בלבד"
           icon={<Wallet className="h-5 w-5" weight="duotone" />}
           tone="sky"
@@ -475,8 +524,14 @@ export default function Dashboard() {
           isLocked={!hasBankAccounts}
           lockedLabel="נדרש חיבור לחשבון בנק"
           footer={
-            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
-              { hasBankAccounts ? <span>לא מסונן לפי תאריך</span> : <span className='text-[11px] font-bold text-zinc-500 dark:text-zinc-400'>יש לחבר חשבון בנק כדי לראות יתרה עדכנית.</span> }
+            <p className="text-[11px] font-bold text-muted-foreground">
+              {hasBankAccounts ? (
+                <span>לא מסונן לפי תאריך</span>
+              ) : (
+                <span className="text-[11px] font-bold text-muted-foreground">
+                  יש לחבר חשבון בנק כדי לראות יתרה עדכנית.
+                </span>
+              )}
             </p>
           }
         />
@@ -493,7 +548,9 @@ export default function Dashboard() {
           onStartDateChange={handleStartDateChange}
           onEndDateChange={handleEndDateChange}
           isLoadingScans={hasCreditAccounts && isLoadingScans}
-          isRefreshingScans={hasCreditAccounts && isFetchingScans && !isLoadingScans}
+          isRefreshingScans={
+            hasCreditAccounts && isFetchingScans && !isLoadingScans
+          }
           hasConnectedAccounts={hasCreditAccounts}
           canUseAiAnnotation={hasAiProvider}
           isAnnotatingWithAi={annotateMutation.isPending}
@@ -504,17 +561,16 @@ export default function Dashboard() {
         />
       </div>
 
-
       <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
         <DialogContent
-          className="max-w-2xl rounded-none border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
+          className="max-w-2xl rounded-none border border-border bg-card p-5 shadow-2xl"
           dir="rtl"
         >
-          <DialogHeader className="border-b border-zinc-100 pb-4 dark:border-zinc-900">
-            <DialogTitle className="text-xl font-black text-zinc-950 dark:text-white">
+          <DialogHeader className="border-b border-border pb-4">
+            <DialogTitle className="text-xl font-black text-foreground">
               הכנסות אחרונות
             </DialogTitle>
-            <DialogDescription className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            <DialogDescription className="text-xs font-semibold text-muted-foreground">
               תנועות חיוביות מחשבונות בנק בטווח התאריכים הנבחר
             </DialogDescription>
           </DialogHeader>
@@ -522,7 +578,7 @@ export default function Dashboard() {
           <div className="max-h-112 space-y-2 overflow-y-auto pr-1">
             {recentIncomeTransactions.length === 0 ? (
               <div className="py-12 text-center">
-                <p className="text-sm font-bold text-zinc-500 dark:text-zinc-400">
+                <p className="text-sm font-bold text-muted-foreground">
                   אין הכנסות בטווח התאריכים הנבחר
                 </p>
               </div>
@@ -530,17 +586,23 @@ export default function Dashboard() {
               recentIncomeTransactions.map((txn, index) => (
                 <div
                   key={`${txn.accountKey}:${txn.id || txn.date}:${index}`}
-                  className="flex items-start justify-between gap-4 border border-zinc-100 bg-zinc-50/60 px-4 py-3 dark:border-zinc-900 dark:bg-zinc-900/30"
+                  className="flex items-start justify-between gap-4 border border-border bg-muted/30 px-4 py-3"
                 >
                   <div className="min-w-0 text-right">
-                    <p className="truncate text-sm font-black text-zinc-950 dark:text-zinc-100">
+                    <p className="truncate text-sm font-black text-foreground">
                       {txn.description}
                     </p>
-                    <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                      {txn.date ? new Date(txn.date).toLocaleDateString('he-IL') : '-'} • {txn.accountLabel}
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {txn.date
+                        ? new Date(txn.date).toLocaleDateString('he-IL')
+                        : '-'}{' '}
+                      • {txn.accountLabel}
                     </p>
                   </div>
-                  <p className="shrink-0 text-sm font-black text-emerald-600 dark:text-emerald-400" dir="ltr">
+                  <p
+                    className="shrink-0 text-sm font-black text-emerald-600 dark:text-emerald-400"
+                    dir="ltr"
+                  >
                     {formatMoney(txn.amount)}
                   </p>
                 </div>

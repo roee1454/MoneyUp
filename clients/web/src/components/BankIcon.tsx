@@ -32,9 +32,11 @@ export function BankIcon({
   const [failed, setFailed] = useState(false);
   const normalizedBankId = normalizeBankId(bankId);
   const src = BANK_ICON_BY_ID[normalizedBankId];
-  const resolvedShape = shape ?? BANK_ICON_SHAPE_BY_ID[normalizedBankId] ?? 'circle';
+  const resolvedShape =
+    shape ?? BANK_ICON_SHAPE_BY_ID[normalizedBankId] ?? 'circle';
   const shouldFill = fill ?? normalizedBankId === 'max';
-  const shapeClass = resolvedShape === 'rounded-square' ? 'rounded-md' : 'rounded-full';
+  const shapeClass =
+    resolvedShape === 'rounded-square' ? 'rounded-md' : 'rounded-full';
   const label = getBankName(bankId);
   const fallback = label.slice(0, 1);
 
@@ -50,7 +52,7 @@ export function BankIcon({
 
   return (
     <div
-      className={`${sizeClassByVariant[size]} ${shapeClass} border border-zinc-200 dark:border-zinc-800 bg-white overflow-hidden ${className}`}
+      className={`${sizeClassByVariant[size]} ${shapeClass} border border-zinc-200 dark:border-zinc-200 bg-white overflow-hidden ${className}`}
     >
       <img
         src={src}

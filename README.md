@@ -6,40 +6,24 @@
 
 ## Features
 
-### Available Now
-
-| Feature | Description |
-|---|---|
-| Bank & Credit Card Sync | Powered by [israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers) |
-| Monthly Financial Summary | Live income and expense totals, calculated separately per source type (bank vs. credit card) |
-| Spending Categories | AI-gated widget that categorizes credit card expenses into Food, Clothing, Entertainment, Fuel/Transport, Supermarket, and Subscriptions |
-| AI Agent Integration | Connect your own AI provider API key (e.g. OpenAI, Gemini) for smart financial advice |
-| Secure Local Storage | All credentials are encrypted at rest using **AES-256-GCM** inside a local SQLite database — nothing leaves your machine |
-| Multi-User Auth | JWT-based authentication with session management |
-| Dark / Light Mode | Full theme support with RTL Hebrew UI |
+- **Bank & Credit Card Sync** — Securely fetch transactions via [israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers).
+- **Periodical Summary** — Real-time tracking of income vs. expenses, segmented by source.
+- **Smart AI Categorization** — Automatic classification of spending into logical buckets (Food, Fuel, etc.).
+- **AI Financial Advisor** — Integrated chat with support for OpenAI, Claude, and Gemini for tailored advice.
+- **Privacy First** — Local SQLite storage with **AES-256-GCM** encryption. No data leaves your machine.
+- **Modern UI** — Fast, RTL-supported Hebrew interface with robust Dark/Light mode via `next-themes`.
 
 ---
 
 ## Supported Institutions
 
-> The list below reflects what banks & credit card companies the app currently supports.
+<sub>*Status of currently implemented scrapers and planned integrations.*</sub>
 
-### Banks
-
-| Institution | Status |
-|---|---|
-| בנק הפועלים (Bank Hapoalim) | Enabled |
-| בנק לאומי (Bank Leumi) | Coming soon |
-| One Zero | Coming soon |
-
-And more in the future.
-
-### Credit Card Companies
-
-| Institution | Status |
-|---|---|
-| MAX (מקס) | Enabled |
-| ישראכרט (Isracard) | Enabled |
+| <small>Banks</small> | <small>Status</small> | <small>Credit Cards</small> | <small>Status</small> |
+|:---|:---|:---|:---|
+| <small>בנק הפועלים (Hapoalim)</small> | <small>Enabled</small> | <small>MAX (מקס)</small> | <small>Enabled</small> |
+| <small>בנק לאומי (Leumi)</small> | <small>Coming Soon</small> | <small>ישראכרט (Isracard)</small> | <small>Enabled</small> |
+| <small>One Zero</small> | <small>Coming Soon</small> | <small>כאל (Cal)</small> | <small>Enabled</small> |
 
 ---
 
@@ -106,22 +90,25 @@ docker compose -f infra/compose.yml up
 
 ---
 
-## Terms of Service & Legal Notice
-# PLEASE READ THIS DISCLAIMER CAREFULLY BEFORE USING THIS SOFTWARE.
+## Terms of Service & Disclaimer
 
 > [!IMPORTANT]
-> **By using MoneyUp you agree to the following:**
+> **By using MoneyUp, you acknowledge and agree to the following:**
 
-1. **Open Source** — MoneyUp is licensed under the **MIT License**. You are free to use, modify, and distribute it within the terms of that license.
-2. **Self-hosted & Local Only** — MoneyUp runs entirely on your own machine. Your banking credentials are encrypted and stored **only** in your local SQLite database. No credentials, transactions, or personal data are ever transmitted to any third-party server by this application.
+- **MIT License** — Open source software provided "as is" without warranty or liability.
+- **Local Only** — All credentials and financial data are stored encrypted **only** on your machine.
+- **Third-Party Scraping** — You are responsible for ensuring automated access complies with your bank's TOS.
+- **Patched Library** — Ships with a locally patched `israeli-bank-scrapers` build for enhanced features. No telemetry. You are free to inspect the patch (diff against the original release).
+- **AI Providers** — Using AI features sends summarized (non-credential) transaction data to your chosen provider.
 
-3. **Third-Party Scraping** — MoneyUp uses the open-source [israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers) library to access your financial data by automating a browser session. This means it logs in to your bank's website on your behalf using your credentials. **Use of automated access to your bank's website may be subject to your bank's Terms of Service.** You are solely responsible for ensuring that your use complies with your financial institution's terms.
+---
 
-4. **Patched Library** — MoneyUp ships a locally patched build of `israeli-bank-scrapers`, located at `libs/israeli-bank-scrapers-patched.tgz`. This patch was authored by me solely to implement additional features not covered by the original repo (e.g. adding transaction fields, handling captcha challenges, security auditing, etc.). **The patch contains no malicious code, no telemetry, and no data exfiltration of any kind.** You are free to inspect the patch by extracting the archive and diffing it against the official upstream release.
+## Security Disclaimer
 
-5. **No Warranty** — MoneyUp is provided "as is", without warranty of any kind. The authors are not liable for any financial loss, data loss, or account restrictions that may result from its use.
-
-6. **AI Providers** — If you configure an AI provider (e.g. OpenAI), a summary of your transaction data will be sent to that provider's API. Review your chosen provider's privacy policy before enabling this feature.
+> [!WARNING]
+> **Providing your financial account credentials to any software is not risk-free.**
+> 
+> While I do my absolute best to protect your credentials through local encryption, I take no responsibility for any possible damages. If you choose to use this tool, I strongly suggest you ask your financial institution for credentials for a user that has **read-only access** to the relevant account. Using restricted credentials significantly reduces your potential risk.
 
 ---
 

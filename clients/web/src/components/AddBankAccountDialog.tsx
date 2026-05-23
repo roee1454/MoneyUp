@@ -100,24 +100,24 @@ export function AddBankAccountDialog({
     const socket = getScraperSocket();
 
     const handleStatus = (data: { sessionId?: string; status?: string }) => {
-        if (data.sessionId) setSessionId(data.sessionId);
+      if (data.sessionId) setSessionId(data.sessionId);
     };
 
     const handleChallenge = (data: {
-        sessionId?: string;
-        challenge?: { message?: string };
-        errorCode?: ScraperErrorCode;
-        error?: string;
-      }) => {
-        if (data.sessionId) setSessionId(data.sessionId);
-        setIsConnecting(false);
-        setChallengeMsg(
-          data.challenge?.message || 'הזן את קוד ה-SMS שנשלח אליך לצורך אימות',
-        );
-        setIsAwaiting2FA(true);
-        if (data.errorCode || data.error) {
-          setErrorMsg(getFriendlyError(data.errorCode, data.error));
-        }
+      sessionId?: string;
+      challenge?: { message?: string };
+      errorCode?: ScraperErrorCode;
+      error?: string;
+    }) => {
+      if (data.sessionId) setSessionId(data.sessionId);
+      setIsConnecting(false);
+      setChallengeMsg(
+        data.challenge?.message || 'הזן את קוד ה-SMS שנשלח אליך לצורך אימות',
+      );
+      setIsAwaiting2FA(true);
+      if (data.errorCode || data.error) {
+        setErrorMsg(getFriendlyError(data.errorCode, data.error));
+      }
     };
 
     const handleSuccess = () => {
@@ -128,9 +128,12 @@ export function AddBankAccountDialog({
       void onSuccess?.();
     };
 
-    const handleError = (data: { errorCode?: ScraperErrorCode; error?: string }) => {
-        setIsConnecting(false);
-        setErrorMsg(getFriendlyError(data.errorCode, data.error));
+    const handleError = (data: {
+      errorCode?: ScraperErrorCode;
+      error?: string;
+    }) => {
+      setIsConnecting(false);
+      setErrorMsg(getFriendlyError(data.errorCode, data.error));
     };
 
     const handleConnectError = () => {
@@ -206,7 +209,7 @@ export function AddBankAccountDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none p-6 shadow-2xl"
+        className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
         dir="rtl"
       >
         {isConnected && selectedBank ? (
@@ -219,23 +222,23 @@ export function AddBankAccountDialog({
           <SyncingView bankId={selectedBank.id} bankName={selectedBank.name} />
         ) : !selectedBank ? (
           <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
-            <DialogHeader className="text-right space-y-1.5 pb-4 border-b border-zinc-100 dark:border-zinc-900">
-              <DialogTitle className="text-xl font-black text-zinc-950 dark:text-white">
+            <DialogHeader className="text-right space-y-1.5 pb-4 border-b border-border">
+              <DialogTitle className="text-xl font-black text-foreground">
                 חיבור מקור מידע פיננסי
               </DialogTitle>
-              <DialogDescription className="text-xs font-semibold text-zinc-400">
+              <DialogDescription className="text-xs font-semibold text-muted-foreground">
                 סנכרן באופן אוטומטי ומאובטח את הנתונים הפיננסיים שלך
               </DialogDescription>
             </DialogHeader>
 
             {/* Tabs Selector */}
-            <div className="flex border-b border-zinc-100 dark:border-zinc-900 pt-1">
+            <div className="flex border-b border-border pt-1">
               <button
                 type="button"
                 className={`flex-1 pb-3 text-xs font-black transition-all border-b-2 cursor-pointer ${
                   activeTab === 'credit_card'
-                    ? 'border-zinc-950 dark:border-white text-zinc-950 dark:text-white'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-350'
+                    ? 'border-primary text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setActiveTab('credit_card')}
               >
@@ -245,8 +248,8 @@ export function AddBankAccountDialog({
                 type="button"
                 className={`flex-1 pb-3 text-xs font-black transition-all border-b-2 cursor-pointer ${
                   activeTab === 'bank'
-                    ? 'border-zinc-950 dark:border-white text-zinc-950 dark:text-white'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-350'
+                    ? 'border-primary text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setActiveTab('bank')}
               >
@@ -255,10 +258,10 @@ export function AddBankAccountDialog({
             </div>
 
             {/* Premium Explanation Banner */}
-            <div className="bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-850 p-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400 rounded-none animate-in fade-in-50 duration-150">
+            <div className="bg-muted/40 border border-border p-3 text-xs leading-relaxed text-muted-foreground rounded-none animate-in fade-in-50 duration-150">
               {activeTab === 'bank' ? (
                 <p>
-                  <span className="font-black text-zinc-800 dark:text-zinc-200">
+                  <span className="font-black text-foreground/80">
                     למה לחבר?
                   </span>{' '}
                   סנכרון יתרת העובר ושב (עו״ש), משכורות, העברות בנקאיות, פקדונות
@@ -266,7 +269,7 @@ export function AddBankAccountDialog({
                 </p>
               ) : (
                 <p>
-                  <span className="font-black text-zinc-800 dark:text-zinc-200">
+                  <span className="font-black text-foreground/80">
                     למה לחבר?
                   </span>{' '}
                   סנכרון כל עסקאות האשראי המפורטות (בארץ ובחו״ל), רכישות
@@ -277,25 +280,25 @@ export function AddBankAccountDialog({
 
             {isLoadingScrapers ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-950 dark:border-zinc-700 dark:border-t-white" />
-                <span className="text-xs font-semibold text-zinc-400">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
+                <span className="text-xs font-semibold text-muted-foreground">
                   טוען מוסדות פיננסיים...
                 </span>
               </div>
             ) : (
               <div className="grid gap-3 pt-2">
                 {tabScrapers.map((bank) => (
-                    <PremiumGridButton
-                      key={bank.id}
-                      onClick={() => setSelectedBank(bank)}
-                      label={bank.name}
-                      icon={
-                        <BankIcon bankId={bank.id} shape="circle" size="sm" />
-                      }
-                    />
-                  ))}
+                  <PremiumGridButton
+                    key={bank.id}
+                    onClick={() => setSelectedBank(bank)}
+                    label={bank.name}
+                    icon={
+                      <BankIcon bankId={bank.id} shape="circle" size="sm" />
+                    }
+                  />
+                ))}
                 {tabScrapers.length === 0 && (
-                  <p className="text-xs text-center py-8 text-zinc-400 font-semibold">
+                  <p className="text-xs text-center py-8 text-muted-foreground font-semibold">
                     לא נמצאו מוסדות פעילים בקטגוריה זו
                   </p>
                 )}
@@ -304,14 +307,14 @@ export function AddBankAccountDialog({
           </div>
         ) : isAwaiting2FA ? (
           <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
-            <DialogHeader className="text-right space-y-1 pb-4 border-b border-zinc-100 dark:border-zinc-900">
+            <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <BankIcon bankId={selectedBank.id} size="md" />
                 <div>
-                  <DialogTitle className="text-lg font-black text-zinc-950 dark:text-white">
+                  <DialogTitle className="text-lg font-black text-foreground">
                     אימות דו-שלבי
                   </DialogTitle>
-                  <DialogDescription className="text-xs font-semibold text-zinc-400">
+                  <DialogDescription className="text-xs font-semibold text-muted-foreground">
                     {selectedBank.name} דורש קוד אימות נוסף
                   </DialogDescription>
                 </div>
@@ -320,7 +323,7 @@ export function AddBankAccountDialog({
 
             <form onSubmit={handleSubmitChallenge} className="space-y-4 pt-4">
               <div className="space-y-2 text-right">
-                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-xs font-semibold text-muted-foreground leading-relaxed">
                   {challengeMsg}
                 </p>
                 <div className="pt-2 pb-2 flex justify-center" dir="ltr">
@@ -338,16 +341,14 @@ export function AddBankAccountDialog({
                   />
                 </div>
                 {errorMsg && (
-                  <p className="text-[11px] font-bold text-red-500 mt-2 bg-red-50 dark:bg-red-950/30 p-2.5 border border-red-200/50 dark:border-red-900/30">
+                  <p className="text-[11px] font-bold text-destructive mt-2 bg-destructive/10 p-2.5 border border-destructive/20">
                     {errorMsg}
                   </p>
                 )}
                 {selectedBank.id === 'max' && (
-                  <p className="text-[10px] font-semibold text-zinc-400 text-center pt-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground text-center pt-2">
                     לצורך הבדיקה, הזן את הקוד:{' '}
-                    <span className="font-bold text-zinc-950 dark:text-white">
-                      123456
-                    </span>
+                    <span className="font-bold text-foreground">123456</span>
                   </p>
                 )}
               </div>
@@ -356,7 +357,7 @@ export function AddBankAccountDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-none font-bold text-xs h-10 border-zinc-200 dark:border-zinc-850 cursor-pointer"
+                  className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
                   onClick={() => {
                     setIsAwaiting2FA(false);
                     setOtpCode('');
@@ -368,7 +369,7 @@ export function AddBankAccountDialog({
                 </Button>
                 <Button
                   type="submit"
-                  className="rounded-none font-bold text-xs h-10 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 cursor-pointer"
+                  className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
                   disabled={isConnecting}
                 >
                   {isConnecting ? 'מאמת...' : 'אשר קוד'}
@@ -378,14 +379,14 @@ export function AddBankAccountDialog({
           </div>
         ) : (
           <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
-            <DialogHeader className="text-right space-y-1 pb-4 border-b border-zinc-100 dark:border-zinc-900">
+            <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <BankIcon bankId={selectedBank.id} size="md" />
                 <div>
-                  <DialogTitle className="text-lg font-black text-zinc-950 dark:text-white">
+                  <DialogTitle className="text-lg font-black text-foreground">
                     התחברות ל{selectedBank.name}
                   </DialogTitle>
-                  <DialogDescription className="text-xs font-semibold text-zinc-400">
+                  <DialogDescription className="text-xs font-semibold text-muted-foreground">
                     יש להזין את פרטי ההזדהות של חשבונך
                   </DialogDescription>
                 </div>
@@ -415,7 +416,7 @@ export function AddBankAccountDialog({
                   <div key={field} className="space-y-1.5 text-right">
                     <Label
                       htmlFor={field}
-                      className="text-sm font-bold text-zinc-500 dark:text-zinc-400"
+                      className="text-sm font-bold text-muted-foreground"
                     >
                       {label}
                     </Label>
@@ -438,14 +439,14 @@ export function AddBankAccountDialog({
               })}
 
               <PremiumCard variant="warning">
-                <p className="text-sm font-black text-zinc-700 dark:text-zinc-200 leading-relaxed">
-                  פרטי ההתחברות אינם מועברים לשום צד שלישי. הם מוצפנים באופן
-                  מקומי על המחשב שלך בלבד!
+                <p className="text-sm font-black text-foreground/70 leading-relaxed">
+                  פרטי ההתחברות אינם מועברים לשום צד שלישי. הם מוצפן באופן מקומי
+                  על המחשב שלך בלבד!
                 </p>
               </PremiumCard>
 
               {errorMsg && (
-                <p className="text-[11px] font-bold text-red-500 mt-2 bg-red-50 dark:bg-red-950/30 p-2.5 border border-red-200/50 dark:border-red-900/30 text-right">
+                <p className="text-[11px] font-bold text-destructive mt-2 bg-destructive/10 p-2.5 border border-destructive/20 text-right">
                   {errorMsg}
                 </p>
               )}
@@ -454,7 +455,7 @@ export function AddBankAccountDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-none font-bold text-xs h-10 border-zinc-200 dark:border-zinc-850 cursor-pointer"
+                  className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
                   onClick={() => {
                     setSelectedBank(null);
                     setFormValues({});
@@ -465,7 +466,7 @@ export function AddBankAccountDialog({
                 </Button>
                 <Button
                   type="submit"
-                  className="rounded-none font-bold text-xs h-10 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 cursor-pointer"
+                  className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
                 >
                   סנכרן חשבון
                 </Button>
@@ -488,9 +489,9 @@ function SyncingView({
   return (
     <div className="animate-in fade-in-50 duration-300 slide-in-from-bottom-1 min-h-[320px] flex flex-col items-center justify-center text-center gap-6">
       <div className="relative flex items-center justify-center h-44 w-44">
-        <span className="absolute h-32 w-32 rounded-full border border-zinc-300/70 dark:border-zinc-700/80 animate-ping [animation-duration:1.8s]" />
-        <span className="absolute h-24 w-24 rounded-full border border-zinc-400/60 dark:border-zinc-600/70 animate-ping [animation-duration:1.8s] [animation-delay:350ms]" />
-        <span className="absolute h-16 w-16 rounded-full bg-zinc-100/90 dark:bg-zinc-900/80 animate-pulse" />
+        <span className="absolute h-32 w-32 rounded-full border border-border animate-ping [animation-duration:1.8s]" />
+        <span className="absolute h-24 w-24 rounded-full border border-border animate-ping [animation-duration:1.8s] [animation-delay:350ms]" />
+        <span className="absolute h-16 w-16 rounded-full bg-muted animate-pulse" />
         <BankIcon
           bankId={bankId}
           shape="circle"
@@ -500,10 +501,8 @@ function SyncingView({
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">
-          מסנכרן נתונים...
-        </p>
-        <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+        <p className="text-sm font-black text-foreground">מסנכרן נתונים...</p>
+        <p className="text-xs font-semibold text-muted-foreground">
           {bankName}
         </p>
       </div>
@@ -523,7 +522,7 @@ function ConnectedView({
   return (
     <div className="animate-in fade-in-50 duration-300 slide-in-from-bottom-1 min-h-[320px] flex flex-col items-center justify-center text-center gap-6">
       <div className="relative flex items-center justify-center h-44 w-44">
-        <div className="absolute -top-1 h-11 w-11 rounded-full bg-emerald-600 flex items-center justify-center shadow-lg z-20 border-4 border-white dark:border-zinc-950">
+        <div className="absolute -top-1 h-11 w-11 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg z-20 border-4 border-card">
           <Check className="h-6 w-6 text-white stroke-3" />
         </div>
         <BankIcon
@@ -535,17 +534,15 @@ function ConnectedView({
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">
-          החיבור הצליח
-        </p>
-        <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+        <p className="text-sm font-black text-foreground">החיבור הצליח</p>
+        <p className="text-xs font-semibold text-muted-foreground">
           {bankName} מחובר כעת
         </p>
       </div>
 
       <Button
         onClick={onClose}
-        className="rounded-none font-bold text-xs h-10 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 cursor-pointer px-8"
+        className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-8"
       >
         סגור
       </Button>

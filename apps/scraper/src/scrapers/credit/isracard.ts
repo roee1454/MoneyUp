@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseScraper } from '../base';
-import { BrowserManagerService } from '../../browser-manager.service';
 import {
   CompanyTypes,
   createScraper,
@@ -11,11 +10,8 @@ import { ScraperResponse } from '@moneyup/types';
 
 @Injectable()
 export class IsracardScraper extends BaseScraper {
-  constructor(
-    configService: ConfigService,
-    browserManager: BrowserManagerService,
-  ) {
-    super(configService, browserManager);
+  constructor(configService: ConfigService) {
+    super(configService);
   }
 
   readonly companyId = CompanyTypes.isracard;
@@ -81,8 +77,6 @@ export class IsracardScraper extends BaseScraper {
     },
   ): Promise<ScraperResponse> {
     try {
-      const debugEnabled =
-        this.configService.get<string>('SCRAPER_DEBUG') === '1';
       const timeoutMs =
         options?.loginTimeoutSeconds !== undefined
           ? options.loginTimeoutSeconds * 1000
@@ -97,48 +91,38 @@ export class IsracardScraper extends BaseScraper {
                 timeoutMs,
             );
 
-      return await this.withIsolatedBrowserContext(
-        async (browserContext) => {
-          const scraper = createScraper({
-            companyId: this.companyId,
-            startDate,
-            combineInstallments: false,
-            browserContext,
-            verbose: debugEnabled,
-            timeout: timeoutMs,
-            defaultTimeout: defaultTimeoutMs,
-            storeFailureScreenShotPath: debugEnabled
-              ? 'data/scraper-failures'
-              : undefined,
-            additionalTransactionInformation: false,
-            futureMonthsToScrape: 1,
-            skipCloseBrowser: true,
-          });
+      const scraper = createScraper({
+        ...this.getCommonScraperOptions({ showBrowser: options?.showBrowser }),
+        companyId: this.companyId,
+        startDate,
+        combineInstallments: false,
+        timeout: timeoutMs,
+        defaultTimeout: defaultTimeoutMs,
+        additionalTransactionInformation: false,
+        futureMonthsToScrape: 1,
+      });
 
-          const scrapeResult = await scraper.scrape(credentials);
+      const scrapeResult = await scraper.scrape(credentials);
 
-          if (!scrapeResult.success) {
-            const errorParts = [
-              scrapeResult.errorType,
-              scrapeResult.errorMessage,
-            ].filter(Boolean);
-            return {
-              status: 'FAILED',
-              error:
-                errorParts.length > 0
-                  ? errorParts.join(': ')
-                  : 'Unknown error occurred during credit card scraping',
-            };
-          }
+      if (!scrapeResult.success) {
+        const errorParts = [
+          scrapeResult.errorType,
+          scrapeResult.errorMessage,
+        ].filter(Boolean);
+        return {
+          status: 'FAILED',
+          error:
+            errorParts.length > 0
+              ? errorParts.join(': ')
+              : 'Unknown error occurred during credit card scraping',
+        };
+      }
 
-          const rawAccounts = scrapeResult.accounts || [];
-          return {
-            status: 'SUCCESS',
-            accounts: this.normalizeAccounts(rawAccounts),
-          };
-        },
-        { showBrowser: options?.showBrowser },
-      );
+      const rawAccounts = scrapeResult.accounts || [];
+      return {
+        status: 'SUCCESS',
+        accounts: this.normalizeAccounts(rawAccounts),
+      };
     } catch (err: any) {
       return {
         status: 'FAILED',

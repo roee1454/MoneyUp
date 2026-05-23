@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScraperController } from './scraper.controller';
 import { ScraperService } from './scraper.service';
-import { BrowserManagerService } from './browser-manager.service';
 import { HapoalimScraper } from './scrapers/banks/hapoalim';
 import { MaxScraper } from './scrapers/credit/max';
 import { IsracardScraper } from './scrapers/credit/isracard';
@@ -43,7 +42,6 @@ import { ScrapedCoverageEntity } from './entities/coverage.entity';
   ],
   controllers: [ScraperController],
   providers: [
-    BrowserManagerService,
     ScraperService,
     HapoalimScraper,
     MaxScraper,

@@ -1,19 +1,18 @@
-import { CompanyTypes, ScraperCredentials } from 'israeli-bank-scrapers';
+import {
+  CompanyTypes,
+  ScraperCredentials,
+  ScraperOptions,
+} from 'israeli-bank-scrapers';
 import { ConfigService } from '@nestjs/config';
-import type { BrowserContext } from 'puppeteer';
 import {
   UnifiedAccount,
   UnifiedTransaction,
   ScraperResponse,
 } from '@moneyup/types';
-import { BrowserManagerService } from '../browser-manager.service';
 
 export abstract class BaseScraper {
   abstract readonly companyId: CompanyTypes;
-  constructor(
-    protected readonly configService: ConfigService,
-    protected readonly browserManager: BrowserManagerService,
-  ) {}
+  constructor(protected readonly configService: ConfigService) {}
 
   async scrape(
     credentials: ScraperCredentials,
@@ -44,18 +43,39 @@ export abstract class BaseScraper {
     },
   ): Promise<ScraperResponse>;
 
-  protected async withIsolatedBrowserContext<T>(
-    callback: (browserContext: BrowserContext) => Promise<T>,
-    options?: { showBrowser?: boolean },
-  ): Promise<T> {
-    const browserContext = await this.browserManager.createIsolatedContext(
-      options?.showBrowser,
+  protected getCommonScraperOptions(options?: {
+    showBrowser?: boolean;
+  }): Partial<ScraperOptions> {
+    const debugEnabled =
+      this.configService.get<string>('SCRAPER_DEBUG') === '1';
+    const showBrowser = options?.showBrowser ?? false;
+
+    const executablePath =
+      this.configService.get<string>('SCRAPER_CHROMIUM_EXECUTABLE_PATH') ||
+      this.configService.get<string>('PUPPETEER_EXECUTABLE_PATH') ||
+      undefined;
+
+    const configuredArgs = this.configService.get<string>(
+      'SCRAPER_BROWSER_ARGS',
     );
-    try {
-      return await callback(browserContext);
-    } finally {
-      await browserContext.close().catch(() => undefined);
-    }
+    const args = configuredArgs
+      ? configuredArgs
+          .split(',')
+          .map((arg) => arg.trim())
+          .filter(Boolean)
+      : process.env.CI === 'true'
+        ? ['--no-sandbox', '--disable-setuid-sandbox']
+        : [];
+
+    return {
+      showBrowser,
+      executablePath,
+      args,
+      verbose: debugEnabled,
+      storeFailureScreenShotPath: debugEnabled
+        ? 'data/scraper-failures'
+        : undefined,
+    };
   }
 
   protected normalizeAccounts(rawAccounts: any[]): UnifiedAccount[] {

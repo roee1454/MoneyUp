@@ -2,13 +2,24 @@ import { Plus, Trash, Lock } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { profileCreationSchema } from '@moneyup/types';
 import { cn } from '@/lib/utils';
-import { useCreateUser, useDeleteUserConfirmed, useUsers, type User } from '@/hooks/useUsers';
+import {
+  useCreateUser,
+  useDeleteUserConfirmed,
+  useUsers,
+  type User,
+} from '@/hooks/useUsers';
 import { useLogin, useUnlockProfile } from '@/hooks/useAuth';
 import {
   Dialog,
@@ -18,7 +29,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const avatarGrays = ['bg-zinc-950 dark:bg-white text-white dark:text-black border-zinc-800 dark:border-zinc-200', 'bg-zinc-800 text-zinc-100 border-zinc-700', 'bg-zinc-600 text-zinc-100 border-zinc-500', 'bg-zinc-400 text-zinc-900 border-zinc-300', 'bg-zinc-200 text-zinc-900 border-zinc-400'];
+const avatarGrays = [
+  'bg-primary text-primary-foreground border-border',
+  'bg-muted text-foreground border-border',
+  'bg-accent text-accent-foreground border-border',
+  'bg-secondary text-secondary-foreground border-border',
+  'bg-zinc-200 text-zinc-900 border-zinc-400',
+];
 
 export default function Login() {
   const [selectedId, setSelectedId] = useState('');
@@ -104,7 +121,10 @@ export default function Login() {
     }
 
     try {
-      await loginMutation.mutateAsync({ userId: user.id, username: user.username });
+      await loginMutation.mutateAsync({
+        userId: user.id,
+        username: user.username,
+      });
     } catch {
       setError('התחברות נכשלה');
     }
@@ -146,9 +166,12 @@ export default function Login() {
 
   if (usersQuery.isLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-140px)] items-center justify-center px-4" dir="rtl">
-        <Card className="w-full max-w-md border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm rounded-xl">
-          <CardContent className="py-12 text-center text-sm font-semibold text-zinc-500">
+      <div
+        className="flex min-h-[calc(100vh-140px)] items-center justify-center px-4"
+        dir="rtl"
+      >
+        <Card className="w-full max-w-md border-border bg-card shadow-sm rounded-xl">
+          <CardContent className="py-12 text-center text-sm font-semibold text-muted-foreground">
             טוען פרופילים במערכת...
           </CardContent>
         </Card>
@@ -157,37 +180,54 @@ export default function Login() {
   }
 
   return (
-    <section className="flex min-h-[calc(100vh-140px)] items-center justify-center px-4" dir="rtl">
+    <section
+      className="flex min-h-[calc(100vh-140px)] items-center justify-center px-4"
+      dir="rtl"
+    >
       <div className="w-full max-w-5xl py-8">
         {error ? (
-          <div className="mx-auto mb-6 max-w-md rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 p-4 text-center text-sm font-bold text-zinc-800 dark:text-zinc-200">
+          <div className="mx-auto mb-6 max-w-md rounded-lg border border-border bg-muted/50 p-4 text-center text-sm font-bold text-foreground">
             {error}
           </div>
         ) : null}
 
         {shouldShowForm ? (
           <div className="mx-auto flex max-w-md items-center justify-center">
-            <Card className="w-full border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-md rounded-xl">
+            <Card className="w-full border-border bg-card shadow-md rounded-xl">
               <CardHeader className="space-y-1">
-                <CardTitle className="text-center text-2xl font-black tracking-tight text-zinc-950 dark:text-white">הוסף פרופיל חדש</CardTitle>
-                <CardDescription className="text-center text-zinc-500 font-semibold">השתמש בפרופילים מקומיים לניתוח מהיר</CardDescription>
+                <CardTitle className="text-center text-2xl font-black tracking-tight text-foreground">
+                  הוסף פרופיל חדש
+                </CardTitle>
+                <CardDescription className="text-center text-muted-foreground font-semibold">
+                  השתמש בפרופילים מקומיים לניתוח מהיר
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="font-semibold">שם משתמש</Label>
+                  <Label htmlFor="username" className="font-semibold">
+                    שם משתמש
+                  </Label>
                   <Input
                     id="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="הכנס שם משתמש..."
-                    className={cn('rounded-lg border-zinc-200 focus-visible:ring-zinc-950 dark:border-zinc-800 dark:focus-visible:ring-white', fieldErrors.username && 'border-red-500 focus-visible:ring-red-500')}
+                    className={cn(
+                      'rounded-lg border-border focus-visible:ring-ring',
+                      fieldErrors.username &&
+                        'border-destructive focus-visible:ring-destructive',
+                    )}
                   />
                   {fieldErrors.username && (
-                    <p className="text-xs font-bold text-red-500 mt-1">{fieldErrors.username}</p>
+                    <p className="text-xs font-bold text-destructive mt-1">
+                      {fieldErrors.username}
+                    </p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="font-semibold">אימייל</Label>
+                  <Label htmlFor="email" className="font-semibold">
+                    אימייל
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -195,16 +235,24 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="example@mail.com"
-                    className={cn('rounded-lg border-zinc-200 focus-visible:ring-zinc-950 dark:border-zinc-800 dark:focus-visible:ring-white', fieldErrors.email && 'border-red-500 focus-visible:ring-red-500')}
+                    className={cn(
+                      'rounded-lg border-border focus-visible:ring-ring',
+                      fieldErrors.email &&
+                        'border-destructive focus-visible:ring-destructive',
+                    )}
                   />
                   {fieldErrors.email && (
-                    <p className="text-xs font-bold text-red-500 mt-1">{fieldErrors.email}</p>
+                    <p className="text-xs font-bold text-destructive mt-1">
+                      {fieldErrors.email}
+                    </p>
                   )}
                 </div>
 
-                <div className="space-y-2 rounded-lg border border-zinc-200 dark:border-zinc-800 p-3">
+                <div className="space-y-2 rounded-lg border border-border p-3">
                   <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">לנעול את הפרופיל?</span>
+                    <span className="text-sm font-bold text-foreground/80">
+                      לנעול את הפרופיל?
+                    </span>
                     <input
                       type="checkbox"
                       checked={lockProfile}
@@ -212,36 +260,51 @@ export default function Login() {
                         setLockProfile(e.target.checked);
                         if (!e.target.checked) setUnlockKey('');
                       }}
-                      className="h-4 w-4 accent-zinc-900"
+                      className="h-4 w-4 accent-primary"
                     />
                   </label>
 
                   {lockProfile && (
                     <div className="space-y-1.5">
-                      <Label htmlFor="unlockKey" className="font-semibold">קוד פתיחה זמני</Label>
+                      <Label htmlFor="unlockKey" className="font-semibold">
+                        קוד פתיחה זמני
+                      </Label>
                       <Input
                         id="unlockKey"
                         type="password"
                         value={unlockKey}
                         onChange={(e) => setUnlockKey(e.target.value)}
                         placeholder="הזן קוד פתיחה"
-                        className={cn('rounded-lg border-zinc-200 focus-visible:ring-zinc-950 dark:border-zinc-800 dark:focus-visible:ring-white', fieldErrors.unlockKey && 'border-red-500 focus-visible:ring-red-500')}
+                        className={cn(
+                          'rounded-lg border-border focus-visible:ring-ring',
+                          fieldErrors.unlockKey &&
+                            'border-destructive focus-visible:ring-destructive',
+                        )}
                       />
                       {fieldErrors.unlockKey && (
-                        <p className="text-xs font-bold text-red-500 mt-1">{fieldErrors.unlockKey}</p>
+                        <p className="text-xs font-bold text-destructive mt-1">
+                          {fieldErrors.unlockKey}
+                        </p>
                       )}
                     </div>
                   )}
                 </div>
 
-                <Button className="w-full h-11 rounded-lg font-bold bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-black shadow-sm mt-2" onClick={() => void createProfile()}>
+                <Button
+                  className="w-full h-11 rounded-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm mt-2"
+                  onClick={() => void createProfile()}
+                >
                   שמור פרופיל
                 </Button>
 
                 {profiles.length > 0 ? (
                   <>
-                    <Separator className="my-2 bg-zinc-200 dark:bg-zinc-800" />
-                    <Button variant="ghost" className="w-full h-11 rounded-lg font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white" onClick={() => setShowForm(false)}>
+                    <Separator className="my-2 bg-border" />
+                    <Button
+                      variant="ghost"
+                      className="w-full h-11 rounded-lg font-bold text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowForm(false)}
+                    >
                       חזור לבחירת פרופיל
                     </Button>
                   </>
@@ -252,20 +315,27 @@ export default function Login() {
         ) : (
           <div className="mx-auto flex flex-col items-center justify-center space-y-12">
             <div className="text-center space-y-3">
-              <h1 className="text-5xl font-black tracking-tight text-zinc-950 dark:text-white">מי מתחבר?</h1>
-              <p className="text-zinc-500 font-semibold">בחר פרופיל על מנת להיכנס לדשבורד</p>
+              <h1 className="text-5xl font-black tracking-tight text-foreground">
+                מי מתחבר?
+              </h1>
+              <p className="text-muted-foreground font-semibold">
+                בחר פרופיל על מנת להיכנס לדשבורד
+              </p>
             </div>
 
             <div className="flex flex-wrap items-start justify-center gap-8 md:gap-12">
               {profiles.map((user, index) => (
-                <div key={user.id} className="space-y-4 text-center group relative">
+                <div
+                  key={user.id}
+                  className="space-y-4 text-center group relative"
+                >
                   <button
                     onClick={() => {
                       setDeleteTarget(user);
                       setDeleteSuccess(false);
                       setDeleteConfirmation('');
                     }}
-                    className="absolute -top-2 -left-2 z-20 h-7 w-7 rounded-full border border-red-200 bg-white text-red-500 hover:bg-red-50 dark:bg-zinc-900 dark:border-red-900/50 dark:hover:bg-red-950/30 flex items-center justify-center cursor-pointer"
+                    className="absolute -top-2 -left-2 z-20 h-7 w-7 rounded-full border border-destructive/20 bg-background text-destructive hover:bg-destructive/10 transition-colors flex items-center justify-center cursor-pointer"
                     aria-label={`Delete ${user.username}`}
                   >
                     <Trash className="h-3.5 w-3.5" weight="duotone" />
@@ -279,39 +349,71 @@ export default function Login() {
                       void login(user.id);
                     }}
                   >
-                    <Avatar className={cn('h-28 w-28 rounded-xl border-2 transition-all duration-300 shadow-md', avatarGrays[index % avatarGrays.length], selectedId === user.id ? 'ring-4 ring-zinc-950 dark:ring-white scale-105' : 'group-hover:border-zinc-800 dark:group-hover:border-zinc-200')}>
+                    <Avatar
+                      className={cn(
+                        'h-28 w-28 rounded-xl border-2 transition-all duration-300 shadow-md',
+                        avatarGrays[index % avatarGrays.length],
+                        selectedId === user.id
+                          ? 'ring-4 ring-primary scale-105'
+                          : 'group-hover:border-primary/50',
+                      )}
+                    >
                       <AvatarFallback className="rounded-xl bg-transparent text-3xl font-black">
                         {user.username.slice(0, 1).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
-                  <p className={cn('text-base transition-colors duration-200 flex items-center justify-center gap-1', selectedId === user.id ? 'font-black text-zinc-950 dark:text-white' : 'font-semibold text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-300')}>
+                  <p
+                    className={cn(
+                      'text-base transition-colors duration-200 flex items-center justify-center gap-1',
+                      selectedId === user.id
+                        ? 'font-black text-foreground'
+                        : 'font-semibold text-muted-foreground group-hover:text-foreground',
+                    )}
+                  >
                     {user.username}
-                    {user.isLocked ? <Lock className="h-3.5 w-3.5" weight="duotone" /> : null}
+                    {user.isLocked ? (
+                      <Lock className="h-3.5 w-3.5" weight="duotone" />
+                    ) : null}
                   </p>
                 </div>
               ))}
 
               <div className="space-y-4 text-center group">
-                <Button variant="ghost" className="h-auto p-0 rounded-xl hover:bg-transparent transition-all duration-300 group-hover:scale-105" onClick={() => setShowForm(true)}>
-                  <Avatar className="h-28 w-28 rounded-xl bg-zinc-50 dark:bg-zinc-900 border-2 border-dashed border-zinc-300 dark:border-zinc-800 transition-colors group-hover:border-zinc-500 dark:group-hover:border-zinc-650 flex items-center justify-center">
-                    <AvatarFallback className="rounded-xl bg-transparent text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300">
+                <Button
+                  variant="ghost"
+                  className="h-auto p-0 rounded-xl hover:bg-transparent transition-all duration-300 group-hover:scale-105"
+                  onClick={() => setShowForm(true)}
+                >
+                  <Avatar className="h-28 w-28 rounded-xl bg-muted/30 border-2 border-dashed border-border transition-colors group-hover:border-muted-foreground flex items-center justify-center">
+                    <AvatarFallback className="rounded-xl bg-transparent text-muted-foreground group-hover:text-foreground">
                       <Plus className="h-10 w-10" weight="bold" />
                     </AvatarFallback>
                   </Avatar>
                 </Button>
-                <p className="text-base font-semibold text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">הוסף פרופיל</p>
+                <p className="text-base font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                  הוסף פרופיל
+                </p>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      <Dialog open={!!unlockTarget} onOpenChange={(open) => !open && setUnlockTarget(null)}>
-        <DialogContent showCloseButton={false} className="max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none p-6 shadow-2xl" dir="rtl">
-          <DialogHeader className="text-right space-y-1 pb-4 border-b border-zinc-100 dark:border-zinc-900">
-            <DialogTitle className="text-lg font-black text-zinc-950 dark:text-white">פרופיל נעול</DialogTitle>
-            <DialogDescription className="text-xs font-semibold text-zinc-400">
+      <Dialog
+        open={!!unlockTarget}
+        onOpenChange={(open) => !open && setUnlockTarget(null)}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
+          dir="rtl"
+        >
+          <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
+            <DialogTitle className="text-lg font-black text-foreground">
+              פרופיל נעול
+            </DialogTitle>
+            <DialogDescription className="text-xs font-semibold text-muted-foreground">
               הזן קוד פתיחה עבור {unlockTarget?.username}
             </DialogDescription>
           </DialogHeader>
@@ -321,10 +423,10 @@ export default function Login() {
               value={unlockInput}
               onChange={(e) => setUnlockInput(e.target.value)}
               placeholder="קוד פתיחה כאן..."
-              className="w-full h-12 bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-none"
+              className="w-full h-12 bg-muted/50 border border-border rounded-none"
             />
             {unlockError ? (
-              <p className="text-[11px] font-bold text-red-500 bg-red-50 dark:bg-red-950/30 p-2 border border-red-200/50 dark:border-red-900/30">
+              <p className="text-[11px] font-bold text-destructive bg-destructive/10 p-2 border border-destructive/20">
                 {unlockError}
               </p>
             ) : null}
@@ -332,14 +434,14 @@ export default function Login() {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-none font-bold text-xs h-10 border-zinc-200 dark:border-zinc-850 cursor-pointer"
+                className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
                 onClick={() => setUnlockTarget(null)}
               >
                 ביטול
               </Button>
               <Button
                 type="button"
-                className="rounded-none font-bold text-xs h-10 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 cursor-pointer"
+                className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
                 onClick={() => void unlockAndLogin()}
               >
                 שחרר והתחבר
@@ -349,14 +451,25 @@ export default function Login() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent showCloseButton={false} className="max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-none p-6 shadow-2xl" dir="rtl">
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
+          dir="rtl"
+        >
           {deleteSuccess ? (
             <div className="min-h-[220px] flex flex-col items-center justify-center text-center gap-4">
-              <div className="h-11 w-11 rounded-full bg-emerald-600 text-white flex items-center justify-center text-2xl font-black">✓</div>
-              <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">הפרופיל נמחק בהצלחה</p>
+              <div className="h-11 w-11 rounded-full bg-emerald-600 text-white flex items-center justify-center text-2xl font-black">
+                ✓
+              </div>
+              <p className="text-sm font-black text-foreground">
+                הפרופיל נמחק בהצלחה
+              </p>
               <Button
-                className="rounded-none font-bold text-xs h-10 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 cursor-pointer px-8"
+                className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-8"
                 onClick={() => {
                   setDeleteTarget(null);
                   setDeleteSuccess(false);
@@ -367,34 +480,39 @@ export default function Login() {
             </div>
           ) : (
             <>
-              <DialogHeader className="text-right space-y-1 pb-4 border-b border-zinc-100 dark:border-zinc-900">
-                <DialogTitle className="text-lg font-black text-zinc-950 dark:text-white">מחיקת פרופיל</DialogTitle>
-                <DialogDescription className="text-xs font-semibold text-zinc-400">
+              <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
+                <DialogTitle className="text-lg font-black text-foreground">
+                  מחיקת פרופיל
+                </DialogTitle>
+                <DialogDescription className="text-xs font-semibold text-muted-foreground">
                   כדי למחוק את הפרופיל, הקלד את האימייל שלו בדיוק.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 pt-4">
-                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                  הקלד: <span className="font-black text-zinc-950 dark:text-zinc-100">{deleteTarget?.email}</span>
+                <p className="text-xs font-semibold text-muted-foreground">
+                  הקלד:{' '}
+                  <span className="font-black text-foreground">
+                    {deleteTarget?.email}
+                  </span>
                 </p>
                 <Input
                   value={deleteConfirmation}
                   onChange={(e) => setDeleteConfirmation(e.target.value)}
                   placeholder="profile@email.com"
-                  className="w-full h-12 bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-none"
+                  className="w-full h-12 bg-muted/50 border border-border rounded-none"
                 />
                 <div className="flex items-center gap-3 pt-2 justify-end">
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-none font-bold text-xs h-10 border-zinc-200 dark:border-zinc-850 cursor-pointer"
+                    className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
                     onClick={() => setDeleteTarget(null)}
                   >
                     ביטול
                   </Button>
                   <Button
                     type="button"
-                    className="rounded-none font-bold text-xs h-10 bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                    className="rounded-none font-bold text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer"
                     disabled={deleteConfirmation !== deleteTarget?.email}
                     onClick={() => void deleteProfile()}
                   >

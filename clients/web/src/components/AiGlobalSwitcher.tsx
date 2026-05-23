@@ -20,21 +20,24 @@ export function AiGlobalSwitcher() {
 
   if (isLoading || !userProfile) {
     return (
-      <div className="h-10 w-full flex items-center justify-center border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 animate-soft-shimmer">
-        <CircleNotch className="h-4 w-4 animate-spin text-zinc-400" />
+      <div className="h-10 w-full flex items-center justify-center border border-border bg-muted animate-soft-shimmer">
+        <CircleNotch className="h-4 w-4 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  const configuredProviders = (userProfile.configuredProviders ?? []) as AiProvider[];
+  const configuredProviders = (userProfile.configuredProviders ??
+    []) as AiProvider[];
   const activeProvider = userProfile.activeAiProvider as AiProvider | null;
   const configs = userProfile.aiProviderConfigs || {};
 
   if (configuredProviders.length === 0) {
     return (
-      <div className="h-10 w-full flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 opacity-50">
-        <Robot className="h-4 w-4" />
-        <span className="text-[10px] font-bold">אין ספק AI מוגדר</span>
+      <div className="h-10 w-full flex items-center gap-2 border border-border bg-muted px-3 opacity-50">
+        <Robot className="h-4 w-4 text-muted-foreground" />
+        <span className="text-[10px] font-bold text-muted-foreground">
+          אין ספק AI מוגדר
+        </span>
       </div>
     );
   }
@@ -45,17 +48,20 @@ export function AiGlobalSwitcher() {
       preset: 'moderate',
     };
 
-    saveAiConfig.mutate({
-      provider,
-      apiKey: '***',
-      preferredModel: config.model,
-      activeProvider: provider,
-      config,
-    }, {
-      onSuccess: () => {
-        toast.success(`ספק AI הוחלף ל-${provider.toUpperCase()}`);
-      }
-    });
+    saveAiConfig.mutate(
+      {
+        provider,
+        apiKey: '***',
+        preferredModel: config.model,
+        activeProvider: provider,
+        config,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`ספק AI הוחלף ל-${provider.toUpperCase()}`);
+        },
+      },
+    );
   };
 
   const handleModelChange = (model: string) => {
@@ -66,17 +72,20 @@ export function AiGlobalSwitcher() {
     };
     config.model = model;
 
-    saveAiConfig.mutate({
-      provider: activeProvider,
-      apiKey: '***',
-      preferredModel: model,
-      activeProvider,
-      config,
-    }, {
-      onSuccess: () => {
-        toast.success(`מודל הוחלף ל-${model}`);
-      }
-    });
+    saveAiConfig.mutate(
+      {
+        provider: activeProvider,
+        apiKey: '***',
+        preferredModel: model,
+        activeProvider,
+        config,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`מודל הוחלף ל-${model}`);
+        },
+      },
+    );
   };
 
   return (
@@ -87,17 +96,25 @@ export function AiGlobalSwitcher() {
             key={p}
             onClick={() => handleSwitch(p)}
             className={cn(
-              "flex flex-col items-center justify-center p-2 border transition-all min-w-[64px]",
-              activeProvider === p 
-                ? "border-zinc-950 bg-zinc-950 dark:border-white dark:bg-white" 
-                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+              'flex flex-col items-center justify-center p-2 border transition-all min-w-[64px]',
+              activeProvider === p
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card hover:bg-accent hover:text-foreground',
             )}
           >
-            <AiIcon provider={p} size="sm" className={cn(activeProvider === p && "brightness-110")} />
-            <span className={cn(
-              "text-[8px] font-black mt-1 uppercase tracking-tighter",
-              activeProvider === p ? "text-white dark:text-zinc-950" : "text-zinc-500"
-            )}>
+            <AiIcon
+              provider={p}
+              size="sm"
+              className={cn(activeProvider === p && 'brightness-110')}
+            />
+            <span
+              className={cn(
+                'text-[8px] font-black mt-1 uppercase tracking-tighter',
+                activeProvider === p
+                  ? 'text-primary-foreground'
+                  : 'text-muted-foreground',
+              )}
+            >
               {p}
             </span>
           </button>
@@ -105,13 +122,18 @@ export function AiGlobalSwitcher() {
       </div>
 
       {activeProvider && (
-        <Select 
-          value={configs[activeProvider]?.model || MODELS_BY_PROVIDER[activeProvider][0]} 
+        <Select
+          value={
+            configs[activeProvider]?.model ||
+            MODELS_BY_PROVIDER[activeProvider][0]
+          }
           onValueChange={handleModelChange}
           className="h-8"
         >
           {MODELS_BY_PROVIDER[activeProvider].map((m) => (
-            <SelectItem key={m} value={m}>{m}</SelectItem>
+            <SelectItem key={m} value={m}>
+              {m}
+            </SelectItem>
           ))}
         </Select>
       )}

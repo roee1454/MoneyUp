@@ -21,7 +21,6 @@ export class AiService {
         `API Key for ${providerName} is not configured`,
       );
     }
-    
     // ...
     switch (providerName) {
       case 'openai':
