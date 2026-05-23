@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Plus } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { type BankAccount, isCreditCompanyBankId } from '@/hooks/useAccounts';
 import { BankIcon } from '@/components/BankIcon';
@@ -68,11 +67,11 @@ export function AccountStrip({
 
   if (isInitialLoading) {
     return (
-      <div className="flex items-stretch gap-3 overflow-x-auto pb-1">
+      <div className="flex flex-col gap-2 w-full">
         {Array.from({ length: 3 }).map((_, idx) => (
           <div
             key={idx}
-            className="h-16 min-w-[230px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2 rounded-none flex items-center justify-between"
+            className="h-16 w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2 rounded-none flex items-center justify-between"
           >
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
@@ -125,7 +124,7 @@ export function AccountStrip({
   const selectedAccounts = selectedBankId ? groupedConnections[selectedBankId] || [] : [];
 
   return (
-    <div className="flex items-stretch gap-3 overflow-x-auto pb-1">
+    <div className="flex flex-col gap-2 w-full">
       {activeConnections.map((bankId) => {
         const bankAccounts = groupedConnections[bankId];
         const isCard = isCreditCompanyBankId(bankId);
@@ -138,7 +137,7 @@ export function AccountStrip({
           <button
             key={bankId}
             onClick={() => setSelectedBankId(bankId)}
-            className="h-16 min-w-[230px] border border-zinc-200 dark:border-zinc-800 bg-white hover:bg-zinc-50/80 dark:bg-zinc-950 dark:hover:bg-zinc-900/60 px-3 py-2 rounded-none flex items-center justify-between transition-all cursor-pointer text-right group select-none"
+            className="h-16 w-full border border-zinc-200 dark:border-zinc-800 bg-white hover:bg-zinc-50/80 dark:bg-zinc-950 dark:hover:bg-zinc-900/60 px-3 py-2 rounded-none flex items-center justify-between transition-all cursor-pointer text-right group select-none"
           >
             <div className="flex items-center gap-2">
               <BankIcon bankId={bankId} size="sm" />
@@ -182,14 +181,6 @@ export function AccountStrip({
           </button>
         );
       })}
-
-      <button
-        onClick={onAddClick}
-        className="h-16 min-w-[64px] border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/40 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center justify-center transition-colors cursor-pointer rounded-none"
-        aria-label="הוסף חשבון"
-      >
-        <Plus className="h-5 w-5" weight="bold" />
-      </button>
 
       {/* Connection Accounts Dialog */}
       {selectedBankId && (

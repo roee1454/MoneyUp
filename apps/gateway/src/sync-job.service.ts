@@ -27,20 +27,26 @@ export type SyncJobSnapshot = {
   startedAt: string;
   updatedAt: string;
   error?: string;
+  cooldownBlockedUntil?: string;
+  cooldownRemainingMs?: number;
 };
 
 type SyncListener = (event: string, snapshot: SyncJobSnapshot) => void;
 
 @Injectable()
 export class SyncJobService {
+  private readonly defaultInitialAutoSyncCooldownMs = 30 * 60 * 1000;
   private readonly syncJobs = new Map<string, SyncJobSnapshot>();
   private readonly syncRunningPromises = new Map<string, Promise<void>>();
   private readonly syncStreams = new Map<string, Set<Subject<MessageEvent>>>();
   private readonly syncListeners = new Map<string, Set<SyncListener>>();
+  private readonly initialAutoSyncBlockedUntil = new Map<string, number>();
 
   constructor(
     @Inject('SCRAPER_SERVICE')
     private readonly scraperServiceClient: ClientProxy,
+    @Inject('USERS_SERVICE')
+    private readonly usersServiceClient: ClientProxy,
   ) {}
 
   getIdleSnapshot(source: 'initial' | 'manual' = 'manual'): SyncJobSnapshot {
@@ -58,11 +64,107 @@ export class SyncJobService {
   }
 
   getSnapshot(userId: string): SyncJobSnapshot {
-    return this.syncJobs.get(userId) ?? this.getIdleSnapshot();
+    const snapshot = this.syncJobs.get(userId) ?? this.getIdleSnapshot();
+    return this.decorateSnapshotWithCooldown(userId, snapshot);
   }
 
   isRunning(userId: string): boolean {
     return this.syncJobs.get(userId)?.status === 'running';
+  }
+
+  canAutoStartInitial(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ): boolean {
+    const key = this.buildInitialAutoSyncKey(userId, startDate, endDate);
+    const blockedUntil = this.initialAutoSyncBlockedUntil.get(key);
+    if (!blockedUntil) return true;
+    if (Date.now() >= blockedUntil) {
+      this.initialAutoSyncBlockedUntil.delete(key);
+      return true;
+    }
+    return false;
+  }
+
+  private markInitialAutoSyncFailure(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+    cooldownMs?: number,
+  ): void {
+    const key = this.buildInitialAutoSyncKey(userId, startDate, endDate);
+    this.initialAutoSyncBlockedUntil.set(
+      key,
+      Date.now() + (cooldownMs ?? this.defaultInitialAutoSyncCooldownMs),
+    );
+  }
+
+  private clearInitialAutoSyncFailure(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ): void {
+    const key = this.buildInitialAutoSyncKey(userId, startDate, endDate);
+    this.initialAutoSyncBlockedUntil.delete(key);
+  }
+
+  private buildInitialAutoSyncKey(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ): string {
+    return `${userId}|${startDate ?? ''}|${endDate ?? ''}`;
+  }
+
+  private getInitialAutoSyncCooldownInfo(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ): { cooldownBlockedUntil: string; cooldownRemainingMs: number } | null {
+    const key = this.buildInitialAutoSyncKey(userId, startDate, endDate);
+    const blockedUntil = this.initialAutoSyncBlockedUntil.get(key);
+    if (!blockedUntil) return null;
+    if (Date.now() >= blockedUntil) {
+      this.initialAutoSyncBlockedUntil.delete(key);
+      return null;
+    }
+
+    return {
+      cooldownBlockedUntil: new Date(blockedUntil).toISOString(),
+      cooldownRemainingMs: Math.max(0, blockedUntil - Date.now()),
+    };
+  }
+
+  private decorateSnapshotWithCooldown(
+    userId: string,
+    snapshot: SyncJobSnapshot,
+  ): SyncJobSnapshot {
+    if (snapshot.source !== 'initial' || snapshot.status !== 'failed') {
+      return {
+        ...snapshot,
+        cooldownBlockedUntil: undefined,
+        cooldownRemainingMs: undefined,
+      };
+    }
+
+    const cooldown = this.getInitialAutoSyncCooldownInfo(
+      userId,
+      snapshot.startDate,
+      snapshot.endDate,
+    );
+    if (!cooldown) {
+      return {
+        ...snapshot,
+        cooldownBlockedUntil: undefined,
+        cooldownRemainingMs: undefined,
+      };
+    }
+
+    return {
+      ...snapshot,
+      ...cooldown,
+    };
   }
 
   subscribeStream(userId: string, stream: Subject<MessageEvent>): () => void {
@@ -155,14 +257,15 @@ export class SyncJobService {
     event: string,
     snapshot: SyncJobSnapshot,
   ): void {
-    this.syncJobs.set(userId, snapshot);
+    const decorated = this.decorateSnapshotWithCooldown(userId, snapshot);
+    this.syncJobs.set(userId, decorated);
 
     const streams = this.syncStreams.get(userId);
     if (streams) {
       for (const stream of streams) {
         stream.next({
           type: event,
-          data: snapshot,
+          data: decorated,
         });
       }
     }
@@ -170,7 +273,7 @@ export class SyncJobService {
     const listeners = this.syncListeners.get(userId);
     if (listeners) {
       for (const listener of listeners) {
-        listener(event, snapshot);
+        listener(event, decorated);
       }
     }
   }
@@ -214,6 +317,7 @@ export class SyncJobService {
     const existing = this.syncJobs.get(userId);
     const syncSource = existing?.source ?? 'manual';
     const startedAt = new Date().toISOString();
+    let initialAutoSyncCooldownMs = this.defaultInitialAutoSyncCooldownMs;
 
     this.patchSyncJob(userId, {
       status: 'running',
@@ -246,6 +350,35 @@ export class SyncJobService {
         progress: 45,
         message: 'מסנכרן חשבונות ותנועות ממקורות מחוברים',
       });
+
+      const profile = await firstValueFrom(
+        this.usersServiceClient
+          .send<
+            | {
+                scraperTimeoutRetryCount?: number;
+                scraperAutoSyncCooldownSeconds?: number;
+                scraperShowBrowser?: boolean;
+                scraperLoginTimeoutSeconds?: number;
+                scraperDefaultTimeoutSeconds?: number;
+              }
+            | null
+          >(
+            'user_find_one',
+            userId,
+          )
+          .pipe(timeout(5000)),
+      );
+      const timeoutRetryCount = Math.max(
+        0,
+        Math.min(5, Number(profile?.scraperTimeoutRetryCount ?? 1)),
+      );
+      initialAutoSyncCooldownMs = Math.max(
+        0,
+        Math.min(
+          1440 * 60 * 1000,
+          Number(profile?.scraperAutoSyncCooldownSeconds ?? 1800) * 1000,
+        ),
+      );
       const stopScrapersTicker = this.startPhaseProgressTicker(
         userId,
         45,
@@ -263,6 +396,10 @@ export class SyncJobService {
               mode: syncSource,
               startDate: latest?.startDate,
               endDate: latest?.endDate,
+              timeoutRetryCount,
+              showBrowser: profile?.scraperShowBrowser,
+              loginTimeoutSeconds: profile?.scraperLoginTimeoutSeconds,
+              defaultTimeoutSeconds: profile?.scraperDefaultTimeoutSeconds,
             })
             .pipe(timeout(120000)),
         );
@@ -303,7 +440,24 @@ export class SyncJobService {
         },
         'job_done',
       );
+      if (syncSource === 'initial') {
+        const latest = this.syncJobs.get(userId);
+        this.clearInitialAutoSyncFailure(
+          userId,
+          latest?.startDate,
+          latest?.endDate,
+        );
+      }
     } catch (error: any) {
+      if (syncSource === 'initial') {
+        const latest = this.syncJobs.get(userId);
+        this.markInitialAutoSyncFailure(
+          userId,
+          latest?.startDate,
+          latest?.endDate,
+          initialAutoSyncCooldownMs,
+        );
+      }
       this.patchSyncJob(
         userId,
         {

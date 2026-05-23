@@ -14,6 +14,9 @@ describe('ScraperService scanIncome', () => {
       repoMock as any,
       repoMock as any,
       repoMock as any,
+      repoMock as any,
+      repoMock as any,
+      {} as any,
     );
   });
 
@@ -23,6 +26,7 @@ describe('ScraperService scanIncome', () => {
       accounts: [
         {
           bankId: 'hapoalim',
+          balance: 14500,
           transactions: [
             {
               id: 'inc',
@@ -34,10 +38,31 @@ describe('ScraperService scanIncome', () => {
               memo: 'משכורת',
               originalCurrency: 'ILS',
             },
+            {
+              id: 'generic-transfer',
+              date: new Date().toISOString(),
+              processedDate: new Date().toISOString(),
+              amount: 340,
+              chargedAmount: 340,
+              description: 'העברה',
+              memo: '',
+              originalCurrency: 'ILS',
+            },
+            {
+              id: 'bit-transfer',
+              date: new Date().toISOString(),
+              processedDate: new Date().toISOString(),
+              amount: 75,
+              chargedAmount: 75,
+              description: 'bit העברת כסף',
+              memo: '',
+              originalCurrency: 'ILS',
+            },
           ],
         },
         {
           bankId: 'max',
+          balance: -900,
           transactions: [
             {
               id: 'exp',
@@ -49,13 +74,24 @@ describe('ScraperService scanIncome', () => {
               memo: '',
               originalCurrency: 'ILS',
             },
+            {
+              id: 'refund',
+              date: new Date().toISOString(),
+              processedDate: new Date().toISOString(),
+              amount: 100,
+              chargedAmount: 100,
+              description: 'זיכוי אשראי',
+              memo: '',
+              originalCurrency: 'ILS',
+            },
           ],
         },
       ],
     });
 
-    expect(result.totalIncome).toBe(5000);
+    expect(result.totalIncome).toBe(5415);
     expect(result.totalExpenses).toBe(150);
+    expect(result.totalBalance).toBe(14500);
     expect(result.categories).toEqual([
       { name: 'מזון', amount: 150, count: 1 },
     ]);

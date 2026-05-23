@@ -88,56 +88,70 @@ export class HapoalimScraper extends BaseScraper {
   protected async liveScrape(
     credentials: ScraperCredentials,
     startDate: Date,
+    options?: {
+      showBrowser?: boolean;
+      loginTimeoutSeconds?: number;
+      defaultTimeoutSeconds?: number;
+    },
   ): Promise<ScraperResponse> {
     try {
       const debugEnabled =
         this.configService.get<string>('SCRAPER_DEBUG') === '1';
-      const timeoutMs = Number(
-        this.configService.get<string>('SCRAPER_TIMEOUT_MS') || 90000,
-      );
-      const defaultTimeoutMs = Number(
-        this.configService.get<string>('SCRAPER_DEFAULT_TIMEOUT_MS') ||
-          timeoutMs,
-      );
+      const timeoutMs =
+        options?.loginTimeoutSeconds !== undefined
+          ? options.loginTimeoutSeconds * 1000
+          : Number(
+              this.configService.get<string>('SCRAPER_TIMEOUT_MS') || 90000,
+            );
+      const defaultTimeoutMs =
+        options?.defaultTimeoutSeconds !== undefined
+          ? options.defaultTimeoutSeconds * 1000
+          : Number(
+              this.configService.get<string>('SCRAPER_DEFAULT_TIMEOUT_MS') ||
+                timeoutMs,
+            );
 
-      return await this.withIsolatedBrowserContext(async (browserContext) => {
-        const scraper = createScraper({
-          companyId: this.companyId,
-          startDate,
-          combineInstallments: false,
-          browserContext,
-          verbose: debugEnabled,
-          timeout: timeoutMs,
-          defaultTimeout: defaultTimeoutMs,
-          storeFailureScreenShotPath: debugEnabled
-            ? 'data/scraper-failures'
-            : undefined,
-          additionalTransactionInformation: false,
-          includeRawTransaction: true,
-        });
+      return await this.withIsolatedBrowserContext(
+        async (browserContext) => {
+          const scraper = createScraper({
+            companyId: this.companyId,
+            startDate,
+            combineInstallments: false,
+            browserContext,
+            verbose: debugEnabled,
+            timeout: timeoutMs,
+            defaultTimeout: defaultTimeoutMs,
+            storeFailureScreenShotPath: debugEnabled
+              ? 'data/scraper-failures'
+              : undefined,
+            additionalTransactionInformation: false,
+            includeRawTransaction: true,
+          });
 
-        const scrapeResult = await scraper.scrape(credentials);
+          const scrapeResult = await scraper.scrape(credentials);
 
-        if (!scrapeResult.success) {
-          const errorParts = [
-            scrapeResult.errorType,
-            scrapeResult.errorMessage,
-          ].filter(Boolean);
+          if (!scrapeResult.success) {
+            const errorParts = [
+              scrapeResult.errorType,
+              scrapeResult.errorMessage,
+            ].filter(Boolean);
+            return {
+              status: 'FAILED',
+              error:
+                errorParts.length > 0
+                  ? errorParts.join(': ')
+                  : 'Unknown error occurred during bank scraping',
+            };
+          }
+
+          const rawAccounts = scrapeResult.accounts || [];
           return {
-            status: 'FAILED',
-            error:
-              errorParts.length > 0
-                ? errorParts.join(': ')
-                : 'Unknown error occurred during bank scraping',
+            status: 'SUCCESS',
+            accounts: this.normalizeAccounts(rawAccounts),
           };
-        }
-
-        const rawAccounts = scrapeResult.accounts || [];
-        return {
-          status: 'SUCCESS',
-          accounts: this.normalizeAccounts(rawAccounts),
-        };
-      });
+        },
+        { showBrowser: options?.showBrowser },
+      );
     } catch (err: any) {
       return {
         status: 'FAILED',

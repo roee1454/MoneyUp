@@ -21,6 +21,8 @@ type SyncStartResponse = {
   endDate?: string;
   startedAt: string;
   updatedAt: string;
+  cooldownBlockedUntil?: string;
+  cooldownRemainingMs?: number;
 };
 
 type SyncEventPayload = {
@@ -33,6 +35,8 @@ type SyncEventPayload = {
   startDate?: string;
   endDate?: string;
   error?: string;
+  cooldownBlockedUntil?: string;
+  cooldownRemainingMs?: number;
   startedAt?: string;
   updatedAt?: string;
 };
@@ -53,6 +57,8 @@ export function useStartGlobalSync() {
         message: data.message,
         source: data.source,
         error: null,
+        cooldownBlockedUntil: data.cooldownBlockedUntil ?? null,
+        cooldownRemainingMs: data.cooldownRemainingMs ?? null,
         rangeStartDate: data.startDate ?? null,
         rangeEndDate: data.endDate ?? null,
         startedAt: data.startedAt,
@@ -105,6 +111,13 @@ export function useGlobalSyncManager(enabled: boolean) {
         message: payload.message ?? '',
         source: payload.source ?? null,
         error: payload.error ?? null,
+        cooldownBlockedUntil:
+          payload.cooldownBlockedUntil ??
+          useAppStore.getState().sync.cooldownBlockedUntil,
+        cooldownRemainingMs:
+          typeof payload.cooldownRemainingMs === 'number'
+            ? payload.cooldownRemainingMs
+            : useAppStore.getState().sync.cooldownRemainingMs,
         rangeStartDate: payload.startDate ?? useAppStore.getState().sync.rangeStartDate,
         rangeEndDate: payload.endDate ?? useAppStore.getState().sync.rangeEndDate,
         startedAt: payload.startedAt ?? useAppStore.getState().sync.startedAt,
@@ -117,7 +130,14 @@ export function useGlobalSyncManager(enabled: boolean) {
         void queryClient.invalidateQueries({ queryKey: ['spending-scans'] });
         void queryClient.invalidateQueries({ queryKey: ['spending-scans-debug'] });
         window.setTimeout(() => {
-          setSync({ visible: false, status: 'idle', message: '' });
+          setSync({
+            visible: false,
+            status: 'idle',
+            message: '',
+            error: null,
+            cooldownBlockedUntil: null,
+            cooldownRemainingMs: null,
+          });
         }, 1300);
       }
     };
@@ -182,6 +202,8 @@ export function useGlobalSyncManager(enabled: boolean) {
             message: data.message,
             source: data.source,
             error: null,
+            cooldownBlockedUntil: data.cooldownBlockedUntil ?? null,
+            cooldownRemainingMs: data.cooldownRemainingMs ?? null,
             rangeStartDate: data.startDate ?? null,
             rangeEndDate: data.endDate ?? null,
             startedAt: data.startedAt,

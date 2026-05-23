@@ -33,4 +33,10 @@ export const SCRAPERS_METADATA: Record<string, Omit<ScraperMetadata, 'id'>> = {
     enabled: true,
     type: 'credit_card',
   },
+  cal: {
+    name: 'CAL',
+    icon: 'cal',
+    enabled: true,
+    type: 'credit_card',
+  },
 };

@@ -217,6 +217,8 @@ export class ScraperSocketGateway
       sourcesSkippedCovered: snapshot.sourcesSkippedCovered,
       startedAt: snapshot.startedAt,
       updatedAt: snapshot.updatedAt,
+      cooldownBlockedUntil: snapshot.cooldownBlockedUntil,
+      cooldownRemainingMs: snapshot.cooldownRemainingMs,
     };
   }
 

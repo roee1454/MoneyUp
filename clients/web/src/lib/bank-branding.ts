@@ -14,6 +14,8 @@ export function getBankName(bankId: string | null | undefined): string {
       return 'MAX';
     case 'isracard':
       return 'ישראכרט';
+    case 'cal':
+      return 'CAL';
     case 'leumi':
       return 'לאומי';
     case 'pepper':
@@ -29,6 +31,7 @@ export const BANK_ICON_BY_ID: Record<string, string> = {
   hapoalim: '/banks/hapoalim.png',
   max: '/banks/max.png',
   isracard: '/banks/isracard.png',
+  cal: '/banks/cal.png',
   leumi: '/banks/leumi.png',
   pepper: '/banks/pepper.png',
   onezero: '/banks/onezero.png',
@@ -36,5 +39,6 @@ export const BANK_ICON_BY_ID: Record<string, string> = {
 
 export const BANK_ICON_SHAPE_BY_ID: Record<string, BankIconShape> = {
   max: 'rounded-square',
+  cal: 'rounded-square',
   hapoalim: 'rounded-square',
 };

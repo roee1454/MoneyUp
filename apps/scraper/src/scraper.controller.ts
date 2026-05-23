@@ -292,11 +292,19 @@ export class ScraperController {
     startDate?: string;
     endDate?: string;
     mode?: 'initial' | 'manual';
+    timeoutRetryCount?: number;
+    showBrowser?: boolean;
+    loginTimeoutSeconds?: number;
+    defaultTimeoutSeconds?: number;
   }): Promise<any[]> {
     await this.scraperService.syncUserAccounts(data.userId, {
       startDate: data.startDate,
       endDate: data.endDate,
       mode: data.mode,
+      timeoutRetryCount: data.timeoutRetryCount,
+      showBrowser: data.showBrowser,
+      loginTimeoutSeconds: data.loginTimeoutSeconds,
+      defaultTimeoutSeconds: data.defaultTimeoutSeconds,
     });
     return this.scraperService.getCachedAccountsForRange(
       data.userId,
@@ -382,6 +390,12 @@ export class ScraperController {
     if (bankId === 'max') {
       if (isMissing(credentials.username) || isMissing(credentials.password)) {
         return "Missing required max credentials. Expected 'username' and 'password'.";
+      }
+    }
+
+    if (bankId === 'cal') {
+      if (isMissing(credentials.username) || isMissing(credentials.password)) {
+        return "Missing required cal credentials. Expected 'username' and 'password'.";
       }
     }
 

@@ -11,6 +11,7 @@ export interface AiScanCategory {
 export interface SpendingScansResponse {
   totalIncome: number;
   totalExpenses: number;
+  totalBalance: number;
   categories: AiScanCategory[];
   categoryTransactions: Record<
     string,
@@ -53,6 +54,7 @@ export interface SpendingScansResponse {
     finalTotals: {
       totalIncome: number;
       totalExpenses: number;
+      totalBalance: number;
       categories: AiScanCategory[];
     };
   };
@@ -156,6 +158,14 @@ export function useSaveAiConfig() {
       provider: 'openai' | 'claude' | 'gemini';
       apiKey: string;
       preferredModel: string;
+      activeProvider?: 'openai' | 'claude' | 'gemini';
+      config?: {
+        model: string;
+        preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
+        temperature?: number;
+        maxTokens?: number;
+        stream?: boolean;
+      };
     }) => api.post('/users/ai-config', payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
@@ -164,3 +174,16 @@ export function useSaveAiConfig() {
     },
   });
 }
+
+export function useDeleteAiProvider() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { provider: 'openai' | 'claude' | 'gemini' }) =>
+      api.post('/users/delete-ai-provider', payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+    },
+  });
+}
+

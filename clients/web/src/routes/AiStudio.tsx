@@ -41,6 +41,7 @@ export default function AiStudio() {
           <AiConversation
             provider={userProfile.activeAiProvider}
             preferredModel={userProfile.preferredModel}
+            userProfile={userProfile}
           />
         </div>
       ) : (

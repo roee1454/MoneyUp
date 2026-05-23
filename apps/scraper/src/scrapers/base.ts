@@ -18,12 +18,17 @@ export abstract class BaseScraper {
   async scrape(
     credentials: ScraperCredentials,
     startDate: Date,
+    options?: {
+      showBrowser?: boolean;
+      loginTimeoutSeconds?: number;
+      defaultTimeoutSeconds?: number;
+    },
   ): Promise<ScraperResponse> {
     const isSimulation =
       this.configService.get<string>('SCRAPER_MODE') === 'simulation';
     return isSimulation
       ? this.simulateScrape(credentials)
-      : this.liveScrape(credentials, startDate);
+      : this.liveScrape(credentials, startDate, options);
   }
 
   protected abstract simulateScrape(
@@ -32,12 +37,20 @@ export abstract class BaseScraper {
   protected abstract liveScrape(
     credentials: ScraperCredentials,
     startDate: Date,
+    options?: {
+      showBrowser?: boolean;
+      loginTimeoutSeconds?: number;
+      defaultTimeoutSeconds?: number;
+    },
   ): Promise<ScraperResponse>;
 
   protected async withIsolatedBrowserContext<T>(
     callback: (browserContext: BrowserContext) => Promise<T>,
+    options?: { showBrowser?: boolean },
   ): Promise<T> {
-    const browserContext = await this.browserManager.createIsolatedContext();
+    const browserContext = await this.browserManager.createIsolatedContext(
+      options?.showBrowser,
+    );
     try {
       return await callback(browserContext);
     } finally {

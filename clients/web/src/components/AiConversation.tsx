@@ -30,18 +30,26 @@ type Message = {
 interface AiConversationProps {
   provider: AiProvider;
   preferredModel?: string | null;
+  userProfile?: {
+    aiProviderConfigs?: Record<string, any> | null;
+  } | null;
 }
 
 const debugEnabled = import.meta.env.VITE_DEBUG_AI_CHAT === 'true';
 
-export function AiConversation({ provider, preferredModel }: AiConversationProps) {
+export function AiConversation({ provider, preferredModel, userProfile }: AiConversationProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [streaming, setStreaming] = useState(false);
-  const [temperature, setTemperature] = useState(0.7);
-  const [maxTokens, setMaxTokens] = useState(1024);
+  
+  const providerConfig = useMemo(() => {
+    return userProfile?.aiProviderConfigs?.[provider] || {};
+  }, [userProfile, provider]);
+
+  const [streaming, setStreaming] = useState(providerConfig.stream ?? false);
+  const [temperature, setTemperature] = useState(providerConfig.temperature ?? 0.7);
+  const [maxTokens, setMaxTokens] = useState(providerConfig.maxTokens ?? 1024);
   const [modelOverride, setModelOverride] = useState('');
   const [showDebug, setShowDebug] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -59,7 +67,10 @@ export function AiConversation({ provider, preferredModel }: AiConversationProps
     setPrompt('');
     setError('');
     setModelOverride('');
-  }, [provider, preferredModel]);
+    setStreaming(providerConfig.stream ?? false);
+    setTemperature(providerConfig.temperature ?? 0.7);
+    setMaxTokens(providerConfig.maxTokens ?? 1024);
+  }, [provider, preferredModel, providerConfig]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

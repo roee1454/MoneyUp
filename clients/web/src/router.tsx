@@ -60,6 +60,23 @@ function AppLayout() {
   const showNavbar = isHydrated && !isLoadingSession && session && privatePaths.includes(routerState.location.pathname);
   useGlobalSyncManager(Boolean(isHydrated && !isLoadingSession && session));
 
+  useEffect(() => {
+    if (!showNavbar || typeof document === 'undefined') return;
+
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+
+    root.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, [showNavbar]);
+
   if (isHydrated && isLoadingSession) {
     return (
       <main className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 flex items-center justify-center" dir="rtl">
@@ -69,11 +86,25 @@ function AppLayout() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 transition-colors duration-300">
+    <main
+      className={
+        showNavbar
+          ? 'flex h-dvh flex-col overflow-hidden bg-zinc-50 text-zinc-900 transition-colors duration-300 dark:bg-zinc-950 dark:text-zinc-50'
+          : 'min-h-screen bg-zinc-50 text-zinc-900 transition-colors duration-300 dark:bg-zinc-950 dark:text-zinc-50'
+      }
+    >
       {showNavbar && <Navbar />}
-      <div className="mx-auto max-w-7xl p-6">
-        <Outlet />
-      </div>
+      {showNavbar ? (
+        <div className="min-h-0 flex-1 overflow-y-auto md:pr-72">
+          <div className="mx-auto max-w-7xl p-6">
+            <Outlet />
+          </div>
+        </div>
+      ) : (
+        <div className="mx-auto max-w-7xl p-6">
+          <Outlet />
+        </div>
+      )}
       <GlobalSyncBubble />
     </main>
   );

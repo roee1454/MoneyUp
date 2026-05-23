@@ -1,42 +1,28 @@
-import { Button } from '@/components/ui/button';
-import { useAppStore } from '@/store';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { CircleNotch, CreditCard } from '@phosphor-icons/react';
-import { useNavigate } from '@tanstack/react-router';
-import { AddBankAccountDialog } from '@/components/AddBankAccountDialog';
-import { isCreditCompanyBankId, useAccounts, useSyncAccounts } from '@/hooks/useAccounts';
-import { AccountStrip } from '@/components/AccountStrip';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowsDownUp, TrendDown, TrendUp, Wallet } from '@phosphor-icons/react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import {
+  isBankAccountBankId,
+  isCreditCompanyBankId,
+  useAccounts,
+} from '@/hooks/useAccounts';
 import { SpendingCategories } from '@/components/SpendingCategories';
 import { useUserProfile } from '@/hooks/useUsers';
-import { useSpendingScans, useSpendingScansDebug, useAnnotateSpendingScans } from '@/hooks/useAi';
-import { PremiumCard } from '@/components/ui/premium-card';
+import { useAnnotateSpendingScans, useSpendingScans } from '@/hooks/useAi';
+import { useAppStore } from '@/store';
+import { DashboardMetricCard } from '@/components/dashboard/DashboardMetricCard';
+import { DashboardRangeCard } from '@/components/dashboard/DashboardRangeCard';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { getBankName } from '@/lib/bank-branding';
 
 function toDateInputValue(date: Date): string {
   return date.toISOString().slice(0, 10);
-}
-
-function getOneMonthAgoUtc(date: Date): Date {
-  const targetMonth = date.getUTCMonth() - 1;
-  const firstOfTargetMonth = new Date(
-    Date.UTC(date.getUTCFullYear(), targetMonth, 1),
-  );
-  const lastDayOfTargetMonth = new Date(
-    Date.UTC(
-      firstOfTargetMonth.getUTCFullYear(),
-      firstOfTargetMonth.getUTCMonth() + 1,
-      0,
-    ),
-  ).getUTCDate();
-  const targetDay = Math.min(date.getUTCDate(), lastDayOfTargetMonth);
-
-  return new Date(
-    Date.UTC(
-      firstOfTargetMonth.getUTCFullYear(),
-      firstOfTargetMonth.getUTCMonth(),
-      targetDay,
-    ),
-  );
 }
 
 type ScraperDateLimit = {
@@ -82,37 +68,41 @@ function getMinimumStartDateForBank(bankId: string, now = new Date()): string {
   return toDateInputValue(subtractUtcDate(now, limit));
 }
 
-function getRangeFromPeriod(period: 'current' | 'previous' | 'both'): { startDate: string; endDate: string } {
+function getCurrentRange(): { startDate: string; endDate: string } {
   const now = new Date();
-  const currentStart = getOneMonthAgoUtc(now);
-  const currentEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const previousStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  const previousEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
+  const currentStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  );
+  const currentEnd = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  return {
+    startDate: toDateInputValue(currentStart),
+    endDate: toDateInputValue(currentEnd),
+  };
+}
 
-  if (period === 'previous') {
-    return { startDate: toDateInputValue(previousStart), endDate: toDateInputValue(previousEnd) };
-  }
-  if (period === 'both') {
-    return { startDate: toDateInputValue(previousStart), endDate: toDateInputValue(currentEnd) };
-  }
-  return { startDate: toDateInputValue(currentStart), endDate: toDateInputValue(currentEnd) };
+function formatMoney(value: number): string {
+  return value.toLocaleString('he-IL', {
+    style: 'currency',
+    currency: 'ILS',
+    maximumFractionDigits: 0,
+  });
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const session = useAppStore((s) => s.session);
   const syncState = useAppStore((s) => s.sync);
+  const dashboardRange = useAppStore((s) => s.dashboardRange);
+  const setDashboardRange = useAppStore((s) => s.setDashboardRange);
   const [greeting, setGreeting] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [showDebugPipeline, setShowDebugPipeline] = useState(false);
-  const [debugStatusFilter, setDebugStatusFilter] = useState<string[]>([]);
-  const [debugFromDate, setDebugFromDate] = useState('');
-  const [debugToDate, setDebugToDate] = useState('');
   const [scanPeriod] = useState<'current' | 'previous' | 'both'>('current');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isWidgetBusy, setIsWidgetBusy] = useState(false);
+  const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
+  const [excludedExpenseAmount, setExcludedExpenseAmount] = useState(0);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -128,19 +118,40 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const range = getRangeFromPeriod('current');
+    const range =
+      dashboardRange.startDate && dashboardRange.endDate
+        ? {
+            startDate: dashboardRange.startDate,
+            endDate: dashboardRange.endDate,
+          }
+        : getCurrentRange();
     setStartDate(range.startDate);
     setEndDate(range.endDate);
-  }, []);
+    setDashboardRange({
+      startDate: range.startDate,
+      endDate: range.endDate,
+      committedStartDate:
+        dashboardRange.committedStartDate ?? range.startDate,
+      committedEndDate:
+        dashboardRange.committedEndDate ?? range.endDate,
+    });
+  }, [
+    dashboardRange.committedEndDate,
+    dashboardRange.committedStartDate,
+    dashboardRange.endDate,
+    dashboardRange.startDate,
+    setDashboardRange,
+  ]);
 
   const {
     data: accounts = [],
     isLoading: isLoadingAccounts,
     isFetching: isFetchingAccounts,
     refetch,
-  } = useAccounts();
+  } = useAccounts({ startDate, endDate });
   const { data: userProfile } = useUserProfile(session?.userId);
   const hasCreditAccounts = accounts.some((account) => isCreditCompanyBankId(account.bankId));
+  const hasBankAccounts = accounts.some((account) => isBankAccountBankId(account.bankId));
   const hasAiProvider = !!userProfile?.activeAiProvider;
   const {
     data: scans,
@@ -152,39 +163,155 @@ export default function Dashboard() {
     startDate,
     endDate,
   });
-  const { data: debugScans, isLoading: isLoadingDebugScans } = useSpendingScansDebug(
-    {
-      period: scanPeriod,
-      startDate,
-      endDate,
-    },
-    showDebugPipeline && hasAiProvider && hasCreditAccounts,
-  );
-  const syncMutation = useSyncAccounts();
-  const isSyncing = syncState.status === 'running' || syncState.status === 'reconnecting';
   const annotateMutation = useAnnotateSpendingScans();
+  const isSyncing = syncState.status === 'running' || syncState.status === 'reconnecting';
   const isInitialLoad = isLoadingAccounts;
   const isAccountsRefreshing = isFetchingAccounts && !isInitialLoad;
-  const isScansInitialLoading = hasCreditAccounts && isLoadingScans;
-  const isScansRefreshing = hasCreditAccounts && isFetchingScans && !isLoadingScans;
+  const isScansInitialLoading = isLoadingScans;
+  const isScansRefreshing = isFetchingScans && !isLoadingScans;
   const maxEndDate = toDateInputValue(new Date());
   const minStartDate = useMemo(() => {
-    const limits = accounts.map((account) =>
-      getMinimumStartDateForBank(account.bankId),
-    );
+    const limits = accounts.map((account) => getMinimumStartDateForBank(account.bankId));
     return limits.length > 0 ? limits.sort().at(-1) : undefined;
   }, [accounts]);
-  
-  // Consolidate busy state for the entire widget area
   const isAnyActionBusy = isSyncing || isScansInitialLoading || isScansRefreshing || isWidgetBusy;
 
-  async function handleSync() {
-    if (accounts.length === 0) return;
-    await syncMutation.mutateAsync({
-      startDate,
-      endDate,
+  useEffect(() => {
+    setDashboardRange({
+      startDate: startDate || null,
+      endDate: endDate || null,
     });
-  }
+  }, [endDate, setDashboardRange, startDate]);
+
+  useEffect(() => {
+    if (syncState.status !== 'done') return;
+    if (syncState.rangeStartDate !== startDate || syncState.rangeEndDate !== endDate) {
+      return;
+    }
+    setDashboardRange({
+      committedStartDate: startDate || null,
+      committedEndDate: endDate || null,
+    });
+  }, [
+    endDate,
+    setDashboardRange,
+    startDate,
+    syncState.rangeEndDate,
+    syncState.rangeStartDate,
+    syncState.status,
+  ]);
+
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+    if (
+      dashboardRange.committedStartDate === startDate &&
+      dashboardRange.committedEndDate === endDate
+    ) {
+      return;
+    }
+    if (isFetchingAccounts || isFetchingScans) return;
+    if (
+      (syncState.status === 'running' || syncState.status === 'reconnecting') &&
+      syncState.rangeStartDate === startDate &&
+      syncState.rangeEndDate === endDate
+    ) {
+      return;
+    }
+    if (
+      syncState.status === 'failed' &&
+      syncState.rangeStartDate === startDate &&
+      syncState.rangeEndDate === endDate
+    ) {
+      return;
+    }
+
+    setDashboardRange({
+      committedStartDate: startDate,
+      committedEndDate: endDate,
+    });
+  }, [
+    dashboardRange.committedEndDate,
+    dashboardRange.committedStartDate,
+    endDate,
+    isFetchingAccounts,
+    isFetchingScans,
+    setDashboardRange,
+    startDate,
+    syncState.rangeEndDate,
+    syncState.rangeStartDate,
+    syncState.status,
+  ]);
+
+  useEffect(() => {
+    if (syncState.status !== 'failed') return;
+    if (syncState.rangeStartDate !== startDate || syncState.rangeEndDate !== endDate) {
+      return;
+    }
+    if (
+      !dashboardRange.committedStartDate ||
+      !dashboardRange.committedEndDate ||
+      (dashboardRange.committedStartDate === startDate &&
+        dashboardRange.committedEndDate === endDate)
+    ) {
+      return;
+    }
+
+    setStartDate(dashboardRange.committedStartDate);
+    setEndDate(dashboardRange.committedEndDate);
+    setDashboardRange({
+      startDate: dashboardRange.committedStartDate,
+      endDate: dashboardRange.committedEndDate,
+    });
+  }, [
+    dashboardRange.committedEndDate,
+    dashboardRange.committedStartDate,
+    endDate,
+    setDashboardRange,
+    startDate,
+    syncState.rangeEndDate,
+    syncState.rangeStartDate,
+    syncState.status,
+  ]);
+
+  const currentBankBalance = useMemo(() => {
+    return accounts
+      .filter((account) => isBankAccountBankId(account.bankId))
+      .reduce((sum, account) => sum + (Number(account.balance) || 0), 0);
+  }, [accounts]);
+  const isCreditExpensesLoading = hasCreditAccounts && (isScansInitialLoading || !scans);
+  const isIncomeLoading = hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length);
+  const isNetSpendingLoading =
+    (hasCreditAccounts && (isScansInitialLoading || !scans)) ||
+    (hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length));
+  const isBalanceLoading = hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length);
+
+  const recentIncomeTransactions = useMemo(() => {
+    return accounts
+      .filter((account) => isBankAccountBankId(account.bankId))
+      .flatMap((account) => {
+        const accountLabel = `${getBankName(account.bankId)} • ${account.accountNumber}`;
+        const accountKey = `${account.bankId}:${account.accountNumber}`;
+        return (account.transactions ?? [])
+          .map((txn) => {
+            const amount = Number(txn.chargedAmount ?? txn.amount ?? 0);
+            return {
+              id: txn.id,
+              accountKey,
+              accountLabel,
+              amount,
+              date: txn.date,
+              description: String(txn.description || txn.memo || 'הכנסה').trim(),
+            };
+          })
+          .filter((txn) => Number.isFinite(txn.amount) && txn.amount > 0);
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [accounts]);
+  const dashboardTotalIncome = useMemo(() => {
+    return recentIncomeTransactions.reduce((sum, txn) => sum + txn.amount, 0);
+  }, [recentIncomeTransactions]);
+  const adjustedTotalExpenses = Math.max((scans?.totalExpenses ?? 0) - excludedExpenseAmount, 0);
+  const netSpending = dashboardTotalIncome - adjustedTotalExpenses;
 
   function handleStartDateChange(value: string) {
     const clamped = minStartDate && value < minStartDate ? minStartDate : value;
@@ -212,21 +339,14 @@ export default function Dashboard() {
     }
   }, [endDate, minStartDate, startDate]);
 
-  const handleAccountConnected = useCallback(async () => {
-    await refetch();
-    await queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
-    await queryClient.invalidateQueries({ queryKey: ['spending-scans'] });
-    await queryClient.invalidateQueries({ queryKey: ['spending-scans-debug'] });
-    await refetchScans();
-  }, [queryClient, refetch, refetchScans]);
+
 
   useEffect(() => {
-    // When sync completes, we should refetch scans to ensure UI is fresh
     if (syncState.status === 'done' || syncState.status === 'failed') {
-      refetchScans();
-      refetch();
+      void refetchScans();
+      void refetch();
     }
-  }, [syncState.status]);
+  }, [refetch, refetchScans, syncState.status]);
 
   async function handleAnnotateWithAi() {
     setIsWidgetBusy(true);
@@ -242,273 +362,193 @@ export default function Dashboard() {
     }
   }
 
-  const debugStatuses = useMemo(() => {
-    const statuses = debugScans?.debugTrace?.transactions.map((txn) => txn.status) ?? [];
-    return Array.from(new Set(statuses)).sort();
-  }, [debugScans?.debugTrace?.transactions]);
-
-  const filteredDebugTransactions = useMemo(() => {
-    const txns = debugScans?.debugTrace?.transactions ?? [];
-    const hasStatusFilter = debugStatusFilter.length > 0;
-    return txns.filter((txn) => {
-      if (hasStatusFilter && !debugStatusFilter.includes(txn.status)) return false;
-      const txnDate = txn.date?.slice(0, 10) ?? '';
-      if (debugFromDate && txnDate < debugFromDate) return false;
-      if (debugToDate && txnDate > debugToDate) return false;
-      return true;
-    });
-  }, [debugScans?.debugTrace?.transactions, debugFromDate, debugStatusFilter, debugToDate]);
-
-  function toggleDebugStatus(status: string) {
-    setDebugStatusFilter((prev) =>
-      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
-    );
-  }
+  const hasAccounts = accounts.length > 0;
 
   return (
-    <section className="space-y-8 py-10" dir="rtl">
-      <>
-          <AccountStrip
-            accounts={accounts}
-            onAddClick={() => setIsDialogOpen(true)}
-            isInitialLoading={isInitialLoad}
-            isRefreshingValues={isAnyActionBusy || isAccountsRefreshing}
-          />
-
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight text-zinc-950 dark:text-white leading-tight">
-                {greeting}, <span className="text-zinc-400 dark:text-zinc-500">{session?.username}</span>
-              </h1>
-              <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                הגעת למקום הנכון לקחת שליטה על ההוצאות שלך.
+    <section className="space-y-7 py-8" dir="rtl">
+      <div className="grid gap-5 lg:grid-cols-[1fr_380px] lg:items-stretch">
+        <div className="relative overflow-hidden border border-zinc-200 bg-linear-to-br from-white via-zinc-50 to-zinc-100/70 p-6 shadow-sm dark:border-zinc-800 dark:from-zinc-950 dark:via-zinc-950 dark:to-zinc-900/50">
+          <div className="absolute -left-16 top-0 h-32 w-32 rounded-full bg-emerald-200/30 blur-3xl dark:bg-emerald-500/10" />
+          <div className="relative z-10 space-y-3 text-right">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+              דשבורד MoneyUp
+            </p>
+            <h1 className="text-4xl font-black tracking-tight text-zinc-950 dark:text-white md:text-5xl">
+              {greeting}, <span className="text-zinc-400 dark:text-zinc-500">{session?.username}</span>
+            </h1>
+            {!isInitialLoad && !hasAccounts ? (
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <p className="text-sm font-semibold leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  חבר מקור נתונים כדי להתחיל.
+                </p>
+                <Link to="/settings" className="shrink-0 border border-zinc-300 bg-white/80 px-4 py-1.5 text-xs font-black text-zinc-700 transition-colors hover:border-zinc-500 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-white">
+                  עבור להגדרות ←
+                </Link>
+              </div>
+            ) : (
+              <p className="max-w-2xl text-sm font-semibold leading-relaxed text-zinc-500 dark:text-zinc-400">
+                הוצאות מגיעות מכרטיסי אשראי. הכנסות ויתרה מגיעות מחשבונות בנק. טווח התאריכים משותף לכל הדשבורד.
               </p>
-            </div>
-
-            <Button
-              onClick={handleSync}
-              disabled={isAnyActionBusy || accounts.length === 0}
-              className="group h-11 rounded-none px-6 font-bold text-xs bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-300 disabled:dark:bg-zinc-800 disabled:text-zinc-500 text-white transition-all duration-300 shadow-md flex items-center gap-2 cursor-pointer"
-            >
-              <CircleNotch className={`h-4 w-4 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-              <span>{isSyncing ? 'מסנכרן תנועות...' : 'סנכרן כעת'}</span>
-            </Button>
+            )}
           </div>
+        </div>
 
-          {isInitialLoad ? (
-            <PremiumCard className="space-y-6">
-              <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-                <div className="space-y-3 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 p-4">
-                  <div className="h-5 w-44 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
-                  <div className="h-3 w-64 bg-zinc-100 dark:bg-zinc-900" />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-                    <div className="h-9 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
-                    <div className="h-9 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
-                  </div>
-                </div>
-                <div className="space-y-3 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 p-4">
-                  <div className="h-4 w-28 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
-                  <div className="h-10 w-40 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
-                  <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-900" />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-3">
-                {Array.from({ length: 10 }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="aspect-square border border-zinc-100 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-900/20 p-3 space-y-2"
-                  >
-                    <div className="h-4 w-7 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
-                    <div className="h-3 w-full bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
-                    <div className="h-4 w-2/3 bg-zinc-200/80 dark:bg-zinc-800/80 animate-soft-shimmer" />
-                  </div>
-                ))}
-              </div>
-            </PremiumCard>
-          ) : hasCreditAccounts ? (
-            <div className="grid gap-6 animate-in fade-in-50 duration-300">
-              <SpendingCategories
-                scans={scans}
-                period={scanPeriod}
-                startDate={startDate}
-                endDate={endDate}
-                minStartDate={minStartDate}
-                maxEndDate={maxEndDate}
-                onStartDateChange={handleStartDateChange}
-                onEndDateChange={handleEndDateChange}
-                isLoadingScans={isScansInitialLoading}
-                isRefreshingScans={isAnyActionBusy}
-                hasConnectedAccounts={hasCreditAccounts}
-                canUseAiAnnotation={hasAiProvider}
-                isAnnotatingWithAi={annotateMutation.isPending}
-                isWidgetBusy={isAnyActionBusy}
-                onAnnotateWithAi={handleAnnotateWithAi}
-                onGoToAiStudio={() => navigate({ to: '/ai-studio' })}
-              />
+        <DashboardRangeCard
+          startDate={startDate}
+          endDate={endDate}
+          minStartDate={minStartDate}
+          maxEndDate={maxEndDate}
+          isBusy={isAnyActionBusy}
+          isLocked={!isInitialLoad && !hasAccounts}
+          onStartDateChange={handleStartDateChange}
+          onEndDateChange={handleEndDateChange}
+        />
+      </div>
 
-              {false ? (
-                <PremiumCard className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-right">
-                    <h3 className="text-base font-black text-zinc-950 dark:text-white">Pipeline Debug</h3>
-                    <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                      תצוגת החלטות מלאה לכל טרנזקציה בסריקה
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => setShowDebugPipeline((prev) => !prev)}
-                    className="h-9 px-4 rounded-none text-xs font-bold"
-                    variant={showDebugPipeline ? 'destructive' : 'outline'}
-                  >
-                    {showDebugPipeline ? 'הסתר דיבאג' : 'הצג דיבאג'}
-                  </Button>
-                </div>
-
-                {false ? (
-                  isLoadingDebugScans ? (
-                    <div className="py-10 text-center text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                      טוען נתוני דיבאג...
-                    </div>
-                  ) : !debugScans?.debugTrace ? (
-                    <div className="py-10 text-center text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                      אין נתוני דיבאג זמינים
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid md:grid-cols-3 gap-3 text-xs">
-                        <div className="border border-zinc-200 dark:border-zinc-800 p-3">
-                          <p className="font-bold text-zinc-600 dark:text-zinc-300">Period</p>
-                          <p className="font-black text-zinc-900 dark:text-zinc-100">{debugScans?.debugTrace?.period}</p>
-                        </div>
-                        <div className="border border-zinc-200 dark:border-zinc-800 p-3">
-                          <p className="font-bold text-zinc-600 dark:text-zinc-300">Transactions</p>
-                          <p className="font-black text-zinc-900 dark:text-zinc-100">
-                            {filteredDebugTransactions.length} / {debugScans?.debugTrace?.transactions.length ?? 0}
-                          </p>
-                        </div>
-                        <div className="border border-zinc-200 dark:border-zinc-800 p-3">
-                          <p className="font-bold text-zinc-600 dark:text-zinc-300">Accounts</p>
-                          <p className="font-black text-zinc-900 dark:text-zinc-100">
-                            {debugScans?.debugTrace?.accountsSummary.length ?? 0}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {debugStatuses.map((status) => {
-                            const active = debugStatusFilter.includes(status);
-                            return (
-                              <button
-                                key={status}
-                                type="button"
-                                onClick={() => toggleDebugStatus(status)}
-                                className={`h-7 px-2 text-[11px] font-bold border cursor-pointer ${
-                                  active
-                                    ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                                    : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300'
-                                }`}
-                              >
-                                {status}
-                              </button>
-                            );
-                          })}
-                          <button
-                            type="button"
-                            onClick={() => setDebugStatusFilter([])}
-                            className="h-7 px-2 text-[11px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 cursor-pointer"
-                          >
-                            נקה סטטוסים
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <label className="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-300">
-                            <span>מדיבאג מתאריך</span>
-                            <input
-                              type="date"
-                              value={debugFromDate}
-                              onChange={(e) => setDebugFromDate(e.target.value)}
-                              className="h-8 px-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200"
-                            />
-                          </label>
-                          <label className="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-300">
-                            <span>מדיבאג עד תאריך</span>
-                            <input
-                              type="date"
-                              value={debugToDate}
-                              onChange={(e) => setDebugToDate(e.target.value)}
-                              className="h-8 px-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200"
-                            />
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="max-h-96 overflow-auto border border-zinc-200 dark:border-zinc-800">
-                        <table className="w-full text-xs">
-                          <thead className="bg-zinc-100 dark:bg-zinc-900 sticky top-0">
-                            <tr className="text-right">
-                              <th className="p-2 font-black">תאריך</th>
-                              <th className="p-2 font-black">סכום</th>
-                              <th className="p-2 font-black">בית עסק</th>
-                              <th className="p-2 font-black">סטטוס</th>
-                              <th className="p-2 font-black">קטגוריה</th>
-                              <th className="p-2 font-black">סיבה</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredDebugTransactions.map((txn, idx) => (
-                              <tr key={`${txn.dedupKey}-${idx}`} className="border-t border-zinc-100 dark:border-zinc-900">
-                                <td className="p-2 whitespace-nowrap">{txn.date ? new Date(txn.date).toLocaleDateString('he-IL') : '-'}</td>
-                                <td className="p-2 whitespace-nowrap" dir="ltr">
-                                  {Number.isFinite(txn.amount) ? txn.amount.toLocaleString('he-IL') : '-'}
-                                </td>
-                                <td className="p-2 max-w-56 truncate">{txn.description || '-'}</td>
-                                <td className="p-2 whitespace-nowrap">{txn.status}</td>
-                                <td className="p-2 whitespace-nowrap">{txn.category || '-'}</td>
-                                <td className="p-2 min-w-64">{txn.reason}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )
-                ) : null}
-                </PremiumCard>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <DashboardMetricCard
+          title="סך הוצאות"
+          value={`-${formatMoney(adjustedTotalExpenses)}`}
+          caption="אשראי בלבד, לפי טווח התאריכים"
+          icon={<TrendDown className="h-5 w-5" weight="duotone" />}
+          tone="rose"
+          isLoading={isCreditExpensesLoading}
+          isLocked={!hasCreditAccounts}
+          lockedLabel="נדרש חיבור לחברת אשראי"
+          footer={
+            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+              {hasCreditAccounts ? `${scans?.categories.length ?? 0} קטגוריות פעילות` : 'חבר חברת אשראי כדי לראות הוצאות'}
+              {excludedExpenseAmount > 0 ? ` • הוחרגו ${formatMoney(excludedExpenseAmount)}` : ''}
+            </p>
+          }
+        />
+        <DashboardMetricCard
+          title="סך הכנסות"
+          value={<span className="block translate-y-4">{formatMoney(dashboardTotalIncome)}</span>}
+          caption="העברות, משכורות והפקדות"
+          icon={<TrendUp className="h-5 w-5" weight="duotone" />}
+          tone="emerald"
+          isLoading={isIncomeLoading}
+          isLocked={!hasBankAccounts}
+          lockedLabel="נדרש חיבור לחשבון בנק"
+          footer={
+            <div className="flex flex-row justify-between items-end gap-2">
+              <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                {hasBankAccounts
+                  ? `${recentIncomeTransactions.length.toLocaleString('he-IL')} תנועות בטווח`
+                  : 'יש לחבר חשבון בנק כדי לראות תנועות.'}
+              </p>
+              {hasBankAccounts ? (
+                <button
+                  type="button"
+                  onClick={() => setIsIncomeDialogOpen(true)}
+                  className="h-8 border border-emerald-200 bg-white/70 px-3 text-[11px] font-black text-emerald-700 transition-colors hover:bg-emerald-50 dark:border-emerald-900 dark:bg-zinc-950/60 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
+                >
+                  הצג הכנסות
+                </button>
               ) : null}
             </div>
-          ) : !isSyncing ? (
-            <PremiumCard className="relative overflow-hidden py-16 px-6 flex flex-col items-center justify-center text-center border border-zinc-200 dark:border-zinc-800 bg-linear-to-br from-white via-zinc-50/10 to-zinc-50/20 dark:from-zinc-950 dark:via-zinc-900/10 dark:to-zinc-900/20 rounded-none shadow-sm animate-in fade-in-50 duration-500">
-              <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] dark:opacity-[0.05] pointer-events-none" />
-              
-              {/* Premium Glow effect */}
-              <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-zinc-900/5 dark:bg-white/5 rounded-full blur-3xl pointer-events-none" />
-              
-              <div className="relative z-10 space-y-6 max-w-md">
-                <div className="mx-auto w-16 h-16 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center shadow-inner group">
-                  <CreditCard className="h-7 w-7 text-zinc-700 dark:text-zinc-300 transition-transform duration-500 group-hover:scale-110" weight="duotone" />
-                </div>
-                
-                <div className="space-y-2">
-                  <h3 className="text-xl font-black tracking-tight text-zinc-950 dark:text-white">
-                    ניתוח הוצאות חכם מבוסס AI
-                  </h3>
-                  <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    שימו לב: כדי להשתמש בווידג'ט זה ולצפות בניתוח ההוצאות, עליכם לחבר חשבון מחברת האשראי (כמו Cal, Max או Isracard).
+          }
+        />
+        <DashboardMetricCard
+          title="סך תזרים"
+          value={formatMoney(netSpending)}
+          caption="הכנסות פחות הוצאות בטווח הנבחר"
+          icon={<ArrowsDownUp className="h-5 w-5" weight="duotone" />}
+          tone={netSpending < 0 ? 'rose' : 'emerald'}
+          isLoading={isNetSpendingLoading}
+          lockedLabel='נדרש חיבור לחשבון בנק'
+          isLocked={!hasBankAccounts}
+          footer={
+            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+              { hasBankAccounts ? <span>{netSpending < 0 ? 'הוצאה נטו' : 'יתרה חיובית בטווח'}</span> : <span className='text-[11px] font-bold text-zinc-500 dark:text-zinc-400'>יש לחבר חשבון בנק כדי לראות תזרים כולל.</span> }
+            </p>
+          }
+        />
+        <DashboardMetricCard
+          title="יתרה כוללת"
+          value={formatMoney(hasBankAccounts ? currentBankBalance : (scans?.totalBalance ?? 0))}
+          caption="יתרה עדכנית מחשבונות בנק בלבד"
+          icon={<Wallet className="h-5 w-5" weight="duotone" />}
+          tone="sky"
+          isLoading={isBalanceLoading}
+          isLocked={!hasBankAccounts}
+          lockedLabel="נדרש חיבור לחשבון בנק"
+          footer={
+            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+              { hasBankAccounts ? <span>לא מסונן לפי תאריך</span> : <span className='text-[11px] font-bold text-zinc-500 dark:text-zinc-400'>יש לחבר חשבון בנק כדי לראות יתרה עדכנית.</span> }
+            </p>
+          }
+        />
+      </div>
+
+      <div>
+        <SpendingCategories
+          scans={scans}
+          period={scanPeriod}
+          startDate={startDate}
+          endDate={endDate}
+          minStartDate={minStartDate}
+          maxEndDate={maxEndDate}
+          onStartDateChange={handleStartDateChange}
+          onEndDateChange={handleEndDateChange}
+          isLoadingScans={hasCreditAccounts && isLoadingScans}
+          isRefreshingScans={hasCreditAccounts && isFetchingScans && !isLoadingScans}
+          hasConnectedAccounts={hasCreditAccounts}
+          canUseAiAnnotation={hasAiProvider}
+          isAnnotatingWithAi={annotateMutation.isPending}
+          isWidgetBusy={isAnyActionBusy}
+          onAnnotateWithAi={handleAnnotateWithAi}
+          onGoToAiStudio={() => navigate({ to: '/ai-studio' })}
+          onExcludedExpensesChange={setExcludedExpenseAmount}
+        />
+      </div>
+
+
+      <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
+        <DialogContent
+          className="max-w-2xl rounded-none border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
+          dir="rtl"
+        >
+          <DialogHeader className="border-b border-zinc-100 pb-4 dark:border-zinc-900">
+            <DialogTitle className="text-xl font-black text-zinc-950 dark:text-white">
+              הכנסות אחרונות
+            </DialogTitle>
+            <DialogDescription className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              תנועות חיוביות מחשבונות בנק בטווח התאריכים הנבחר
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-112 space-y-2 overflow-y-auto pr-1">
+            {recentIncomeTransactions.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-sm font-bold text-zinc-500 dark:text-zinc-400">
+                  אין הכנסות בטווח התאריכים הנבחר
+                </p>
+              </div>
+            ) : (
+              recentIncomeTransactions.map((txn, index) => (
+                <div
+                  key={`${txn.accountKey}:${txn.id || txn.date}:${index}`}
+                  className="flex items-start justify-between gap-4 border border-zinc-100 bg-zinc-50/60 px-4 py-3 dark:border-zinc-900 dark:bg-zinc-900/30"
+                >
+                  <div className="min-w-0 text-right">
+                    <p className="truncate text-sm font-black text-zinc-950 dark:text-zinc-100">
+                      {txn.description}
+                    </p>
+                    <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                      {txn.date ? new Date(txn.date).toLocaleDateString('he-IL') : '-'} • {txn.accountLabel}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-black text-emerald-600 dark:text-emerald-400" dir="ltr">
+                    {formatMoney(txn.amount)}
                   </p>
                 </div>
-              </div>
-            </PremiumCard>
-          ) : null}
-
-      {/* Add Bank Account Dialog */}
-      <AddBankAccountDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onSuccess={handleAccountConnected}
-      />
-      </>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

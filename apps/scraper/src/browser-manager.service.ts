@@ -22,8 +22,8 @@ export class BrowserManagerService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async createIsolatedContext(): Promise<BrowserContext> {
-    const browser = await this.getBrowser();
+  async createIsolatedContext(showBrowser?: boolean): Promise<BrowserContext> {
+    const browser = await this.getBrowser(showBrowser);
     return browser.createBrowserContext();
   }
 
@@ -31,13 +31,21 @@ export class BrowserManagerService implements OnModuleInit, OnModuleDestroy {
     await this.closeBrowser();
   }
 
-  private async getBrowser(): Promise<Browser> {
+  private async getBrowser(showBrowser?: boolean): Promise<Browser> {
     if (this.browser?.connected) {
-      return this.browser;
+      // If the current browser doesn't match the requested headless state, we might need to restart it.
+      // However, to keep it simple and efficient, we'll only restart if showBrowser is explicitly true
+      // and the current browser is headless.
+      const isCurrentlyHeadless = (this.browser as any)._process?.spawnargs?.includes('--headless');
+      if (showBrowser === true && isCurrentlyHeadless) {
+        await this.closeBrowser();
+      } else {
+        return this.browser;
+      }
     }
 
     if (!this.launchPromise) {
-      this.launchPromise = this.launchBrowser();
+      this.launchPromise = this.launchBrowser(showBrowser);
     }
 
     try {
@@ -48,9 +56,10 @@ export class BrowserManagerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async launchBrowser(): Promise<Browser> {
+  private async launchBrowser(showBrowser?: boolean): Promise<Browser> {
     const debugEnabled =
       this.configService.get<string>('SCRAPER_DEBUG') === '1';
+    const headless = showBrowser === true ? false : !debugEnabled;
     const timeoutMs = Number(
       this.configService.get<string>('SCRAPER_TIMEOUT_MS') || 90000,
     );
@@ -60,7 +69,7 @@ export class BrowserManagerService implements OnModuleInit, OnModuleDestroy {
       undefined;
 
     const browser = await puppeteer.launch({
-      headless: !debugEnabled,
+      headless,
       executablePath,
       timeout: timeoutMs,
       args: this.getBrowserArgs(),

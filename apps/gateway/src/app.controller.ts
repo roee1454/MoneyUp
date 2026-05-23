@@ -32,6 +32,13 @@ type UserPayload = {
   isLocked?: boolean;
   activeAiProvider?: 'openai' | 'claude' | 'gemini' | null;
   preferredModel?: string | null;
+  configuredProviders?: Array<'openai' | 'claude' | 'gemini'>;
+  scraperTimeoutRetryCount?: number;
+  scraperAutoSyncCooldownSeconds?: number;
+  scraperShowBrowser?: boolean;
+  scraperLoginTimeoutSeconds?: number;
+  scraperDefaultTimeoutSeconds?: number;
+  aiProviderConfigs?: Record<string, any> | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -45,6 +52,7 @@ type SpendingScanCategory = {
 type SpendingScansResponse = {
   totalIncome: number;
   totalExpenses: number;
+  totalBalance: number;
   categories: SpendingScanCategory[];
   categoryTransactions: Record<
     string,
@@ -91,6 +99,7 @@ type SpendingScansResponse = {
     finalTotals: {
       totalIncome: number;
       totalExpenses: number;
+      totalBalance: number;
       categories: SpendingScanCategory[];
     };
   };
@@ -100,6 +109,7 @@ type UserAiConfig = {
   activeAiProvider: 'openai' | 'claude' | 'gemini' | null;
   preferredModel: string | null;
   decryptedApiKey: string | null;
+  aiProviderConfigs?: Record<string, any> | null;
 };
 
 @Controller()
@@ -334,14 +344,19 @@ export class AppController {
     );
 
     if (forceFresh || !response.isCovered) {
-        if (!this.syncJobService.isRunning(user.userId)) {
-            this.syncJobService.startOrReuseSyncJob(
-                user.userId,
-                forceFresh ? 'manual' : 'initial',
-                startDate,
-                endDate,
-            );
-        }
+      const source: 'manual' | 'initial' = forceFresh ? 'manual' : 'initial';
+      const canAutoStartInitial =
+        source !== 'initial' ||
+        this.syncJobService.canAutoStartInitial(user.userId, startDate, endDate);
+
+      if (!this.syncJobService.isRunning(user.userId) && canAutoStartInitial) {
+        this.syncJobService.startOrReuseSyncJob(
+          user.userId,
+          source,
+          startDate,
+          endDate,
+        );
+      }
     }
 
     return response.accounts;
@@ -631,6 +646,14 @@ export class AppController {
       provider: 'openai' | 'claude' | 'gemini';
       apiKey: string;
       preferredModel: string;
+      activeProvider?: 'openai' | 'claude' | 'gemini';
+      config?: {
+        model: string;
+        preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
+        temperature?: number;
+        maxTokens?: number;
+        stream?: boolean;
+      };
     },
   ) {
     const userId = this.requireSessionUserId(request);
@@ -650,13 +673,48 @@ export class AppController {
   @Patch('users/:id')
   async updateUser(
     @Param('id') id: string,
-    @Body() data: { username?: string; email?: string },
+    @Body()
+    data: {
+      username?: string;
+      email?: string;
+      scraperTimeoutRetryCount?: number;
+      scraperAutoSyncCooldownMinutes?: number;
+    },
   ) {
-    return firstValueFrom(
+    const user = await firstValueFrom(
       this.usersServiceClient
-        .send('user_update', { id, data })
+        .send<UserPayload>('user_update', { id, data })
         .pipe(timeout(2000)),
     );
+    return this.toPublicUser(user);
+  }
+
+  @Patch('users/me/scraper-settings')
+  async updateScraperSettings(
+    @Req() request: Request,
+    @Body()
+    data: {
+      scraperTimeoutRetryCount: number;
+      scraperAutoSyncCooldownSeconds?: number;
+      scraperShowBrowser?: boolean;
+      scraperLoginTimeoutSeconds?: number;
+      scraperDefaultTimeoutSeconds?: number;
+    },
+  ) {
+    const userId = this.requireSessionUserId(request);
+    const user = await firstValueFrom(
+      this.usersServiceClient
+        .send<UserPayload>('user_save_scraper_settings', {
+          id: userId,
+          scraperTimeoutRetryCount: data.scraperTimeoutRetryCount,
+          scraperAutoSyncCooldownSeconds: data.scraperAutoSyncCooldownSeconds,
+          scraperShowBrowser: data.scraperShowBrowser,
+          scraperLoginTimeoutSeconds: data.scraperLoginTimeoutSeconds,
+          scraperDefaultTimeoutSeconds: data.scraperDefaultTimeoutSeconds,
+        })
+        .pipe(timeout(2000)),
+    );
+    return this.toPublicUser(user);
   }
 
   @Delete('users/:id')
@@ -844,8 +902,16 @@ export class AppController {
       accounts = response.accounts;
 
       if (!response.isCovered) {
-        if (!this.syncJobService.isRunning(userId)) {
-            this.syncJobService.startOrReuseSyncJob(userId, 'initial', startDate, endDate);
+        if (
+          !this.syncJobService.isRunning(userId) &&
+          this.syncJobService.canAutoStartInitial(userId, startDate, endDate)
+        ) {
+          this.syncJobService.startOrReuseSyncJob(
+            userId,
+            'initial',
+            startDate,
+            endDate,
+          );
         }
       }
     }
@@ -1038,10 +1104,9 @@ export class AppController {
       'דלק/תחבורה',
       'סופר',
       'מנויים',
-      'לא מסווג',
     ];
     return [
-      'You classify merchants into one category.',
+      'You classify merchants into one category. Search the web about them.',
       `Allowed categories: ${categories.join(', ')}`,
       'Return ONLY strict JSON array with objects: { "normalizedMerchant": string, "category": string, "confidence": number }.',
       'If unsure, set category to "לא מסווג".',
@@ -1167,6 +1232,7 @@ export class AppController {
       apiKey?: string;
       temperature?: number;
       maxTokens?: number;
+      stream?: boolean;
     },
     request?: Request,
   ): Promise<{
@@ -1176,8 +1242,9 @@ export class AppController {
     apiKey?: string;
     temperature?: number;
     maxTokens?: number;
+    stream?: boolean;
   }> {
-    if (payload.apiKey) {
+    if (payload.apiKey && typeof payload.stream !== 'undefined') {
       return payload;
     }
     if (!request) {
@@ -1192,14 +1259,25 @@ export class AppController {
 
     const cfg = await this.resolveUserAiConfig(session.userId);
 
+    const userConfig = (cfg.aiProviderConfigs && cfg.aiProviderConfigs[payload.provider]) || {};
+
+    const resolvedPayload = { ...payload };
+
     if (cfg.decryptedApiKey && cfg.activeAiProvider === payload.provider) {
-      return {
-        ...payload,
-        apiKey: cfg.decryptedApiKey,
-      };
+      resolvedPayload.apiKey = cfg.decryptedApiKey;
     }
 
-    return payload;
+    if (typeof payload.temperature === 'undefined' && typeof userConfig.temperature !== 'undefined') {
+      resolvedPayload.temperature = userConfig.temperature;
+    }
+    if (typeof payload.maxTokens === 'undefined' && typeof userConfig.maxTokens !== 'undefined') {
+      resolvedPayload.maxTokens = userConfig.maxTokens;
+    }
+    if (typeof payload.stream === 'undefined' && typeof userConfig.stream !== 'undefined') {
+      resolvedPayload.stream = userConfig.stream;
+    }
+
+    return resolvedPayload;
   }
 
   private async resolveAiModelsPayload(
@@ -1245,6 +1323,13 @@ export class AppController {
       isLocked: user.isLocked ?? false,
       activeAiProvider: user.activeAiProvider ?? null,
       preferredModel: user.preferredModel ?? null,
+      configuredProviders: user.configuredProviders ?? [],
+      scraperTimeoutRetryCount: user.scraperTimeoutRetryCount ?? 1,
+      scraperAutoSyncCooldownSeconds: user.scraperAutoSyncCooldownSeconds ?? 1800,
+      scraperShowBrowser: user.scraperShowBrowser ?? false,
+      scraperLoginTimeoutSeconds: user.scraperLoginTimeoutSeconds ?? 90,
+      scraperDefaultTimeoutSeconds: user.scraperDefaultTimeoutSeconds ?? 90,
+      aiProviderConfigs: user.aiProviderConfigs ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

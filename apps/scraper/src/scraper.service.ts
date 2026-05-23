@@ -49,6 +49,7 @@ type CategorizedExpense = {
 
 type ScanAccount = {
   bankId: string;
+  balance?: number;
   accountNumber?: string;
   transactions?: UnifiedTransaction[];
 };
@@ -77,6 +78,7 @@ type ScanTransaction = {
 export type ScanIncomeResult = {
   totalIncome: number;
   totalExpenses: number;
+  totalBalance: number;
   categories: CategorizedExpense[];
   categoryTransactions: Record<string, ScanTransaction[]>;
   unresolvedMerchants?: Array<{
@@ -111,7 +113,7 @@ export type ScanDebugTrace = {
     isCreditCompany: boolean;
     status:
       | 'included_expense'
-      | 'included_income_credit'
+      | 'skipped_income_credit'
       | 'included_income_bank'
       | 'skipped_duplicate'
       | 'skipped_out_of_period'
@@ -123,12 +125,13 @@ export type ScanDebugTrace = {
     category?: string;
     reason: string;
   }>;
-  finalTotals: {
-    totalIncome: number;
-    totalExpenses: number;
-    categories: CategorizedExpense[];
+    finalTotals: {
+      totalIncome: number;
+      totalExpenses: number;
+      totalBalance: number;
+      categories: CategorizedExpense[];
+    };
   };
-};
 
 const EXPENSE_CATEGORIES = [
   'מזון',
@@ -154,6 +157,10 @@ const SCRAPER_MIN_LOOKBACKS: Record<string, ScraperDateLimit> = {
   isracard: { years: 1 },
   max: { years: 4 },
   cal: { years: 1, months: 6, days: 1 },
+};
+
+const LIBRARY_SCRAPER_KEY_BY_BANK_ID: Record<string, string> = {
+  cal: 'visaCal',
 };
 
 @Injectable()
@@ -314,132 +321,214 @@ export class ScraperService {
     );
   }
 
+  private isTimeoutError(error?: string | null): boolean {
+    if (!error) return false;
+    const lower = error.toLowerCase();
+    return (
+      lower.includes('timeout') ||
+      lower.includes('navigation timeout') ||
+      lower.includes('timed out') ||
+      lower.includes('etimedout')
+    );
+  }
+
   async syncUserAccounts(
     userId: string,
     options: {
       startDate?: string;
       endDate?: string;
       mode?: 'initial' | 'manual';
+      timeoutRetryCount?: number;
+      showBrowser?: boolean;
+      loginTimeoutSeconds?: number;
+      defaultTimeoutSeconds?: number;
     },
   ): Promise<void> {
     const mode = options.mode ?? 'manual';
+    const timeoutRetryCount = Math.max(
+      0,
+      Math.min(5, Number(options.timeoutRetryCount ?? 1)),
+    );
     const connections = await this.getUserConnections(userId);
     const coverageMap = await this.getCachedCoverageMap(userId);
     const today = this.getTodayUtcDateString();
+    const failures: Array<{ bankId: string; reason: string }> = [];
+    const totalAttempts = timeoutRetryCount + 1;
+    const jobs: Array<{
+      bankId: string;
+      uncoveredIntervals: Array<{ startDate: string; endDate: string }>;
+      scrapeStartDate: Date;
+      credentials: ScraperCredentials;
+      lastError: string;
+      lastWasProviderBlock: boolean;
+      completed: boolean;
+      showBrowser?: boolean;
+      loginTimeoutSeconds?: number;
+      defaultTimeoutSeconds?: number;
+    }> = [];
 
-    const scrapePromises = connections.map(async (conn) => {
-      try {
-        if (mode === 'initial' && this.isProviderBlockError(conn.lastError)) {
-          console.warn(
-            `[syncUserAccounts] Skipping automatic sync for ${conn.bankId} because the last attempt was blocked by the provider`,
-          );
-          return;
+    for (const conn of connections) {
+      const requestedRange = this.normalizeRequestedRangeForBank(
+        conn.bankId,
+        options.startDate,
+        options.endDate,
+      );
+      if (!requestedRange) continue;
+
+      const coverage = coverageMap.get(conn.bankId) ?? [];
+      let uncoveredIntervals = this.getUncoveredIntervals(requestedRange, coverage);
+
+      if (mode === 'manual') {
+        const threeDaysAgo = this.addDays(today, -3);
+        const recentStart =
+          threeDaysAgo < requestedRange.startDate
+            ? requestedRange.startDate
+            : threeDaysAgo;
+        if (recentStart <= requestedRange.endDate) {
+          uncoveredIntervals.push({
+            startDate: recentStart,
+            endDate: requestedRange.endDate,
+          });
         }
+        uncoveredIntervals = this.mergeIntervals(uncoveredIntervals);
+      }
 
-        const requestedRange = this.normalizeRequestedRangeForBank(
-          conn.bankId,
-          options.startDate,
-          options.endDate,
+      if (uncoveredIntervals.length === 0) continue;
+
+      const minDateStr = uncoveredIntervals.reduce(
+        (min, cur) => (cur.startDate < min ? cur.startDate : min),
+        uncoveredIntervals[0].startDate,
+      );
+      const scrapeStartDate = this.resolveScrapeStartDate(conn.bankId, minDateStr);
+      const credentials = await this.getCredentials(userId, conn.bankId);
+      if (!credentials) {
+        console.warn(
+          `[syncUserAccounts] No credentials found for ${conn.bankId} (User: ${userId})`,
         );
-        if (!requestedRange) return;
+        continue;
+      }
 
-        const coverage = coverageMap.get(conn.bankId) ?? [];
+      console.log(
+        `[syncUserAccounts] Scraping ${conn.bankId} for user ${userId} starting from ${scrapeStartDate.toISOString()} (Requested: ${requestedRange.startDate} to ${requestedRange.endDate}, Missing: ${uncoveredIntervals.map((i) => `${i.startDate}..${i.endDate}`).join(', ')}, Mode: ${mode})`,
+      );
+      jobs.push({
+        bankId: conn.bankId,
+        uncoveredIntervals,
+        scrapeStartDate,
+        credentials: credentials as ScraperCredentials,
+        lastError: '',
+        lastWasProviderBlock: false,
+        completed: false,
+        showBrowser: options.showBrowser,
+        loginTimeoutSeconds: options.loginTimeoutSeconds,
+        defaultTimeoutSeconds: options.defaultTimeoutSeconds,
+      });
+    }
 
-        let uncoveredIntervals = this.getUncoveredIntervals(
-          requestedRange,
-          coverage,
+    for (let attempt = 1; attempt <= totalAttempts; attempt++) {
+      const pendingJobs = jobs
+        .filter((job) => !job.completed)
+        .sort((a, b) =>
+          attempt > 1
+            ? Number(a.lastWasProviderBlock) - Number(b.lastWasProviderBlock)
+            : 0,
         );
 
-        if (mode === 'manual') {
-          const threeDaysAgo = this.addDays(today, -3);
-          const recentStart =
-            threeDaysAgo < requestedRange.startDate
-              ? requestedRange.startDate
-              : threeDaysAgo;
-          if (recentStart <= requestedRange.endDate) {
-            uncoveredIntervals.push({
-              startDate: recentStart,
-              endDate: requestedRange.endDate,
-            });
-          }
-          uncoveredIntervals = this.mergeIntervals(uncoveredIntervals);
-        }
-
-        if (uncoveredIntervals.length > 0) {
-          const minDateStr = uncoveredIntervals.reduce(
-            (min, cur) => (cur.startDate < min ? cur.startDate : min),
-            uncoveredIntervals[0].startDate,
-          );
-
-          const scrapeStartDate = this.resolveScrapeStartDate(
-            conn.bankId,
-            minDateStr,
-          );
-          console.log(
-            `[syncUserAccounts] Scraping ${conn.bankId} for user ${userId} starting from ${scrapeStartDate.toISOString()} (Requested: ${requestedRange.startDate} to ${requestedRange.endDate}, Missing: ${uncoveredIntervals.map((i) => `${i.startDate}..${i.endDate}`).join(', ')}, Mode: ${mode})`,
-          );
-
-          const scraper = this.scraperFactory.getScraper(conn.bankId);
-          const credentials = await this.getCredentials(userId, conn.bankId);
-          if (!credentials) {
-            console.warn(
-              `[syncUserAccounts] No credentials found for ${conn.bankId} (User: ${userId})`,
-            );
-            return;
-          }
-
+      for (const job of pendingJobs) {
+        try {
+          const scraper = this.scraperFactory.getScraper(job.bankId);
           const response = await scraper.scrape(
-            credentials as ScraperCredentials,
-            scrapeStartDate,
+            job.credentials,
+            job.scrapeStartDate,
+            {
+              showBrowser: (job as any).showBrowser,
+              loginTimeoutSeconds: (job as any).loginTimeoutSeconds,
+              defaultTimeoutSeconds: (job as any).defaultTimeoutSeconds,
+            },
           );
 
-          if (response.status === 'SUCCESS' && response.accounts) {
+          if (response?.status === 'SUCCESS' && response.accounts) {
             const accountsToSave = this.filterAccountsToIntervals(
               response.accounts,
-              uncoveredIntervals,
+              job.uncoveredIntervals,
             );
-            await this.setCachedAccounts(
-              userId,
-              conn.bankId,
-              accountsToSave,
-            );
-            for (const interval of uncoveredIntervals) {
-              await this.saveCoveredInterval(userId, conn.bankId, interval);
+            await this.setCachedAccounts(userId, job.bankId, accountsToSave);
+            for (const interval of job.uncoveredIntervals) {
+              await this.saveCoveredInterval(userId, job.bankId, interval);
             }
-            await this.clearConnectionError(userId, conn.bankId);
+            await this.clearConnectionError(userId, job.bankId);
+            job.completed = true;
             console.log(
-              `[syncUserAccounts] Successfully synced ${conn.bankId} for user ${userId}`,
+              `[syncUserAccounts] Successfully synced ${job.bankId} for user ${userId}`,
             );
-          } else {
-            const isPermanent = response.error?.includes('INVALID_CREDENTIALS');
-            const isProviderBlock = this.isProviderBlockError(response.error);
-            if (isPermanent || isProviderBlock) {
-              await this.markConnectionFailed(
-                userId,
-                conn.bankId,
-                response.error ?? 'Unknown permanent error',
-              );
-            }
-            console.error(
-              `[syncUserAccounts] Scraper failed for ${conn.bankId}: ${response.error}`,
-            );
+            continue;
           }
-        }
-      } catch (err: any) {
-        const errorMsg = err?.message || String(err);
-        const isPermanent = errorMsg.includes('INVALID_CREDENTIALS');
-        const isProviderBlock = this.isProviderBlockError(errorMsg);
-        if (isPermanent || isProviderBlock) {
-          await this.markConnectionFailed(userId, conn.bankId, errorMsg);
-        }
-        console.error(
-          `[syncUserAccounts] Failed to sync ${conn.bankId} for user ${userId}:`,
-          err,
-        );
-      }
-    });
 
-    await Promise.all(scrapePromises);
+          const rawError = response?.error ?? 'Unknown scraper error';
+          const isPermanent = rawError.includes('INVALID_CREDENTIALS');
+          const isProviderBlock = this.isProviderBlockError(rawError);
+          const isRetryable =
+            this.isTimeoutError(rawError) || this.isProviderBlockError(rawError);
+
+          job.lastError = rawError;
+          job.lastWasProviderBlock = isProviderBlock;
+
+          if (isRetryable && attempt < totalAttempts) {
+            console.warn(
+              `[syncUserAccounts] Retryable error for ${job.bankId} (attempt ${attempt}/${totalAttempts}): ${rawError}. Retrying later in this round.`,
+            );
+            continue;
+          }
+
+          if (isPermanent || isProviderBlock) {
+            await this.markConnectionFailed(userId, job.bankId, rawError);
+          }
+          console.error(
+            `[syncUserAccounts] Scraper failed for ${job.bankId}: ${rawError}`,
+          );
+          failures.push({ bankId: job.bankId, reason: rawError });
+          break;
+        } catch (err: any) {
+          const errorMsg = err?.message || String(err);
+          const isPermanent = errorMsg.includes('INVALID_CREDENTIALS');
+          const isProviderBlock = this.isProviderBlockError(errorMsg);
+          const isRetryable =
+            this.isTimeoutError(errorMsg) || this.isProviderBlockError(errorMsg);
+
+          job.lastError = errorMsg;
+          job.lastWasProviderBlock = isProviderBlock;
+
+          if (isRetryable && attempt < totalAttempts) {
+            console.warn(
+              `[syncUserAccounts] Retryable thrown error for ${job.bankId} (attempt ${attempt}/${totalAttempts}): ${errorMsg}. Retrying later in this round.`,
+            );
+            continue;
+          }
+
+          if (isPermanent || isProviderBlock) {
+            await this.markConnectionFailed(userId, job.bankId, errorMsg);
+          }
+          console.error(
+            `[syncUserAccounts] Failed to sync ${job.bankId} for user ${userId}:`,
+            err,
+          );
+          failures.push({ bankId: job.bankId, reason: errorMsg });
+          break;
+        }
+      }
+
+      if (failures.length > 0 || jobs.every((job) => job.completed)) {
+        break;
+      }
+    }
+
+    if (failures.length > 0) {
+      throw new Error(
+        `Failed scrapers: ${failures
+          .map((f) => `${f.bankId}: ${f.reason}`)
+          .join(' | ')}`,
+      );
+    }
   }
 
   // Session Management Methods
@@ -464,7 +553,8 @@ export class ScraperService {
 
   getScrapersList(): any[] {
     const list = Object.entries(SCRAPERS_METADATA).map(([key, meta]) => {
-      const libraryScraper = SCRAPERS[key];
+      const libraryKey = LIBRARY_SCRAPER_KEY_BY_BANK_ID[key] ?? key;
+      const libraryScraper = SCRAPERS[libraryKey];
       return {
         id: key,
         name: meta.name,
@@ -955,6 +1045,7 @@ export class ScraperService {
 
     let totalIncome = 0;
     let totalExpenses = 0;
+    let totalBalance = 0;
     const seenTransactionKeys = new Set<string>();
     const unresolvedMerchants = new Map<string, string>();
     const annotationCache = new Map<string, string>();
@@ -973,13 +1064,24 @@ export class ScraperService {
           periodEndIso: periodEnd.toISOString(),
           accountsSummary: [],
           transactions: [],
-          finalTotals: { totalIncome: 0, totalExpenses: 0, categories: [] },
+          finalTotals: {
+            totalIncome: 0,
+            totalExpenses: 0,
+            totalBalance: 0,
+            categories: [],
+          },
         }
       : undefined;
 
     for (const account of accounts ?? []) {
       const isCredit = this.isCreditCompany(account.bankId);
       const txns = account.transactions ?? [];
+      if (!isCredit) {
+        const balance = Number(account.balance);
+        if (Number.isFinite(balance)) {
+          totalBalance += balance;
+        }
+      }
       if (debugTrace) {
         debugTrace.accountsSummary.push({
           bankId: String(account.bankId ?? ''),
@@ -1130,33 +1232,25 @@ export class ScraperService {
 
         if (amount > 0) {
           if (isCredit) {
-            totalIncome += amount;
             if (debugTrace && baseDebugTxn) {
               debugTrace.transactions.push({
                 ...baseDebugTxn,
-                status: 'included_income_credit',
+                status: 'skipped_income_credit',
                 reason:
-                  'Included as positive transaction in credit company account',
+                  'Positive credit-company transaction ignored for bank-income total',
               });
             }
             continue;
           }
           const cleaned = this.getCleanDescription(txn.description, txn.memo);
-          if (cleaned) {
-            totalIncome += amount;
-            if (debugTrace && baseDebugTxn) {
-              debugTrace.transactions.push({
-                ...baseDebugTxn,
-                status: 'included_income_bank',
-                reason:
-                  'Included as positive bank transaction with usable description',
-              });
-            }
-          } else if (debugTrace && baseDebugTxn) {
+          totalIncome += amount;
+          if (debugTrace && baseDebugTxn) {
             debugTrace.transactions.push({
               ...baseDebugTxn,
-              status: 'skipped_no_description',
-              reason: 'Positive bank transaction has no usable description',
+              status: 'included_income_bank',
+              reason: cleaned
+                ? 'Included as positive bank transaction with usable description'
+                : 'Included as positive bank transaction',
             });
           }
         }
@@ -1171,6 +1265,7 @@ export class ScraperService {
     const result: ScanIncomeResult = {
       totalIncome,
       totalExpenses,
+      totalBalance,
       categories,
       categoryTransactions,
       unresolvedMerchants: Array.from(unresolvedMerchants.entries()).map(
@@ -1182,7 +1277,12 @@ export class ScraperService {
     };
 
     if (debugTrace) {
-      debugTrace.finalTotals = { totalIncome, totalExpenses, categories };
+      debugTrace.finalTotals = {
+        totalIncome,
+        totalExpenses,
+        totalBalance,
+        categories,
+      };
       result.debugTrace = debugTrace;
     }
 

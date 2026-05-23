@@ -44,13 +44,26 @@ export class UsersService {
     return this.userRepository.find();
   }
 
-  async findOne(id: string): Promise<User | null> {
-    return this.userRepository.findOneBy({ id });
+  async findOne(id: string): Promise<(User & { configuredProviders: string[] }) | null> {
+    const user = await this.userRepository.findOneBy({ id });
+    if (!user) return null;
+
+    const configuredProviders: string[] = [];
+    if (user.openaiKeyEncrypted) configuredProviders.push('openai');
+    if (user.claudeKeyEncrypted) configuredProviders.push('claude');
+    if (user.geminiKeyEncrypted) configuredProviders.push('gemini');
+
+    return { ...user, configuredProviders };
   }
 
   async update(
     id: string,
-    data: Partial<{ username: string; email: string }>,
+    data: Partial<{
+      username: string;
+      email: string;
+      scraperTimeoutRetryCount: number;
+      scraperAutoSyncCooldownSeconds: number;
+    }>,
   ): Promise<User> {
     await this.userRepository.update(id, data);
     const updated = await this.findOne(id);
@@ -102,6 +115,13 @@ export class UsersService {
       provider: 'openai' | 'claude' | 'gemini';
       apiKey: string;
       preferredModel: string;
+      activeProvider?: 'openai' | 'claude' | 'gemini';
+      config?: {
+        model: string;
+        preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
+        temperature?: number;
+        maxTokens?: number;
+      };
     },
   ): Promise<User> {
     const user = await this.findOne(id);
@@ -114,32 +134,116 @@ export class UsersService {
     if (data.provider === 'claude') user.claudeKeyEncrypted = encrypted;
     if (data.provider === 'gemini') user.geminiKeyEncrypted = encrypted;
 
-    user.activeAiProvider = data.provider;
+    if (data.activeProvider) {
+      user.activeAiProvider = data.activeProvider;
+    } else if (!user.activeAiProvider) {
+      user.activeAiProvider = data.provider;
+    }
+    
     user.preferredModel = data.preferredModel;
+
+    if (data.config) {
+      const configs = user.aiProviderConfigs || {};
+      configs[data.provider] = data.config;
+      user.aiProviderConfigs = configs;
+    }
+
+    return this.userRepository.save(user);
+  }
+
+  async deleteAiProvider(
+    id: string,
+    provider: 'openai' | 'claude' | 'gemini',
+  ): Promise<User> {
+    const user = await this.findOne(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (provider === 'openai') user.openaiKeyEncrypted = null;
+    if (provider === 'claude') user.claudeKeyEncrypted = null;
+    if (provider === 'gemini') user.geminiKeyEncrypted = null;
+
+    if (user.activeAiProvider === provider) {
+      user.activeAiProvider = null;
+    }
+
+    if (user.aiProviderConfigs && user.aiProviderConfigs[provider]) {
+      const configs = { ...user.aiProviderConfigs };
+      delete configs[provider];
+      user.aiProviderConfigs = configs;
+    }
+
     return this.userRepository.save(user);
   }
 
   async getAiConfig(id: string): Promise<{
     activeAiProvider: 'openai' | 'claude' | 'gemini' | null;
     preferredModel: string | null;
-    decryptedApiKey: string | null;
+    configuredProviders: Array<'openai' | 'claude' | 'gemini'>;
+    aiProviderConfigs: Record<string, any> | null;
   }> {
     const user = await this.findOne(id);
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    const provider =
-      (user.activeAiProvider as 'openai' | 'claude' | 'gemini' | null) ?? null;
-    let encrypted: string | null = null;
-    if (provider === 'openai') encrypted = user.openaiKeyEncrypted;
-    if (provider === 'claude') encrypted = user.claudeKeyEncrypted;
-    if (provider === 'gemini') encrypted = user.geminiKeyEncrypted;
+    const configuredProviders: Array<'openai' | 'claude' | 'gemini'> = [];
+    if (user.openaiKeyEncrypted) configuredProviders.push('openai');
+    if (user.claudeKeyEncrypted) configuredProviders.push('claude');
+    if (user.geminiKeyEncrypted) configuredProviders.push('gemini');
 
     return {
-      activeAiProvider: provider,
+      activeAiProvider: (user.activeAiProvider as 'openai' | 'claude' | 'gemini' | null) ?? null,
       preferredModel: user.preferredModel,
-      decryptedApiKey: encrypted ? decrypt(encrypted) : null,
+      configuredProviders,
+      aiProviderConfigs: user.aiProviderConfigs,
     };
+  }
+
+  async saveScraperSettings(
+    id: string,
+    data: {
+      scraperTimeoutRetryCount: number;
+      scraperAutoSyncCooldownSeconds?: number;
+      scraperShowBrowser?: boolean;
+      scraperLoginTimeoutSeconds?: number;
+      scraperDefaultTimeoutSeconds?: number;
+    },
+  ): Promise<User> {
+    const user = await this.findOne(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const retryCount = Number.isFinite(data.scraperTimeoutRetryCount)
+      ? Math.max(0, Math.min(5, Math.floor(data.scraperTimeoutRetryCount)))
+      : 1;
+    const cooldownSeconds = Number.isFinite(data.scraperAutoSyncCooldownSeconds)
+      ? Math.max(0, Math.min(86400, Math.floor(data.scraperAutoSyncCooldownSeconds!)))
+      : 1800;
+
+    user.scraperTimeoutRetryCount = retryCount;
+    user.scraperAutoSyncCooldownSeconds = cooldownSeconds;
+
+    if (typeof data.scraperShowBrowser === 'boolean') {
+      user.scraperShowBrowser = data.scraperShowBrowser;
+    }
+
+    if (Number.isFinite(data.scraperLoginTimeoutSeconds)) {
+      user.scraperLoginTimeoutSeconds = Math.max(
+        10,
+        Math.min(300, Math.floor(data.scraperLoginTimeoutSeconds!)),
+      );
+    }
+
+    if (Number.isFinite(data.scraperDefaultTimeoutSeconds)) {
+      user.scraperDefaultTimeoutSeconds = Math.max(
+        10,
+        Math.min(300, Math.floor(data.scraperDefaultTimeoutSeconds!)),
+      );
+    }
+
+    return this.userRepository.save(user);
   }
 }

@@ -7,6 +7,7 @@ import { BrowserManagerService } from './browser-manager.service';
 import { HapoalimScraper } from './scrapers/banks/hapoalim';
 import { MaxScraper } from './scrapers/credit/max';
 import { IsracardScraper } from './scrapers/credit/isracard';
+import { CalScraper } from './scrapers/credit/cal';
 import { ScraperFactory } from './scraper-factory.service';
 import { VaultEntity } from './entities/vault.entity';
 import { ScrapedCacheEntity } from './entities/cache.entity';
@@ -47,6 +48,7 @@ import { ScrapedCoverageEntity } from './entities/coverage.entity';
     HapoalimScraper,
     MaxScraper,
     IsracardScraper,
+    CalScraper,
     ScraperFactory,
   ],
 })

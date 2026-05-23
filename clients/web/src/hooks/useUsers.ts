@@ -8,6 +8,18 @@ export type User = {
   isLocked?: boolean;
   activeAiProvider?: 'openai' | 'claude' | 'gemini' | null;
   preferredModel?: string | null;
+  configuredProviders?: Array<'openai' | 'claude' | 'gemini'>;
+  scraperTimeoutRetryCount?: number;
+  scraperAutoSyncCooldownSeconds?: number;
+  scraperShowBrowser?: boolean;
+  scraperLoginTimeoutSeconds?: number;
+  scraperDefaultTimeoutSeconds?: number;
+  aiProviderConfigs?: Record<string, {
+    model: string;
+    preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
+    temperature?: number;
+    maxTokens?: number;
+  }> | null;
 };
 
 export function useUsers() {
@@ -50,6 +62,25 @@ export function useDeleteUserConfirmed() {
         confirmationEmail: payload.confirmationEmail,
       }),
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useUpdateScraperSettings() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: {
+      scraperTimeoutRetryCount: number;
+      scraperAutoSyncCooldownSeconds?: number;
+      scraperShowBrowser?: boolean;
+      scraperLoginTimeoutSeconds?: number;
+      scraperDefaultTimeoutSeconds?: number;
+    }) =>
+      api.patch<User>('/users/me/scraper-settings', payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       await queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });

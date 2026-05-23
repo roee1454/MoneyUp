@@ -24,6 +24,13 @@ interface AddBankAccountDialogProps {
   onSuccess?: () => void | Promise<unknown>;
 }
 
+type ScraperListItem = {
+  id: string;
+  name: string;
+  loginFields: string[];
+  type?: 'bank' | 'credit_card' | string;
+};
+
 export function AddBankAccountDialog({
   open,
   onOpenChange,
@@ -46,6 +53,28 @@ export function AddBankAccountDialog({
 
   const { data: scrapers = [], isLoading: isLoadingScrapers } =
     useScrapersList(open);
+
+  const normalizedScrapers = (scrapers as ScraperListItem[]).map((item) => {
+    const normalizedId =
+      item.id === 'visaCal' ? 'cal' : String(item.id ?? '').toLowerCase();
+    const inferredType =
+      item.type === 'bank' || item.type === 'credit_card'
+        ? item.type
+        : normalizedId === 'max' ||
+            normalizedId === 'isracard' ||
+            normalizedId === 'cal'
+          ? 'credit_card'
+          : 'bank';
+
+    return {
+      ...item,
+      id: normalizedId,
+      type: inferredType,
+    };
+  });
+  const tabScrapers = normalizedScrapers.filter(
+    (item) => item.type === activeTab,
+  );
 
   const getFriendlyError = (
     errorCode?: ScraperErrorCode,
@@ -255,9 +284,7 @@ export function AddBankAccountDialog({
               </div>
             ) : (
               <div className="grid gap-3 pt-2">
-                {scrapers
-                  .filter((item: any) => item.type === activeTab)
-                  .map((bank: any) => (
+                {tabScrapers.map((bank) => (
                     <PremiumGridButton
                       key={bank.id}
                       onClick={() => setSelectedBank(bank)}
@@ -267,8 +294,7 @@ export function AddBankAccountDialog({
                       }
                     />
                   ))}
-                {scrapers.filter((item: any) => item.type === activeTab)
-                  .length === 0 && (
+                {tabScrapers.length === 0 && (
                   <p className="text-xs text-center py-8 text-zinc-400 font-semibold">
                     לא נמצאו מוסדות פעילים בקטגוריה זו
                   </p>

@@ -1,24 +1,67 @@
-import { useState } from 'react';
-import { CircleNotch, Sparkle, Bank, Plus, NotePencil } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
+import { CircleNotch, Plus, Browser, Clock, ArrowsClockwise, Warning, SparkleIcon } from '@phosphor-icons/react';
 import { useAppStore } from '@/store';
-import { useUserProfile } from '@/hooks/useUsers';
-import { useAccounts, isCreditCompanyBankId } from '@/hooks/useAccounts';
+import { useUserProfile, useUpdateScraperSettings } from '@/hooks/useUsers';
+import { useAccounts } from '@/hooks/useAccounts';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectItem } from '@/components/ui/select';
 import { AddBankAccountDialog } from '@/components/AddBankAccountDialog';
 import { AddAiProviderDialog } from '@/components/AddAiProviderDialog';
+import { AccountStrip } from '@/components/AccountStrip';
+import { AiProviderStrip } from '@/components/AiProviderStrip';
+import { z } from 'zod';
+import { toast } from 'sonner';
+
+const scraperSettingsSchema = z.object({
+  scraperTimeoutRetryCount: z.number().int().min(0).max(5),
+  scraperLoginTimeoutSeconds: z.number().int().min(10).max(300),
+  scraperDefaultTimeoutSeconds: z.number().int().min(10).max(300),
+  cooldownValue: z.number().int().min(0),
+  cooldownUnit: z.enum(['seconds', 'minutes', 'hours']),
+  scraperShowBrowser: z.boolean(),
+});
 
 export default function Settings() {
   const session = useAppStore((s) => s.session);
   const [isBankDialogOpen, setIsBankDialogOpen] = useState(false);
   const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
 
-  const { data: accounts = [], isLoading: isLoadingAccounts, refetch: refetchAccounts } = useAccounts();
+  const { data: accounts = [], isLoading: isLoadingAccounts } = useAccounts();
   const { data: userProfile, isLoading: isLoadingProfile, refetch: refetchProfile } = useUserProfile(session?.userId);
 
-  const isLoading = isLoadingAccounts || isLoadingProfile;
+  const [scraperTimeoutRetryCount, setScraperTimeoutRetryCount] = useState(1);
+  const [scraperLoginTimeoutSeconds, setScraperLoginTimeoutSeconds] = useState(90);
+  const [scraperDefaultTimeoutSeconds, setScraperDefaultTimeoutSeconds] = useState(90);
+  const [cooldownValue, setCooldownValue] = useState(30);
+  const [cooldownUnit, setCooldownUnit] = useState<'seconds' | 'minutes' | 'hours'>('minutes');
+  const [scraperShowBrowser, setScraperShowBrowser] = useState(false);
 
-  if (isLoading) {
+  const saveScraperSettings = useUpdateScraperSettings();
+
+  useEffect(() => {
+    if (userProfile) {
+      setScraperTimeoutRetryCount(userProfile.scraperTimeoutRetryCount ?? 1);
+      setScraperLoginTimeoutSeconds(userProfile.scraperLoginTimeoutSeconds ?? 90);
+      setScraperDefaultTimeoutSeconds(userProfile.scraperDefaultTimeoutSeconds ?? 90);
+      setScraperShowBrowser(userProfile.scraperShowBrowser ?? false);
+
+      const totalSeconds = userProfile.scraperAutoSyncCooldownSeconds ?? 1800;
+      if (totalSeconds % 3600 === 0 && totalSeconds > 0) {
+        setCooldownValue(totalSeconds / 3600);
+        setCooldownUnit('hours');
+      } else if (totalSeconds % 60 === 0 && totalSeconds > 0) {
+        setCooldownValue(totalSeconds / 60);
+        setCooldownUnit('minutes');
+      } else {
+        setCooldownValue(totalSeconds);
+        setCooldownUnit('seconds');
+      }
+    }
+  }, [userProfile]);
+
+  if (isLoadingAccounts || isLoadingProfile) {
     return (
       <div className="h-[60vh] flex items-center justify-center text-center animate-in fade-in-50 duration-300" dir="rtl">
         <div className="flex flex-col items-center gap-3">
@@ -29,145 +72,269 @@ export default function Settings() {
     );
   }
 
-  const activeProvider = userProfile?.activeAiProvider;
-  const preferredModel = userProfile?.preferredModel;
+  const handleSaveScraperSettings = () => {
+    const result = scraperSettingsSchema.safeParse({
+      scraperTimeoutRetryCount,
+      scraperLoginTimeoutSeconds,
+      scraperDefaultTimeoutSeconds,
+      cooldownValue,
+      cooldownUnit,
+      scraperShowBrowser,
+    });
+
+    if (!result.success) {
+      toast.error('נא לבדוק את תקינות הערכים שהוזנו');
+      return;
+    }
+
+    let scraperAutoSyncCooldownSeconds = cooldownValue;
+    if (cooldownUnit === 'minutes') scraperAutoSyncCooldownSeconds *= 60;
+    if (cooldownUnit === 'hours') scraperAutoSyncCooldownSeconds *= 3600;
+
+    saveScraperSettings.mutate({
+      scraperTimeoutRetryCount,
+      scraperLoginTimeoutSeconds,
+      scraperDefaultTimeoutSeconds,
+      scraperAutoSyncCooldownSeconds,
+      scraperShowBrowser,
+    }, {
+      onSuccess: () => {
+        toast.success('הגדרות הסורק נשמרו בהצלחה');
+      },
+      onError: () => {
+        toast.error('שגיאה בשמירת הגדרות הסורק');
+      }
+    });
+  };
+
+  const activeProvider = userProfile?.activeAiProvider as 'openai' | 'claude' | 'gemini' | undefined;
+  const configuredProviders = (userProfile?.configuredProviders ?? []) as Array<'openai' | 'claude' | 'gemini'>;
 
   return (
-    <div className="space-y-6 text-right animate-in fade-in-50 duration-300" dir="rtl">
-      <div>
-        <h1 className="text-3xl font-black text-zinc-950 dark:text-white leading-tight">הגדרות חשבון</h1>
-        <p className="mt-1 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-          נהל את קישוריות הבנקים והגדרות ספק הבינה המלאכותית שלך לצורך הפקת דוחות וניתוחים.
-        </p>
+    <div className="max-w-6xl mx-auto space-y-8 text-right animate-in fade-in-50 duration-500" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 dark:border-zinc-900 pb-6">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-black text-zinc-950 dark:text-white tracking-tight">הגדרות מערכת</h1>
+          <p className="text-base font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-2xl">
+            נהל את כל היבטי המערכת שלך במקום אחד: מחיבורי הבנקים והאשראי, דרך הגדרות ה-AI ועד לקונפיגורציה מתקדמת של הסורקים האוטומטיים.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+           <div className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-900 text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+             מחובר כ-{userProfile?.username}
+           </div>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Right Column: Bank accounts integration */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
-            <h2 className="text-lg font-black text-zinc-900 dark:text-white">חיבורי בנקים</h2>
-            <Button
-              onClick={() => setIsBankDialogOpen(true)}
-              className="h-8 text-xs font-bold bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 rounded-none flex items-center gap-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" weight="bold" />
-              <span>חבר בנק חדש</span>
-            </Button>
-          </div>
-
-          {accounts.length === 0 ? (
-            <PremiumCard className="p-6 border border-dashed border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/20 text-center flex flex-col items-center justify-center min-h-48">
-              <Bank className="h-8 w-8 text-zinc-400 mb-2" weight="duotone" />
-              <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">לא נמצאו חשבונות בנק מחוברים</p>
-              <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 mt-1 max-w-xs">
-                חבר חשבון בנק כדי שנוכל לנתח את ההוצאות שלך ולהציג אותן בלוח הבקרה.
-              </p>
-            </PremiumCard>
-          ) : (
-            <div className="space-y-3">
-              {accounts.map((acc) => (
-                <PremiumCard
-                  key={acc.accountNumber}
-                  className="p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center border border-zinc-200 dark:border-zinc-800">
-                      <Bank className="h-4.5 w-4.5 text-zinc-500 dark:text-zinc-400" weight="duotone" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{acc.bankId}</h4>
-                      <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 mt-0.5">
-                        מספר חשבון: {acc.accountNumber}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-left">
-                    {isCreditCompanyBankId(acc.bankId) ? (
-                      <>
-                        <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                          {(acc.transactions?.length ?? 0).toLocaleString('he-IL')} תנועות
-                        </p>
-                        <p className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 mt-0.5">
-                          חברת אשראי
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                          ₪{acc.balance}
-                        </p>
-                        <p className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 mt-0.5">
-                          עו״ש
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </PremiumCard>
-              ))}
+      <div className="grid gap-8 lg:grid-cols-3">
+        {/* Main Settings Column */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          {/* Bank Connections Section */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-none bg-zinc-950 dark:bg-white flex items-center justify-center">
+                  <Plus className="h-4 w-4 text-white dark:text-zinc-950" weight="bold" />
+                </div>
+                <h2 className="text-xl font-black text-zinc-900 dark:text-white">מקורות מידע פיננסי</h2>
+              </div>
+              <Button
+                onClick={() => setIsBankDialogOpen(true)}
+                className="h-9 px-4 text-xs font-black bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 rounded-none shadow-lg shadow-zinc-950/10 dark:shadow-none transition-all active:scale-95"
+              >
+                <span>הוספת חשבון / כרטיס</span>
+              </Button>
             </div>
-          )}
+            
+            <PremiumCard className="p-0 overflow-hidden border-zinc-200/60 dark:border-zinc-800/60">
+              <AccountStrip
+                accounts={accounts}
+                onAddClick={() => setIsBankDialogOpen(true)}
+                isInitialLoading={isLoadingAccounts}
+              />
+            </PremiumCard>
+          </section>
+
+          {/* AI Providers Section */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-none bg-zinc-900 flex items-center justify-center">
+                  <SparkleIcon className="h-4 w-4 text-white" weight="bold" />
+                </div>
+                <h2 className="text-xl font-black text-zinc-900 dark:text-white">ספקי בינה מלאכותית</h2>
+              </div>
+              <Button
+                  onClick={() => setIsAiDialogOpen(true)}
+                  variant="outline"
+                  className="h-9 px-4 text-xs font-black border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 rounded-none transition-all"
+              >
+                <span>הוספת ספק (API)</span>
+              </Button>
+            </div>
+
+            <div className="grid gap-4">
+              {configuredProviders.length > 0 ? (
+                <AiProviderStrip
+                  configuredProviders={configuredProviders}
+                  activeProvider={activeProvider || null}
+                  configs={userProfile?.aiProviderConfigs || null}
+                />
+              ) : (
+                <div className="col-span-full border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20 p-8 flex flex-col items-center justify-center text-center space-y-3">
+                  <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
+                    <Warning className="h-6 w-6 text-zinc-400" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">לא הוגדרו ספקי AI</p>
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 max-w-xs">
+                      חבר ספק בינה מלאכותית כדי להתחיל לנתח את ההוצאות שלך ולקבל תובנות פיננסיות חכמות.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setIsAiDialogOpen(true)}
+                    className="h-9 px-6 text-xs font-black bg-zinc-950 text-white rounded-none mt-2"
+                  >
+                    התחבר עכשיו
+                  </Button>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
 
-        {/* Left Column: AI configuration integration */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
-            <h2 className="text-lg font-black text-zinc-900 dark:text-white">ספק בינה מלאכותית (AI)</h2>
-            {activeProvider && (
-              <Button
-                onClick={() => setIsAiDialogOpen(true)}
-                className="h-8 text-xs font-bold bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 rounded-none flex items-center gap-1.5"
-              >
-                <NotePencil className="h-3.5 w-3.5" weight="duotone" />
-                <span>שינוי הגדרות</span>
-              </Button>
-            )}
+        {/* Advanced Scraper Settings Column */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-none bg-zinc-800 dark:bg-zinc-200 flex items-center justify-center">
+              <ArrowsClockwise className="h-4 w-4 text-white dark:text-zinc-900" weight="bold" />
+            </div>
+            <h2 className="text-xl font-black text-zinc-900 dark:text-white">הגדרות סורקים</h2>
           </div>
 
-          {activeProvider ? (
-            <PremiumCard className="p-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col justify-between min-h-48">
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-10 w-10 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                    <Sparkle className="h-5 w-5" weight="duotone" />
+          <PremiumCard className="p-6 space-y-6 border-zinc-200/60 dark:border-zinc-800/60 relative overflow-hidden group">
+            {/* Background Accent */}
+            <div className="absolute top-0 right-0 w-1.5 h-full bg-zinc-950 dark:bg-white opacity-10 group-hover:opacity-100 transition-opacity duration-500" />
+            
+            <div className="space-y-6">
+              {/* Show Browser */}
+              <div className="flex items-center justify-between group/item">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Browser className="h-4 w-4 text-zinc-400" />
+                    <label className="text-sm font-black text-zinc-900 dark:text-white">הצגת דפדפן</label>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white">ספק AI פעיל</h3>
-                    <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 mt-0.5">מפתח API הוגדר ומסונכרן מקומית</p>
-                  </div>
+                  <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">הצגת תהליך הסריקה בחלון נפרד</p>
                 </div>
+                <Switch 
+                  checked={scraperShowBrowser}
+                  onCheckedChange={setScraperShowBrowser}
+                />
+              </div>
 
-                <div className="space-y-3 bg-zinc-50/50 dark:bg-zinc-900/30 p-3.5 border border-zinc-200/50 dark:border-zinc-800/50 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400 dark:text-zinc-500">פלטפורמה</span>
-                    <span className="font-bold text-zinc-800 dark:text-zinc-200 capitalize">{activeProvider}</span>
+              <div className="h-px bg-zinc-100 dark:bg-zinc-900 w-full" />
+
+              {/* Retries */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <ArrowsClockwise className="h-4 w-4 text-zinc-400" />
+                  <label className="text-sm font-black text-zinc-900 dark:text-white">ניסיונות סריקה חוזרים</label>
+                </div>
+                <Select 
+                  value={String(scraperTimeoutRetryCount)} 
+                  onValueChange={(val) => setScraperTimeoutRetryCount(Number(val))}
+                >
+                  <SelectItem value="0">ללא ניסיונות חוזרים</SelectItem>
+                  <SelectItem value="1">ניסיון אחד נוסף</SelectItem>
+                  <SelectItem value="2">2 ניסיונות נוספים</SelectItem>
+                  <SelectItem value="3">3 ניסיונות נוספים</SelectItem>
+                </Select>
+              </div>
+
+              {/* Timeouts */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-zinc-400" />
+                    <label className="text-[11px] font-black text-zinc-900 dark:text-white leading-tight">זמן התחברות (שניות)</label>
                   </div>
-                  <div className="flex items-center justify-between border-t border-zinc-200/50 dark:border-zinc-800/50 pt-2.5">
-                    <span className="text-zinc-400 dark:text-zinc-500">מודל ברירת מחדל</span>
-                    <span className="font-bold text-zinc-800 dark:text-zinc-200 dir-ltr">{preferredModel || 'Use Default'}</span>
+                  <input
+                    type="number"
+                    value={scraperLoginTimeoutSeconds}
+                    onChange={(e) => setScraperLoginTimeoutSeconds(Number(e.target.value))}
+                    className="h-10 w-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 px-3 text-xs font-bold focus:bg-white dark:focus:bg-zinc-950 focus:outline-none transition-all rounded-none"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-zinc-400" />
+                    <label className="text-[11px] font-black text-zinc-900 dark:text-white leading-tight">זמן סריקה (שניות)</label>
                   </div>
+                  <input
+                    type="number"
+                    value={scraperDefaultTimeoutSeconds}
+                    onChange={(e) => setScraperDefaultTimeoutSeconds(Number(e.target.value))}
+                    className="h-10 w-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 px-3 text-xs font-bold focus:bg-white dark:focus:bg-zinc-950 focus:outline-none transition-all rounded-none"
+                  />
                 </div>
               </div>
 
-              <div className="mt-4 p-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/30 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 text-center">
-                סוכן הבינה המלאכותית מוכן ומחובר בפרטיות בעמוד 'ייעוץ עם סוכן'.
+              {/* Cooldown */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <ArrowsClockwise className="h-4 w-4 text-zinc-400" />
+                  <label className="text-sm font-black text-zinc-900 dark:text-white">זמן המתנה בין סנכרונים</label>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={cooldownValue}
+                    onChange={(e) => setCooldownValue(Number(e.target.value))}
+                    className="h-10 w-24 border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 px-3 text-xs font-bold focus:bg-white dark:focus:bg-zinc-950 focus:outline-none transition-all rounded-none"
+                  />
+                  <Select 
+                    value={cooldownUnit} 
+                    onValueChange={(val: any) => setCooldownUnit(val)}
+                    className="flex-1"
+                  >
+                    <SelectItem value="seconds">שניות</SelectItem>
+                    <SelectItem value="minutes">דקות</SelectItem>
+                    <SelectItem value="hours">שעות</SelectItem>
+                  </Select>
+                </div>
               </div>
-            </PremiumCard>
-          ) : (
-            <PremiumCard className="p-6 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-center flex flex-col items-center justify-center min-h-48">
-              <Sparkle className="h-8 w-8 text-zinc-400 mb-2 animate-pulse" weight="duotone" />
-              <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">לא מוגדר ספק בינה מלאכותית</p>
-              <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 mt-1 max-w-xs">
-                הגדר ספק API של OpenAI, Claude או Gemini כדי לאפשר ניתוחי הוצאות מתקדמים.
-              </p>
+
               <Button
-                onClick={() => setIsAiDialogOpen(true)}
-                className="mt-5 text-xs font-bold rounded-none bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 h-9 px-5"
+                onClick={handleSaveScraperSettings}
+                disabled={saveScraperSettings.isPending}
+                className="w-full h-11 bg-zinc-950 hover:bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100 rounded-none font-black text-xs transition-all flex items-center justify-center gap-2 shadow-xl shadow-zinc-950/10 dark:shadow-none"
               >
-                <span>הגדר ספק AI</span>
-                <Sparkle className="h-3.5 w-3.5" weight="duotone" />
+                {saveScraperSettings.isPending ? (
+                  <CircleNotch className="h-4 w-4 animate-spin" />
+                ) : (
+                  <span>שמירת כל ההגדרות</span>
+                )}
               </Button>
-            </PremiumCard>
-          )}
+            </div>
+          </PremiumCard>
+
+          {/* Help/Support Section */}
+          <PremiumCard className="p-5 bg-zinc-50/50 dark:bg-zinc-900/10 border-dashed border-zinc-200 dark:border-zinc-800">
+             <div className="flex gap-4">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
+                   <Warning className="h-5 w-5 text-zinc-400" />
+                </div>
+                <div className="space-y-1">
+                   <h4 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">צריך עזרה?</h4>
+                   <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                     הגדרות אלו משפיעות ישירות על יציבות הסנכרון מול הבנקים. במקרה של תקלות חוזרות, מומלץ להעלות את זמני ה-Timeout או להפעיל את תצוגת הדפדפן כדי לאבחן את הבעיה.
+                   </p>
+                </div>
+             </div>
+          </PremiumCard>
         </div>
       </div>
 
@@ -175,7 +342,7 @@ export default function Settings() {
       <AddBankAccountDialog
         open={isBankDialogOpen}
         onOpenChange={setIsBankDialogOpen}
-        onSuccess={refetchAccounts}
+        onSuccess={() => {}}
       />
       <AddAiProviderDialog
         open={isAiDialogOpen}

@@ -28,6 +28,21 @@ type SyncRangePayload = {
   silent?: boolean;
 };
 
+type AccountsRangeFilters = {
+  startDate?: string;
+  endDate?: string;
+};
+
+function buildAccountsQuery(filters: AccountsRangeFilters = {}): string {
+  const params = new URLSearchParams();
+  if (filters.startDate && filters.endDate && filters.startDate <= filters.endDate) {
+    params.set('startDate', filters.startDate);
+    params.set('endDate', filters.endDate);
+  }
+  const query = params.toString();
+  return query ? `/scrapers/accounts?${query}` : '/scrapers/accounts';
+}
+
 export function isCreditCompanyBankId(bankId: string): boolean {
   const normalized = String(bankId ?? '').toLowerCase();
   return normalized === 'max' || normalized === 'isracard' || normalized === 'cal';
@@ -37,12 +52,12 @@ export function isBankAccountBankId(bankId: string): boolean {
   return !isCreditCompanyBankId(bankId);
 }
 
-export function useAccounts() {
+export function useAccounts(filters: AccountsRangeFilters = {}) {
   const session = useAppStore((s) => s.session);
 
   return useQuery({
-    queryKey: ['connected-accounts'],
-    queryFn: () => api.get<BankAccount[]>('/scrapers/accounts'),
+    queryKey: ['connected-accounts', filters.startDate ?? '', filters.endDate ?? ''],
+    queryFn: () => api.get<BankAccount[]>(buildAccountsQuery(filters)),
     enabled: !!session,
   });
 }
