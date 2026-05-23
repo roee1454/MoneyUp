@@ -21,6 +21,10 @@ describe('AppController', () => {
           provide: 'AUTH_SERVICE',
           useValue: { send: jest.fn(() => of('pong')) },
         },
+        {
+          provide: 'USERS_SERVICE',
+          useValue: { send: jest.fn(() => of(null)) },
+        },
       ],
     }).compile();
 
@@ -29,7 +33,9 @@ describe('AppController', () => {
 
   describe('microservices', () => {
     it('should return ai greeting', async () => {
-      await expect(appController.getAiGreeting()).resolves.toBe('Hello World!');
+      await expect(appController.getAiGreeting()).resolves.toBe(
+        'AI gateway endpoint is ready',
+      );
     });
 
     it('should return scraper greeting', async () => {
@@ -45,6 +51,7 @@ describe('AppController', () => {
         ai: 'up',
         scraper: 'up',
         auth: 'up',
+        users: 'up',
       });
     });
   });

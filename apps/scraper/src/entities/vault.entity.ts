@@ -13,4 +13,10 @@ export class VaultEntity {
 
   @Column()
   encryptedCredentials: string;
+
+  @Column({ nullable: true, type: "text" })
+  lastError: string | null;
+
+  @Column({ type: 'date', default: () => 'CURRENT_TIMESTAMP' })
+  updatedAt: Date;
 }

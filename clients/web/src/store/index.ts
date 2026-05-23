@@ -10,9 +10,92 @@ type Session = {
 type AppState = {
   session: Session | null;
   setSession: (session: Session | null) => void;
+  sync: {
+    jobId: string | null;
+    status: 'idle' | 'running' | 'reconnecting' | 'done' | 'failed';
+    phase: string | null;
+    serverProgress: number;
+    displayProgress: number;
+    message: string;
+    source: 'initial' | 'manual' | null;
+    error: string | null;
+    cooldownBlockedUntil: string | null;
+    cooldownRemainingMs: number | null;
+    rangeStartDate: string | null;
+    rangeEndDate: string | null;
+    startedAt: string | null;
+    updatedAt: string | null;
+    visible: boolean;
+  };
+  dashboardRange: {
+    startDate: string | null;
+    endDate: string | null;
+    committedStartDate: string | null;
+    committedEndDate: string | null;
+  };
+  setSync: (patch: Partial<AppState['sync']>) => void;
+  setDashboardRange: (range: Partial<AppState['dashboardRange']>) => void;
+  resetSync: () => void;
 };
 
 export const useAppStore = create<AppState>((set) => ({
   session: null,
   setSession: (session) => set({ session }),
+  sync: {
+    jobId: null,
+    status: 'idle',
+    phase: null,
+    serverProgress: 0,
+    displayProgress: 0,
+    message: '',
+    source: null,
+    error: null,
+    cooldownBlockedUntil: null,
+    cooldownRemainingMs: null,
+    rangeStartDate: null,
+    rangeEndDate: null,
+    startedAt: null,
+    updatedAt: null,
+    visible: false,
+  },
+  dashboardRange: {
+    startDate: null,
+    endDate: null,
+    committedStartDate: null,
+    committedEndDate: null,
+  },
+  setSync: (patch) =>
+    set((state) => ({
+      sync: {
+        ...state.sync,
+        ...patch,
+      },
+    })),
+  setDashboardRange: (range) =>
+    set((state) => ({
+      dashboardRange: {
+        ...state.dashboardRange,
+        ...range,
+      },
+    })),
+  resetSync: () =>
+    set({
+      sync: {
+        jobId: null,
+        status: 'idle',
+        phase: null,
+        serverProgress: 0,
+        displayProgress: 0,
+        message: '',
+        source: null,
+        error: null,
+        cooldownBlockedUntil: null,
+        cooldownRemainingMs: null,
+        rangeStartDate: null,
+        rangeEndDate: null,
+        startedAt: null,
+        updatedAt: null,
+        visible: false,
+      },
+    }),
 }));

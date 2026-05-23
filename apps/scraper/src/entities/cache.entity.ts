@@ -11,6 +11,12 @@ export class ScrapedCacheEntity {
   @Column({ type: 'text' })
   cachedData: string; // JSON string of UnifiedAccount[]
 
+  @Column({ type: 'text', nullable: true })
+  coverageStartDate?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  coverageEndDate?: string | null;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

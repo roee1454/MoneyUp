@@ -14,7 +14,8 @@ export function BrandLogo({
   to,
   interactive = variant === 'nav',
 }: BrandLogoProps) {
-  const baseClasses = 'inline-flex items-baseline select-none leading-none whitespace-nowrap';
+  const baseClasses =
+    'inline-flex items-baseline select-none leading-none whitespace-nowrap';
   const variantClasses =
     variant === 'hero'
       ? 'text-5xl md:text-7xl lg:text-8xl tracking-tight'
@@ -22,9 +23,9 @@ export function BrandLogo({
   const rootClass = cn(baseClasses, variantClasses, className);
 
   const content = (
-    <div className='underline underline-offset-4 decoration-zinc-600 decoration-dashed'>
-      <span className="font-extrabold text-zinc-950 dark:text-white">MONEY</span>
-      <span className="font-extrabold text-zinc-400 dark:text-zinc-500">UP</span>
+    <div className="underline underline-offset-4 decoration-muted-foreground decoration-dashed">
+      <span className="font-extrabold text-foreground">MONEY</span>
+      <span className="font-extrabold text-muted-foreground">UP</span>
     </div>
   );
 

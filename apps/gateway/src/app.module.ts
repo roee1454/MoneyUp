@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AppController } from './app.controller';
+import { ScraperSocketGateway } from './scraper-socket.gateway';
+import { SyncJobService } from './sync-job.service';
 
 @Module({
   imports: [
@@ -40,6 +42,6 @@ import { AppController } from './app.controller';
     ]),
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [ScraperSocketGateway, SyncJobService],
 })
 export class AppModule {}

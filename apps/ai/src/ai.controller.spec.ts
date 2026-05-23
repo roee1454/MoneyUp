@@ -3,20 +3,26 @@ import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 
 describe('AiController', () => {
-  let aiServiceController: AiController;
+  let controller: AiController;
+  let service: jest.Mocked<AiService>;
 
   beforeEach(async () => {
+    service = {} as jest.Mocked<AiService>;
+
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AiController],
-      providers: [AiService],
+      providers: [
+        {
+          provide: AiService,
+          useValue: service,
+        },
+      ],
     }).compile();
 
-    aiServiceController = app.get<AiController>(AiController);
+    controller = app.get<AiController>(AiController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(aiServiceController.getHelloMessage()).toBe('Hello World!');
-    });
+  it('returns pong on ping', () => {
+    expect(controller.ping()).toBe('pong');
   });
 });

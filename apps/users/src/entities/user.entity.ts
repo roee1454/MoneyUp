@@ -26,6 +26,39 @@ export class User {
   @Column({ type: 'text', nullable: true })
   unlockKeySalt: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  openaiKeyEncrypted: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  claudeKeyEncrypted: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  geminiKeyEncrypted: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  preferredModel: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  activeAiProvider: string | null;
+
+  @Column({ type: 'simple-json', nullable: true })
+  aiProviderConfigs: Record<string, any> | null;
+
+  @Column({ type: 'integer', default: 1 })
+  scraperTimeoutRetryCount: number;
+
+  @Column({ type: 'integer', default: 1800 })
+  scraperAutoSyncCooldownSeconds: number;
+
+  @Column({ type: 'boolean', default: false })
+  scraperShowBrowser: boolean;
+
+  @Column({ type: 'integer', default: 90 })
+  scraperLoginTimeoutSeconds: number;
+
+  @Column({ type: 'integer', default: 90 })
+  scraperDefaultTimeoutSeconds: number;
+
   @CreateDateColumn()
   createdAt: Date;
 
