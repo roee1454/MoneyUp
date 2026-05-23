@@ -1,39 +1,25 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolvePackageJsonExports": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
+    "module": "commonjs",
     "declaration": true,
     "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true, // Critical for NestJS
+    "experimentalDecorators": true, // Critical for NestJS
     "allowSyntheticDefaultImports": true,
-    "target": "ES2023",
+    "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
+    "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@money-up/common": [
-        "packages/common/src/index.ts"
-      ],
-      "@money-up/common/*": [
-        "packages/common/src/*"
-      ],
-      "@moneyup/types": [
-        "packages/types/src/index.ts"
-      ],
-      "@moneyup/types/*": [
-        "packages/types/src/*"
-      ]
-    }
-  }
+      "@moneyup/types": ["packages/types/src/index"],
+      "@money-up/common": ["packages/common/src/index"],
+    },
+  },
 }

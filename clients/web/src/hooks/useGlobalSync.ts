@@ -6,6 +6,8 @@ import {
   getScraperSocket,
 } from '@/lib/scraper-socket';
 import { useAppStore } from '@/store';
+import { api } from '@/lib/api';
+import type { BankAccount } from './useAccounts';
 
 const SYNC_INITIAL_TRIGGERED = 'moneyup_sync_initial_triggered_v1';
 
@@ -82,10 +84,15 @@ export function useGlobalSyncManager(enabled: boolean) {
     }
 
     let isActive = true;
-    const handlePayload = (payload: SyncEventPayload, fallbackType?: string) => {
+    const handlePayload = (
+      payload: SyncEventPayload,
+      fallbackType?: string,
+    ) => {
       if (!isActive) return;
       const normalizedStatus =
-        payload.status === 'running' || payload.status === 'done' || payload.status === 'failed'
+        payload.status === 'running' ||
+        payload.status === 'done' ||
+        payload.status === 'failed'
           ? payload.status
           : fallbackType === 'job_failed'
             ? 'failed'
@@ -105,7 +112,8 @@ export function useGlobalSyncManager(enabled: boolean) {
         displayProgress:
           normalizedStatus === 'done' || normalizedStatus === 'failed'
             ? 100
-            : useAppStore.getState().sync.jobId !== payload.jobId && Number.isFinite(payload.progress)
+            : useAppStore.getState().sync.jobId !== payload.jobId &&
+                Number.isFinite(payload.progress)
               ? Number(payload.progress)
               : useAppStore.getState().sync.displayProgress,
         message: payload.message ?? '',
@@ -118,17 +126,24 @@ export function useGlobalSyncManager(enabled: boolean) {
           typeof payload.cooldownRemainingMs === 'number'
             ? payload.cooldownRemainingMs
             : useAppStore.getState().sync.cooldownRemainingMs,
-        rangeStartDate: payload.startDate ?? useAppStore.getState().sync.rangeStartDate,
-        rangeEndDate: payload.endDate ?? useAppStore.getState().sync.rangeEndDate,
+        rangeStartDate:
+          payload.startDate ?? useAppStore.getState().sync.rangeStartDate,
+        rangeEndDate:
+          payload.endDate ?? useAppStore.getState().sync.rangeEndDate,
         startedAt: payload.startedAt ?? useAppStore.getState().sync.startedAt,
         updatedAt: payload.updatedAt ?? new Date().toISOString(),
-        visible: normalizedStatus === 'running' || normalizedStatus === 'failed',
+        visible:
+          normalizedStatus === 'running' || normalizedStatus === 'failed',
       });
 
       if (normalizedStatus === 'done') {
-        void queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
+        void queryClient.invalidateQueries({
+          queryKey: ['connected-accounts'],
+        });
         void queryClient.invalidateQueries({ queryKey: ['spending-scans'] });
-        void queryClient.invalidateQueries({ queryKey: ['spending-scans-debug'] });
+        void queryClient.invalidateQueries({
+          queryKey: ['spending-scans-debug'],
+        });
         window.setTimeout(() => {
           setSync({
             visible: false,
@@ -189,29 +204,45 @@ export function useGlobalSyncManager(enabled: boolean) {
       });
 
     const initialTriggered =
-      typeof window !== 'undefined' && sessionStorage.getItem(SYNC_INITIAL_TRIGGERED) === '1';
+      typeof window !== 'undefined' &&
+      sessionStorage.getItem(SYNC_INITIAL_TRIGGERED) === '1';
     if (!initialTriggered) {
-      void emitScraperSocket<SyncStartResponse>('sync:start', { mode: 'initial' })
-        .then((data) => {
-          setSync({
-            jobId: data.jobId,
-            status: data.status === 'running' ? 'running' : data.status,
-            phase: data.phase,
-            serverProgress: data.progress,
-            displayProgress: data.progress,
-            message: data.message,
-            source: data.source,
-            error: null,
-            cooldownBlockedUntil: data.cooldownBlockedUntil ?? null,
-            cooldownRemainingMs: data.cooldownRemainingMs ?? null,
-            rangeStartDate: data.startDate ?? null,
-            rangeEndDate: data.endDate ?? null,
-            startedAt: data.startedAt,
-            updatedAt: data.updatedAt,
-            visible: data.status === 'running',
+      void api
+        .get<BankAccount[]>('/scrapers/accounts')
+        .then((accounts) => {
+          if (!isActive) return;
+          if (accounts.length === 0) {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem(SYNC_INITIAL_TRIGGERED, '1');
+            }
+            return;
+          }
+
+          return emitScraperSocket<SyncStartResponse>('sync:start', {
+            mode: 'initial',
+          }).then((data) => {
+            if (!isActive) return;
+            setSync({
+              jobId: data.jobId,
+              status: data.status === 'running' ? 'running' : data.status,
+              phase: data.phase,
+              serverProgress: data.progress,
+              displayProgress: data.progress,
+              message: data.message,
+              source: data.source,
+              error: null,
+              cooldownBlockedUntil: data.cooldownBlockedUntil ?? null,
+              cooldownRemainingMs: data.cooldownRemainingMs ?? null,
+              rangeStartDate: data.startDate ?? null,
+              rangeEndDate: data.endDate ?? null,
+              startedAt: data.startedAt,
+              updatedAt: data.updatedAt,
+              visible: data.status === 'running',
+            });
           });
         })
         .catch(() => {
+          if (!isActive) return;
           setSync({
             status: 'failed',
             visible: true,
@@ -219,10 +250,10 @@ export function useGlobalSyncManager(enabled: boolean) {
           });
         })
         .finally(() => {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem(SYNC_INITIAL_TRIGGERED, '1');
-        }
-      });
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem(SYNC_INITIAL_TRIGGERED, '1');
+          }
+        });
     }
 
     return () => {
@@ -232,12 +263,7 @@ export function useGlobalSyncManager(enabled: boolean) {
       socket.off('disconnect', handleConnectError);
       socket.off('connect', handleConnect);
     };
-  }, [
-    enabled,
-    queryClient,
-    resetSync,
-    setSync,
-  ]);
+  }, [enabled, queryClient, resetSync, setSync]);
 
   useEffect(() => {
     if (enabled) return;

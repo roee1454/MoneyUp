@@ -51,6 +51,7 @@ export interface ScraperResponse {
     status: ScraperStatus;
     sessionId?: string;
     error?: string;
+    errorCode?: 'INVALID_CREDENTIALS' | 'CHALLENGE_FAILED' | 'BANK_UNAVAILABLE' | 'SESSION_EXPIRED' | 'UNKNOWN_CONNECT_ERROR';
     challenge?: {
         type: string;
         message?: string;

@@ -7,7 +7,9 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "build": "nest build",
+    "build:packages": "pnpm --dir packages/types build && pnpm --dir packages/common build",
+    "build:apps": "nest build",
+    "build": "pnpm build:packages && pnpm build:apps",
     "build:web": "pnpm --dir clients/web build",
     "dev:services": "concurrently -c \"cyan,magenta,yellow,blue,green\" \"pnpm start:dev ai-service\" \"pnpm start:dev auth-service\" \"pnpm start:dev scraper-service\" \"pnpm start:dev users-service\" \"pnpm start:dev gateway\"",
     "dev:web": "pnpm --dir clients/web dev",
