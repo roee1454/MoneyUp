@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
-import { useScrapersList } from '@/hooks/useScrapers';
-import type { ScraperErrorCode } from '@/hooks/useScrapers';
+import { useQueryClient } from '@tanstack/react-query';
+import { useScrapersList, type ScraperErrorCode } from '@/hooks/useScrapers';
+import { useSyncAccounts } from '@/hooks/useAccounts';
 import { getScraperSocket } from '@/lib/scraper-socket';
 import { BankIcon } from '@/components/BankIcon';
 import { PremiumInput } from '@/components/ui/premium-input';
@@ -36,6 +37,8 @@ export function AddBankAccountDialog({
   onOpenChange,
   onSuccess,
 }: AddBankAccountDialogProps) {
+  const queryClient = useQueryClient();
+  const syncMutation = useSyncAccounts();
   const [selectedBank, setSelectedBank] = useState<any | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [isConnecting, setIsConnecting] = useState(false);
@@ -125,6 +128,8 @@ export function AddBankAccountDialog({
       setIsAwaiting2FA(false);
       setIsConnected(true);
       toast.success('החשבון סונכרן בהצלחה!');
+      void queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
+      syncMutation.mutate({ silent: true });
       void onSuccess?.();
     };
 
