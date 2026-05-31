@@ -73,7 +73,6 @@ export function useStartGlobalSync() {
 
 export function useGlobalSyncManager(enabled: boolean) {
   const queryClient = useQueryClient();
-  const sync = useAppStore((s) => s.sync);
   const setSync = useAppStore((s) => s.setSync);
   const resetSync = useAppStore((s) => s.resetSync);
 
@@ -100,43 +99,51 @@ export function useGlobalSyncManager(enabled: boolean) {
               ? 'done'
               : 'idle';
 
+      const isSnapshot = fallbackType === 'job_snapshot';
+      const isDone = normalizedStatus === 'done';
+      const isFailed = normalizedStatus === 'failed';
+      const isRunning = normalizedStatus === 'running';
+
+      const shouldBeVisible = isRunning || isFailed || (isDone && !isSnapshot);
+      const currentSync = useAppStore.getState().sync;
+
       setSync({
         jobId: payload.jobId ?? null,
         status: normalizedStatus,
         phase: payload.phase ?? null,
         serverProgress: Number.isFinite(payload.progress)
           ? Number(payload.progress)
-          : normalizedStatus === 'done'
+          : isDone
             ? 100
             : 0,
         displayProgress:
-          normalizedStatus === 'done' || normalizedStatus === 'failed'
+          isDone || isFailed
             ? 100
-            : useAppStore.getState().sync.jobId !== payload.jobId &&
+            : currentSync.jobId !== payload.jobId &&
                 Number.isFinite(payload.progress)
               ? Number(payload.progress)
-              : useAppStore.getState().sync.displayProgress,
+              : currentSync.displayProgress,
         message: payload.message ?? '',
         source: payload.source ?? null,
         error: payload.error ?? null,
         cooldownBlockedUntil:
           payload.cooldownBlockedUntil ??
-          useAppStore.getState().sync.cooldownBlockedUntil,
+          currentSync.cooldownBlockedUntil,
         cooldownRemainingMs:
           typeof payload.cooldownRemainingMs === 'number'
             ? payload.cooldownRemainingMs
-            : useAppStore.getState().sync.cooldownRemainingMs,
+            : currentSync.cooldownRemainingMs,
         rangeStartDate:
-          payload.startDate ?? useAppStore.getState().sync.rangeStartDate,
+          payload.startDate ?? currentSync.rangeStartDate,
         rangeEndDate:
-          payload.endDate ?? useAppStore.getState().sync.rangeEndDate,
-        startedAt: payload.startedAt ?? useAppStore.getState().sync.startedAt,
+          payload.endDate ?? currentSync.rangeEndDate,
+        startedAt: payload.startedAt ?? currentSync.startedAt,
         updatedAt: payload.updatedAt ?? new Date().toISOString(),
-        visible:
-          normalizedStatus === 'running' || normalizedStatus === 'failed',
+        visible: shouldBeVisible,
+        challenge: normalizedStatus === 'running' && payload.phase === 'syncing_scrapers' ? currentSync.challenge : null,
       });
 
-      if (normalizedStatus === 'done') {
+      if (isDone) {
         void queryClient.invalidateQueries({
           queryKey: ['connected-accounts'],
         });
@@ -153,7 +160,7 @@ export function useGlobalSyncManager(enabled: boolean) {
             cooldownBlockedUntil: null,
             cooldownRemainingMs: null,
           });
-        }, 1300);
+        }, 2000);
       }
     };
 
@@ -165,6 +172,19 @@ export function useGlobalSyncManager(enabled: boolean) {
     }) => {
       if (!payload.snapshot) return;
       handlePayload(payload.snapshot, payload.event);
+    };
+
+    const handleScraperChallenge = (payload: {
+      sessionId: string;
+      challenge: { type: string; message: string; bankId?: string };
+    }) => {
+      if (!isActive) return;
+      setSync({
+        jobId: payload.sessionId,
+        status: 'running',
+        visible: true,
+        challenge: payload.challenge,
+      });
     };
 
     const handleConnectError = () => {
@@ -188,6 +208,7 @@ export function useGlobalSyncManager(enabled: boolean) {
     };
 
     socket.on('sync:event', handleSyncEvent);
+    socket.on('scraper:challenge', handleScraperChallenge);
     socket.on('connect_error', handleConnectError);
     socket.on('disconnect', handleConnectError);
     socket.on('connect', handleConnect);
@@ -238,6 +259,7 @@ export function useGlobalSyncManager(enabled: boolean) {
               startedAt: data.startedAt,
               updatedAt: data.updatedAt,
               visible: data.status === 'running',
+              challenge: null,
             });
           });
         })
@@ -259,6 +281,7 @@ export function useGlobalSyncManager(enabled: boolean) {
     return () => {
       isActive = false;
       socket.off('sync:event', handleSyncEvent);
+      socket.off('scraper:challenge', handleScraperChallenge);
       socket.off('connect_error', handleConnectError);
       socket.off('disconnect', handleConnectError);
       socket.off('connect', handleConnect);
@@ -270,15 +293,54 @@ export function useGlobalSyncManager(enabled: boolean) {
     closeScraperSocket();
   }, [enabled]);
 
+  // Smoother, stable interval for progress updates
   useEffect(() => {
-    if (sync.status !== 'running') return;
-    const interval = window.setInterval(() => {
-      const delta = sync.serverProgress - sync.displayProgress;
-      if (delta <= 0) return;
-      const step = Math.max(0.3, Math.min(2.2, delta * 0.22));
-      const next = Math.min(sync.serverProgress, sync.displayProgress + step);
-      setSync({ displayProgress: next });
-    }, 140);
-    return () => window.clearInterval(interval);
-  }, [setSync, sync.displayProgress, sync.serverProgress, sync.status]);
+    let interval: number | null = null;
+    
+    const startInterval = () => {
+      if (interval) return;
+      interval = window.setInterval(() => {
+        const state = useAppStore.getState().sync;
+        if (state.status !== 'running') {
+          if (interval) {
+            window.clearInterval(interval);
+            interval = null;
+          }
+          return;
+        }
+
+        const delta = state.serverProgress - state.displayProgress;
+        if (delta <= 0) return;
+        
+        const step = Math.max(0.3, Math.min(2.2, delta * 0.22));
+        const next = Math.min(state.serverProgress, state.displayProgress + step);
+        
+        setSync({ displayProgress: next });
+      }, 140);
+    };
+
+    // We only react to status changes to start/stop the interval
+    // We use useAppStore.subscribe to watch status without re-rendering the whole hook scope
+    const unsubscribe = useAppStore.subscribe(
+      (state) => state.sync.status,
+      (status: string) => {
+        if (status === 'running') {
+          startInterval();
+        } else if (interval) {
+          window.clearInterval(interval);
+          interval = null;
+        }
+      }
+    );
+
+    // Initial check
+    if (useAppStore.getState().sync.status === 'running') {
+      startInterval();
+    }
+
+    return () => {
+      unsubscribe();
+      if (interval) window.clearInterval(interval);
+    };
+  }, [setSync]);
 }

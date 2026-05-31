@@ -21,7 +21,7 @@ import { useAppStore } from '@/store';
 import { useLogout } from '@/hooks/useAuth';
 import { BrandLogo } from '@/components/BrandLogo';
 import { useSyncAccounts } from '@/hooks/useAccounts';
-import { AiGlobalSwitcher } from '@/components/AiGlobalSwitcher';
+import { AiGlobalSwitcher } from '@/features/ai/components/AiGlobalSwitcher';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 const NAV_ITEMS = [

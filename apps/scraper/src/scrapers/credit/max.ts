@@ -1,17 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseScraper } from '../base';
+import { BrowserService } from '../../browser/browser.service';
 import {
   CompanyTypes,
   createScraper,
   ScraperCredentials,
 } from 'israeli-bank-scrapers';
-import { ScraperResponse } from '@moneyup/types';
+import { ScraperResponse } from '@money-up/types';
 
 @Injectable()
 export class MaxScraper extends BaseScraper {
-  constructor(configService: ConfigService) {
-    super(configService);
+  constructor(
+    configService: ConfigService,
+    browserService: BrowserService,
+  ) {
+    super(configService, browserService);
   }
 
   readonly companyId = CompanyTypes.max;
@@ -74,6 +78,9 @@ export class MaxScraper extends BaseScraper {
       showBrowser?: boolean;
       loginTimeoutSeconds?: number;
       defaultTimeoutSeconds?: number;
+      executablePath?: string;
+      browser?: any;
+      skipCloseBrowser?: boolean;
     },
   ): Promise<ScraperResponse> {
     try {
@@ -92,12 +99,16 @@ export class MaxScraper extends BaseScraper {
             );
 
       const scraper = createScraper({
-        ...this.getCommonScraperOptions({ showBrowser: options?.showBrowser }),
+        ...this.getCommonScraperOptions(options),
         companyId: this.companyId,
         startDate,
         combineInstallments: false,
         timeout: timeoutMs,
         defaultTimeout: defaultTimeoutMs,
+        ...(options?.browser ? { browser: options.browser } : {}),
+        ...(options?.skipCloseBrowser !== undefined
+          ? { skipCloseBrowser: options.skipCloseBrowser }
+          : {}),
       });
 
       const scrapeResult = await scraper.scrape(credentials);

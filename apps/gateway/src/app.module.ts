@@ -1,9 +1,16 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AppController } from './app.controller';
-import { ScraperSocketGateway } from './scraper-socket.gateway';
-import { SyncJobService } from './sync-job.service';
 
+// Domain Modules
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { AiModule } from './ai/ai.module';
+import { ScraperModule } from './scrapers/scraper.module';
+import { SyncModule } from './sync/sync.module';
+import { SpendingModule } from './spending/spending.module';
+
+@Global()
 @Module({
   imports: [
     ClientsModule.register([
@@ -40,8 +47,14 @@ import { SyncJobService } from './sync-job.service';
         },
       },
     ]),
+    AuthModule,
+    UsersModule,
+    AiModule,
+    ScraperModule,
+    SyncModule,
+    SpendingModule,
   ],
   controllers: [AppController],
-  providers: [ScraperSocketGateway, SyncJobService],
+  exports: [ClientsModule],
 })
 export class AppModule {}

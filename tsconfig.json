@@ -18,8 +18,12 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@moneyup/types": ["packages/types/src/index"],
+      "@money-up/types": ["packages/types/src/index"],
+      "@money-up/types/*": ["packages/types/src/*"],
       "@money-up/common": ["packages/common/src/index"],
+      "@money-up/common/backend": ["packages/common/src/backend"]
     },
   },
+
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "scripts/**/*.js"],
 }

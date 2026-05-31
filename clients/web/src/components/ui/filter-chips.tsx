@@ -43,10 +43,10 @@ export function FilterChips({
           disabled={disabled}
           onClick={() => onChange([])}
           className={cn(
-            'h-8 whitespace-nowrap border px-3 text-[11px] font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
+            'h-8 whitespace-nowrap border px-3 text-[11px] font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
             allSelected
-              ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-              : 'border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900',
+              ? 'border-primary bg-primary text-primary-foreground shadow-md'
+              : 'border-border text-muted-foreground hover:bg-muted bg-muted/30',
           )}
         >
           {allLabel}
@@ -60,10 +60,10 @@ export function FilterChips({
               disabled={disabled}
               onClick={() => toggleOption(option.id)}
               className={cn(
-                'h-8 whitespace-nowrap border px-3 text-[11px] font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
+                'h-8 whitespace-nowrap border px-3 text-[11px] font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
                 isActive
-                  ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900',
+                  ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                  : 'border-border text-muted-foreground hover:bg-muted bg-muted/30',
               )}
             >
               {option.label}

@@ -14,12 +14,16 @@ export type User = {
   scraperShowBrowser?: boolean;
   scraperLoginTimeoutSeconds?: number;
   scraperDefaultTimeoutSeconds?: number;
-  aiProviderConfigs?: Record<string, {
-    model: string;
-    preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
-    temperature?: number;
-    maxTokens?: number;
-  }> | null;
+  scraperChromiumPath?: string | null;
+  aiProviderConfigs?: Record<
+    string,
+    {
+      model: string;
+      preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
+      temperature?: number;
+      maxTokens?: number;
+    }
+  > | null;
 };
 
 export function useUsers() {
@@ -77,8 +81,8 @@ export function useUpdateScraperSettings() {
       scraperShowBrowser?: boolean;
       scraperLoginTimeoutSeconds?: number;
       scraperDefaultTimeoutSeconds?: number;
-    }) =>
-      api.patch<User>('/users/me/scraper-settings', payload),
+      scraperChromiumPath?: string | null;
+    }) => api.patch<User>('/users/me/scraper-settings', payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       await queryClient.invalidateQueries({ queryKey: ['users'] });

@@ -1,0 +1,83 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { VaultEntity } from '../entities/vault.entity';
+import { encrypt, decrypt } from '../utils/crypto';
+
+@Injectable()
+export class CredentialsService {
+  constructor(
+    @InjectRepository(VaultEntity)
+    private readonly vaultRepository: Repository<VaultEntity>,
+  ) {}
+
+  async saveCredentials(
+    userId: string,
+    bankId: string,
+    credentials: Record<string, string>,
+  ): Promise<void> {
+    const encrypted = encrypt(JSON.stringify(credentials));
+    let vaultEntry = await this.vaultRepository.findOne({
+      where: { userId, bankId },
+    });
+    if (!vaultEntry) {
+      vaultEntry = this.vaultRepository.create({ userId, bankId });
+    }
+    vaultEntry.encryptedCredentials = encrypted;
+    vaultEntry.lastError = null;
+    await this.vaultRepository.save(vaultEntry);
+  }
+
+  async getCredentials(
+    userId: string,
+    bankId: string,
+  ): Promise<Record<string, string> | null> {
+    const vaultEntry = await this.vaultRepository.findOne({
+      where: { userId, bankId },
+    });
+    if (!vaultEntry) return null;
+    const decrypted = decrypt(vaultEntry.encryptedCredentials);
+    return JSON.parse(decrypted);
+  }
+
+  async getUserConnections(userId: string): Promise<VaultEntity[]> {
+    return this.vaultRepository.find({ where: { userId } });
+  }
+
+  async getUserConnectionsCount(userId: string): Promise<number> {
+    return this.vaultRepository.count({ where: { userId } });
+  }
+
+  async markConnectionFailed(
+    userId: string,
+    bankId: string,
+    error: string,
+  ): Promise<void> {
+    const vaultEntry = await this.vaultRepository.findOne({
+      where: { userId, bankId },
+    });
+    if (vaultEntry) {
+      vaultEntry.lastError = error;
+      vaultEntry.updatedAt = new Date();
+      await this.vaultRepository.save(vaultEntry);
+    }
+  }
+
+  async clearConnectionError(userId: string, bankId: string): Promise<void> {
+    const vaultEntry = await this.vaultRepository.findOne({
+      where: { userId, bankId },
+    });
+    if (vaultEntry?.lastError) {
+      vaultEntry.lastError = null;
+      vaultEntry.updatedAt = new Date();
+      await this.vaultRepository.save(vaultEntry);
+    }
+  }
+
+  async getLastError(userId: string, bankId: string): Promise<string | null> {
+    const vaultEntry = await this.vaultRepository.findOne({
+      where: { userId, bankId },
+    });
+    return vaultEntry?.lastError ?? null;
+  }
+}

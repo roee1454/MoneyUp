@@ -5,7 +5,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { of } from 'rxjs';
 
-describe('AppController (e2e)', () => {
+describe('Gateway (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
@@ -17,26 +17,14 @@ describe('AppController (e2e)', () => {
       .overrideProvider('SCRAPER_SERVICE')
       .useValue({ send: () => of('Hello World!') })
       .overrideProvider('AUTH_SERVICE')
-      .useValue({ send: () => of('pong') });
+      .useValue({ send: () => of('pong') })
+      .overrideProvider('USERS_SERVICE')
+      .useValue({ send: () => of(null) });
 
     const moduleFixture: TestingModule = await moduleBuilder.compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
-  });
-
-  it('/ai (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/ai')
-      .expect(200)
-      .expect('Hello World!');
-  });
-
-  it('/scraper (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/scraper')
-      .expect(200)
-      .expect('Hello World!');
   });
 
   it('/health (GET)', () => {
@@ -46,5 +34,12 @@ describe('AppController (e2e)', () => {
       .expect((res) => {
         expect(res.body.status).toBe('healthy');
       });
+  });
+
+  it('/ai (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/ai')
+      .expect(200)
+      .expect('AI gateway endpoint is ready');
   });
 });

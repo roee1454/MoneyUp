@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 
 type Session = {
   userId: string;
@@ -26,6 +27,11 @@ type AppState = {
     startedAt: string | null;
     updatedAt: string | null;
     visible: boolean;
+    challenge: {
+      type: string;
+      message: string;
+      bankId?: string;
+    } | null;
   };
   dashboardRange: {
     startDate: string | null;
@@ -38,64 +44,68 @@ type AppState = {
   resetSync: () => void;
 };
 
-export const useAppStore = create<AppState>((set) => ({
-  session: null,
-  setSession: (session) => set({ session }),
-  sync: {
-    jobId: null,
-    status: 'idle',
-    phase: null,
-    serverProgress: 0,
-    displayProgress: 0,
-    message: '',
-    source: null,
-    error: null,
-    cooldownBlockedUntil: null,
-    cooldownRemainingMs: null,
-    rangeStartDate: null,
-    rangeEndDate: null,
-    startedAt: null,
-    updatedAt: null,
-    visible: false,
-  },
-  dashboardRange: {
-    startDate: null,
-    endDate: null,
-    committedStartDate: null,
-    committedEndDate: null,
-  },
-  setSync: (patch) =>
-    set((state) => ({
-      sync: {
-        ...state.sync,
-        ...patch,
-      },
-    })),
-  setDashboardRange: (range) =>
-    set((state) => ({
-      dashboardRange: {
-        ...state.dashboardRange,
-        ...range,
-      },
-    })),
-  resetSync: () =>
-    set({
-      sync: {
-        jobId: null,
-        status: 'idle',
-        phase: null,
-        serverProgress: 0,
-        displayProgress: 0,
-        message: '',
-        source: null,
-        error: null,
-        cooldownBlockedUntil: null,
-        cooldownRemainingMs: null,
-        rangeStartDate: null,
-        rangeEndDate: null,
-        startedAt: null,
-        updatedAt: null,
-        visible: false,
-      },
-    }),
-}));
+export const useAppStore = create<AppState>()(
+  subscribeWithSelector((set) => ({
+    session: null,
+    setSession: (session) => set({ session }),
+    sync: {
+      jobId: null,
+      status: 'idle',
+      phase: null,
+      serverProgress: 0,
+      displayProgress: 0,
+      message: '',
+      source: null,
+      error: null,
+      cooldownBlockedUntil: null,
+      cooldownRemainingMs: null,
+      rangeStartDate: null,
+      rangeEndDate: null,
+      startedAt: null,
+      updatedAt: null,
+      visible: false,
+      challenge: null,
+    },
+    dashboardRange: {
+      startDate: null,
+      endDate: null,
+      committedStartDate: null,
+      committedEndDate: null,
+    },
+    setSync: (patch) =>
+      set((state) => ({
+        sync: {
+          ...state.sync,
+          ...patch,
+        },
+      })),
+    setDashboardRange: (range) =>
+      set((state) => ({
+        dashboardRange: {
+          ...state.dashboardRange,
+          ...range,
+        },
+      })),
+    resetSync: () =>
+      set({
+        sync: {
+          jobId: null,
+          status: 'idle',
+          phase: null,
+          serverProgress: 0,
+          displayProgress: 0,
+          message: '',
+          source: null,
+          error: null,
+          cooldownBlockedUntil: null,
+          cooldownRemainingMs: null,
+          rangeStartDate: null,
+          rangeEndDate: null,
+          startedAt: null,
+          updatedAt: null,
+          visible: false,
+          challenge: null,
+        },
+      }),
+  }))
+);

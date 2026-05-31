@@ -93,7 +93,11 @@ export class UsersController {
 
   @MessagePattern('user_delete_ai_provider')
   deleteAiProvider(
-    @Payload() payload: { id: string; provider: 'openai' | 'claude' | 'gemini' },
+    @Payload()
+    payload: {
+      id: string;
+      provider: 'openai' | 'claude' | 'gemini';
+    },
   ) {
     return this.usersService.deleteAiProvider(payload.id, payload.provider);
   }
@@ -108,6 +112,7 @@ export class UsersController {
       scraperShowBrowser?: boolean;
       scraperLoginTimeoutSeconds?: number;
       scraperDefaultTimeoutSeconds?: number;
+      scraperChromiumPath?: string;
     },
   ) {
     return this.usersService.saveScraperSettings(payload.id, payload);

@@ -1,10 +1,17 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
-import { ScraperService, type ScanIncomeRequest } from './scraper.service';
 import { ScraperFactory } from './scraper-factory.service';
+import { BrowserService } from './browser/browser.service';
+import { SessionService } from './session/session.service';
+import { CredentialsService } from './credentials/credentials.service';
+import { SyncService } from './sync/sync.service';
+import { CacheService } from './cache/cache.service';
+import { CoverageService } from './coverage/coverage.service';
+import { ScansService } from './scans/scans.service';
 import { ScraperCredentials } from 'israeli-bank-scrapers';
 import { randomUUID } from 'crypto';
-import type { UnifiedTransaction } from '@moneyup/types';
+import type { UnifiedTransaction, ScanIncomeRequest } from '@money-up/types';
+import { getTodayUtcDateString } from './utils/date.utils';
 
 type PublicScraperErrorCode =
   | 'INVALID_CREDENTIALS'
@@ -16,18 +23,39 @@ type PublicScraperErrorCode =
 @Controller()
 export class ScraperController {
   constructor(
-    private readonly scraperService: ScraperService,
     private readonly scraperFactory: ScraperFactory,
+    private readonly browserService: BrowserService,
+    private readonly sessionService: SessionService,
+    private readonly credentialsService: CredentialsService,
+    private readonly syncService: SyncService,
+    private readonly cacheService: CacheService,
+    private readonly coverageService: CoverageService,
+    private readonly scansService: ScansService,
   ) {}
 
   @MessagePattern('scraper_hello')
   getHelloMessage(): string {
-    return this.scraperService.getHello();
+    return 'Hello World!';
   }
 
   @MessagePattern('scrapers_list')
   getScrapersList(): any[] {
-    return this.scraperService.getScrapersList();
+    return this.syncService.getScrapersList();
+  }
+
+  @MessagePattern('scraper_detect_chromium')
+  async detectChromium(): Promise<any> {
+    return this.browserService.detectChromium();
+  }
+
+  @MessagePattern('scraper_install_chromium')
+  async installChromium(): Promise<any> {
+    return this.browserService.installChromium();
+  }
+
+  @MessagePattern('scraper_install_chromium_stream')
+  installChromiumStream(): any {
+    return this.browserService.installChromiumStream();
   }
 
   @MessagePattern('scrape_and_connect')
@@ -36,9 +64,23 @@ export class ScraperController {
     bankId: string;
     credentials: ScraperCredentials;
     startDate?: string;
+    showBrowser?: boolean;
+    loginTimeoutSeconds?: number;
+    defaultTimeoutSeconds?: number;
+    executablePath?: string;
   }): Promise<any> {
     const { userId, bankId, startDate } = data;
     try {
+      // Prevent duplicate connections
+      const existingCredentials = await this.credentialsService.getCredentials(userId, bankId);
+      if (existingCredentials) {
+        return {
+          status: 'FAILED',
+          errorCode: 'ACCOUNT_ALREADY_CONNECTED',
+          error: 'החשבון כבר מחובר. אנא בחר חשבון אחר או נתק את החשבון הקיים תחילה.',
+        };
+      }
+
       const normalizedCredentials = this.normalizeCredentials(
         bankId,
         data.credentials as Record<string, string>,
@@ -57,7 +99,7 @@ export class ScraperController {
       }
 
       const sessionId = randomUUID();
-      this.scraperService.createSession(sessionId, {
+      this.sessionService.createSession(sessionId, {
         userId,
         bankId,
         status: 'PROCESSING',
@@ -71,6 +113,12 @@ export class ScraperController {
         bankId,
         normalizedCredentials as ScraperCredentials,
         startDate,
+        {
+          showBrowser: data.showBrowser,
+          loginTimeoutSeconds: data.loginTimeoutSeconds,
+          defaultTimeoutSeconds: data.defaultTimeoutSeconds,
+          executablePath: data.executablePath,
+        },
       );
 
       return {
@@ -78,6 +126,7 @@ export class ScraperController {
         sessionId,
       };
     } catch (err: any) {
+      console.error('[scrapeAndConnect] Immediate failure:', err);
       const sanitized = this.buildSanitizedError('UNKNOWN_CONNECT_ERROR');
       return {
         status: 'FAILED',
@@ -93,20 +142,35 @@ export class ScraperController {
     bankId: string,
     credentials: ScraperCredentials,
     startDate?: string,
+    options?: {
+      showBrowser?: boolean;
+      loginTimeoutSeconds?: number;
+      defaultTimeoutSeconds?: number;
+      executablePath?: string;
+    },
   ) {
     try {
+      // Ensure browser is available
+      if (!options?.executablePath) {
+        options = {
+          ...options,
+          executablePath:
+            (await this.browserService.ensureBrowser()) || undefined,
+        };
+      }
+
       const scraper = this.scraperFactory.getScraper(bankId);
-      const requestedRange = this.scraperService.normalizeRequestedRangeForBank(
+      const requestedRange = this.syncService.normalizeRequestedRangeForBank(
         bankId,
         startDate,
-        this.scraperService.getTodayUtcDateString(),
+        getTodayUtcDateString(),
       );
       const coverageStartDate =
         requestedRange?.startDate ??
-        this.scraperService.clampStartDateForBank(bankId, startDate);
+        this.syncService.clampStartDateForBank(bankId, startDate);
       const coverageEndDate =
-        requestedRange?.endDate ?? this.scraperService.getTodayUtcDateString();
-      const parsedDate = this.scraperService.resolveScrapeStartDate(
+        requestedRange?.endDate ?? getTodayUtcDateString();
+      const parsedDate = this.syncService.resolveScrapeStartDate(
         bankId,
         coverageStartDate,
       );
@@ -116,7 +180,7 @@ export class ScraperController {
         ...credentials,
         otpCodeRetriever: () => {
           return new Promise<string>((resolve, reject) => {
-            this.scraperService.updateSession(sessionId, {
+            this.sessionService.updateSession(sessionId, {
               status: 'CHALLENGE_REQUIRED',
               challenge: {
                 type: 'SMS',
@@ -130,37 +194,45 @@ export class ScraperController {
         },
       };
 
-      const response = await scraper.scrape(credentialsWithOtp, parsedDate);
+      const response = await scraper.scrape(
+        credentialsWithOtp,
+        parsedDate,
+        options,
+      );
 
       if (response.status === 'SUCCESS') {
-        await this.scraperService.saveCredentials(
+        await this.credentialsService.saveCredentials(
           userId,
           bankId,
           credentials as Record<string, string>,
         );
         if (response.accounts) {
-          await this.scraperService.setCachedAccounts(
+          await this.cacheService.setCachedAccounts(
             userId,
             bankId,
             response.accounts,
           );
-          await this.scraperService.saveCoveredInterval(userId, bankId, {
+          await this.coverageService.saveCoveredInterval(userId, bankId, {
             startDate: coverageStartDate,
             endDate: coverageEndDate,
           });
         }
-        this.scraperService.updateSession(sessionId, {
+        this.sessionService.updateSession(sessionId, {
           status: 'SUCCESS',
           resultData: response,
         });
       } else {
+        console.error(
+          `[scrapeAndConnect] Scraper reported failure for ${bankId}:`,
+          response.error,
+        );
         const sanitized = this.normalizeScraperError(response.error);
-        await this.scraperService.markConnectionFailed(
+        await this.credentialsService.markConnectionFailed(
           userId,
           bankId,
           response.error ?? sanitized.code,
         );
-        this.scraperService.updateSession(sessionId, {
+        this.sessionService.updateSession(sessionId, {
           status: 'FAILED',
           errorCode: sanitized.code,
           error: sanitized.message,
@@ -169,9 +241,13 @@ export class ScraperController {
       }
     } catch (err: any) {
       const raw = err?.message || String(err);
+      console.error(
+        `[scrapeAndConnect] Unexpected error during background scrape for ${bankId}:`,
+        err,
+      );
       const sanitized = this.normalizeScraperError(raw);
-      await this.scraperService.markConnectionFailed(userId, bankId, raw);
-      this.scraperService.updateSession(sessionId, {
+      await this.credentialsService.markConnectionFailed(userId, bankId, raw);
+      this.sessionService.updateSession(sessionId, {
         status: 'FAILED',
         errorCode: sanitized.code,
         error: sanitized.message,
@@ -182,7 +258,7 @@ export class ScraperController {
 
   @MessagePattern('get_scraper_status')
   async getScraperStatus(data: { sessionId: string }): Promise<any> {
-    const session = this.scraperService.getSession(data.sessionId);
+    const session = this.sessionService.getSession(data.sessionId);
     if (!session) {
       const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
       return {
@@ -196,6 +272,7 @@ export class ScraperController {
       challenge: session.challenge,
       errorCode: session.errorCode,
       error: session.error,
+      internalErrorRaw: session.internalErrorRaw,
       resultData: session.resultData,
     };
   }
@@ -205,7 +282,7 @@ export class ScraperController {
     sessionId: string;
     code: string;
   }): Promise<any> {
-    const session = this.scraperService.getSession(data.sessionId);
+    const session = this.sessionService.getSession(data.sessionId);
     if (!session) {
       const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
       return {
@@ -224,7 +301,7 @@ export class ScraperController {
     }
     if (session.resolveOtp) {
       session.resolveOtp(data.code);
-      this.scraperService.updateSession(data.sessionId, {
+      this.sessionService.updateSession(data.sessionId, {
         status: 'PROCESSING',
       });
       return { status: 'PROCESSING' };
@@ -245,12 +322,12 @@ export class ScraperController {
     endDate?: string;
   }): Promise<{ accounts: any[]; isCovered: boolean }> {
     const { userId, startDate, endDate } = data;
-    const accounts = await this.scraperService.getCachedAccountsForRange(
+    const accounts = await this.cacheService.getCachedAccountsForRange(
       userId,
       startDate,
       endDate,
     );
-    const isCovered = await this.scraperService.isRangeCoveredForAllConnections(
+    const isCovered = await this.syncService.isRangeCoveredForAllConnections(
       userId,
       startDate,
       endDate,
@@ -262,7 +339,7 @@ export class ScraperController {
   async getUserConnectionsCount(data: {
     userId: string;
   }): Promise<{ count: number }> {
-    const count = await this.scraperService.getUserConnectionsCount(
+    const count = await this.credentialsService.getUserConnectionsCount(
       data.userId,
     );
     return { count };
@@ -273,7 +350,7 @@ export class ScraperController {
     userId: string;
     bankId: string;
   }): Promise<{ error: string | null }> {
-    const error = await this.scraperService.getLastError(
+    const error = await this.credentialsService.getLastError(
       data.userId,
       data.bankId,
     );
@@ -282,7 +359,7 @@ export class ScraperController {
 
   @MessagePattern('get_vault_entry')
   async getVaultEntry(data: { userId: string; bankId: string }): Promise<any> {
-    const entry = await this.scraperService.getUserConnections(data.userId);
+    const entry = await this.credentialsService.getUserConnections(data.userId);
     return entry.find((e) => e.bankId === data.bankId);
   }
 
@@ -296,17 +373,35 @@ export class ScraperController {
     showBrowser?: boolean;
     loginTimeoutSeconds?: number;
     defaultTimeoutSeconds?: number;
+    sessionId?: string;
   }): Promise<any[]> {
-    await this.scraperService.syncUserAccounts(data.userId, {
-      startDate: data.startDate,
-      endDate: data.endDate,
-      mode: data.mode,
-      timeoutRetryCount: data.timeoutRetryCount,
-      showBrowser: data.showBrowser,
-      loginTimeoutSeconds: data.loginTimeoutSeconds,
-      defaultTimeoutSeconds: data.defaultTimeoutSeconds,
-    });
-    return this.scraperService.getCachedAccountsForRange(
+    if (data.sessionId) {
+      this.sessionService.createSession(data.sessionId, {
+        userId: data.userId,
+        bankId: '',
+        status: 'PROCESSING',
+        credentials: {} as any,
+      });
+    }
+
+    try {
+      await this.syncService.syncUserAccounts(data.userId, {
+        startDate: data.startDate,
+        endDate: data.endDate,
+        mode: data.mode,
+        timeoutRetryCount: data.timeoutRetryCount,
+        showBrowser: data.showBrowser,
+        loginTimeoutSeconds: data.loginTimeoutSeconds,
+        defaultTimeoutSeconds: data.defaultTimeoutSeconds,
+        sessionId: data.sessionId,
+      });
+    } finally {
+      if (data.sessionId) {
+        this.sessionService.removeSession(data.sessionId);
+      }
+    }
+
+    return this.cacheService.getCachedAccountsForRange(
       data.userId,
       data.startDate,
       data.endDate,
@@ -337,7 +432,7 @@ export class ScraperController {
       endDate: data.endDate,
       debug: data.debug,
     };
-    return this.scraperService.scanIncome(payload);
+    return this.scansService.scanIncome(payload);
   }
 
   @MessagePattern('spending_upsert_annotations')
@@ -351,9 +446,33 @@ export class ScraperController {
       confidence?: number;
     }>;
   }) {
-    return this.scraperService.upsertMerchantAnnotations(
+    return this.scansService.upsertMerchantAnnotations(
       data.annotations ?? [],
     );
+  }
+
+  @MessagePattern('mark_transaction_duplicate')
+  async markTransactionDuplicate(data: {
+    userId: string;
+    bankId: string;
+    accountNumber: string;
+    id: string;
+    isDuplicate: boolean;
+  }) {
+    console.log(`[Scraper] Marking transaction ${data.id} as duplicate=${data.isDuplicate}`);
+    return this.cacheService.markTransactionDuplicate(
+      data.userId,
+      data.bankId,
+      data.accountNumber,
+      data.id,
+      data.isDuplicate,
+    ).then(() => {
+      console.log(`[Scraper] Successfully updated transaction ${data.id}`);
+      return { success: true };
+    }).catch(err => {
+      console.error(`[Scraper] Failed to update transaction ${data.id}:`, err);
+      throw err;
+    });
   }
 
   private normalizeCredentials(
@@ -371,6 +490,17 @@ export class ScraperController {
       };
     }
 
+    if (
+      (bankId === 'leumi' || bankId === 'yahav') &&
+      credentials.id &&
+      !credentials.nationalID
+    ) {
+      return {
+        ...credentials,
+        nationalID: credentials.id,
+      };
+    }
+
     return credentials;
   }
 
@@ -384,6 +514,25 @@ export class ScraperController {
     if (bankId === 'hapoalim') {
       if (isMissing(credentials.userCode) || isMissing(credentials.password)) {
         return "Missing required hapoalim credentials. Expected 'userCode' and 'password'.";
+      }
+    }
+
+    if (bankId === 'leumi') {
+      if (
+        isMissing(credentials.username) ||
+        isMissing(credentials.password)
+      ) {
+        return "Missing required leumi credentials. Expected 'username' and 'password'.";
+      }
+    }
+
+    if (bankId === 'yahav') {
+      if (
+        isMissing(credentials.username) ||
+        isMissing(credentials.password) ||
+        (isMissing(credentials.nationalID) && isMissing(credentials.id))
+      ) {
+        return "Missing required yahav credentials. Expected 'username', 'password', and 'nationalID'.";
       }
     }
 
@@ -424,7 +573,8 @@ export class ScraperController {
       text.includes('wrong password') ||
       text.includes('שם משתמש או סיסמה') ||
       text.includes('usercode') ||
-      text.includes('password')
+      text.includes('password') ||
+      text.includes('פרטים שגויים')
     ) {
       return this.buildSanitizedError('INVALID_CREDENTIALS');
     }
@@ -432,7 +582,8 @@ export class ScraperController {
     if (
       text.includes('otp') ||
       text.includes('challenge') ||
-      text.includes('sms code')
+      text.includes('sms code') ||
+      text.includes('קוד אימות')
     ) {
       return this.buildSanitizedError('CHALLENGE_FAILED');
     }
@@ -446,7 +597,9 @@ export class ScraperController {
       text.includes('block automation') ||
       text.includes('cloudflare') ||
       text.includes('waf') ||
-      text.includes('sorry, you have been blocked')
+      text.includes('sorry, you have been blocked') ||
+      text.includes('access denied') ||
+      text.includes('מזיהוי אוטומטי')
     ) {
       return this.buildSanitizedError('BANK_UNAVAILABLE');
     }

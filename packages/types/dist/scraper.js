@@ -1,19 +1,24 @@
-import { z } from 'zod';
-export const connectScraperSchema = z.object({
-    bankId: z.string().min(1, 'bankId is required'),
-    credentials: z.record(z.string(), z.string()),
-    startDate: z.string().optional(),
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SubmitChallengeDto = exports.ConnectScraperDto = exports.submitChallengeSchema = exports.connectScraperSchema = void 0;
+const zod_1 = require("zod");
+exports.connectScraperSchema = zod_1.z.object({
+    bankId: zod_1.z.string().min(1, 'bankId is required'),
+    credentials: zod_1.z.record(zod_1.z.string(), zod_1.z.string()),
+    startDate: zod_1.z.string().optional(),
 });
-export const submitChallengeSchema = z.object({
-    sessionId: z.string().min(1, 'sessionId is required'),
-    code: z.string().min(1, 'code is required'),
+exports.submitChallengeSchema = zod_1.z.object({
+    sessionId: zod_1.z.string().min(1, 'sessionId is required'),
+    code: zod_1.z.string().min(1, 'code is required'),
 });
-export class ConnectScraperDto {
+class ConnectScraperDto {
     bankId;
     credentials;
     startDate;
 }
-export class SubmitChallengeDto {
+exports.ConnectScraperDto = ConnectScraperDto;
+class SubmitChallengeDto {
     sessionId;
     code;
 }
+exports.SubmitChallengeDto = SubmitChallengeDto;

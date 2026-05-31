@@ -1,11 +1,19 @@
 import { NestFactory } from '@nestjs/core';
-import { AllExceptionsFilter, LoggingInterceptor } from '@money-up/common';
+import { AllExceptionsFilter, LoggingInterceptor } from '@money-up/common/backend';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
+
+  // Diagnostic memory logging
+  setInterval(() => {
+    const usage = process.memoryUsage();
+    console.log(
+      `[Gateway Memory] RSS: ${Math.round(usage.rss / 1024 / 1024)}MB, Heap: ${Math.round(usage.heapUsed / 1024 / 1024)}MB`,
+    );
+  }, 60000);
 
   app.enableCors({
     origin: [

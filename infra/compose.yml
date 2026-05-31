@@ -30,6 +30,7 @@ services:
       PORT: 3002
       CI: 'true'
       PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+      SCRAPER_USE_DEV_SHM: 'true'
     expose:
       - '3002'
     healthcheck:

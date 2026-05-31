@@ -44,7 +44,9 @@ export class UsersService {
     return this.userRepository.find();
   }
 
-  async findOne(id: string): Promise<(User & { configuredProviders: string[] }) | null> {
+  async findOne(
+    id: string,
+  ): Promise<(User & { configuredProviders: string[] }) | null> {
     const user = await this.userRepository.findOneBy({ id });
     if (!user) return null;
 
@@ -139,7 +141,7 @@ export class UsersService {
     } else if (!user.activeAiProvider) {
       user.activeAiProvider = data.provider;
     }
-    
+
     user.preferredModel = data.preferredModel;
 
     if (data.config) {
@@ -194,7 +196,9 @@ export class UsersService {
     if (user.geminiKeyEncrypted) configuredProviders.push('gemini');
 
     return {
-      activeAiProvider: (user.activeAiProvider as 'openai' | 'claude' | 'gemini' | null) ?? null,
+      activeAiProvider:
+        (user.activeAiProvider as 'openai' | 'claude' | 'gemini' | null) ??
+        null,
       preferredModel: user.preferredModel,
       configuredProviders,
       aiProviderConfigs: user.aiProviderConfigs,
@@ -209,6 +213,7 @@ export class UsersService {
       scraperShowBrowser?: boolean;
       scraperLoginTimeoutSeconds?: number;
       scraperDefaultTimeoutSeconds?: number;
+      scraperChromiumPath?: string;
     },
   ): Promise<User> {
     const user = await this.findOne(id);
@@ -220,7 +225,10 @@ export class UsersService {
       ? Math.max(0, Math.min(5, Math.floor(data.scraperTimeoutRetryCount)))
       : 1;
     const cooldownSeconds = Number.isFinite(data.scraperAutoSyncCooldownSeconds)
-      ? Math.max(0, Math.min(86400, Math.floor(data.scraperAutoSyncCooldownSeconds!)))
+      ? Math.max(
+          0,
+          Math.min(86400, Math.floor(data.scraperAutoSyncCooldownSeconds!)),
+        )
       : 1800;
 
     user.scraperTimeoutRetryCount = retryCount;
@@ -228,6 +236,10 @@ export class UsersService {
 
     if (typeof data.scraperShowBrowser === 'boolean') {
       user.scraperShowBrowser = data.scraperShowBrowser;
+    }
+
+    if (data.scraperChromiumPath !== undefined) {
+      user.scraperChromiumPath = data.scraperChromiumPath;
     }
 
     if (Number.isFinite(data.scraperLoginTimeoutSeconds)) {

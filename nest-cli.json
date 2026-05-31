@@ -5,12 +5,13 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true,
+    "typeCheck": false,
     "tsConfigPath": "apps/gateway/tsconfig.app.json"
   },
   "monorepo": true,
   "root": "apps/gateway",
   "projects": {
-    "ai-service": {
+    "ai": {
       "type": "application",
       "root": "apps/ai",
       "entryFile": "main",
@@ -19,7 +20,7 @@
         "tsConfigPath": "apps/ai/tsconfig.app.json"
       }
     },
-    "auth-service": {
+    "auth": {
       "type": "application",
       "root": "apps/auth",
       "entryFile": "main",
@@ -37,7 +38,7 @@
         "tsConfigPath": "apps/gateway/tsconfig.app.json"
       }
     },
-    "scraper-service": {
+    "scraper": {
       "type": "application",
       "root": "apps/scraper",
       "entryFile": "main",
@@ -46,7 +47,7 @@
         "tsConfigPath": "apps/scraper/tsconfig.app.json"
       }
     },
-    "users-service": {
+    "users": {
       "type": "application",
       "root": "apps/users",
       "entryFile": "main",
