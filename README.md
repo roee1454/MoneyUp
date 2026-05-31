@@ -22,8 +22,8 @@
 | <small>Banks</small> | <small>Status</small> | <small>Credit Cards</small> | <small>Status</small> |
 |:---|:---|:---|:---|
 | <small>בנק הפועלים (Hapoalim)</small> | <small>Enabled</small> | <small>MAX (מקס)</small> | <small>Enabled</small> |
-| <small>בנק לאומי (Leumi)</small> | <small>Coming Soon</small> | <small>ישראכרט (Isracard)</small> | <small>Enabled</small> |
-| <small>One Zero</small> | <small>Coming Soon</small> | <small>כאל (Cal)</small> | <small>Enabled</small> |
+| <small>בנק לאומי (Leumi)</small> | <small>Enabled</small> | <small>ישראכרט (Isracard)</small> | <small>Enabled</small> |
+| <small>בנק יהב</small> | <small>Enabled</small> | <small>כאל (Cal)</small> | <small>Enabled</small> |
 
 ---
 
@@ -41,8 +41,8 @@ apps/
 
 clients/
   web/            ← React + Vite web app (port 5173)
-  desktop/        ← (future)
-  mobile/         ← (future)
+  desktop/        ← (Tauri - Coming soon)
+  mobile/         ← (Tauri - Coming soon)
 ```
 
 ---
@@ -60,6 +60,17 @@ clients/
 - An AI provider API key (OpenAI, Gemini, etc.) for the AI features
 
 ---
+
+## Quick start
+
+### Docker (Reccomended!)
+
+```bash
+git clone https://github.com/roee1454/MoneyUp
+cd MoneyUp
+cp .env.example .env # Optional for default .env configuration.
+docker compose -f infra/compose.yml up
+```
 
 ## Installation
 
@@ -81,12 +92,6 @@ pnpm dev
 
 The web app will be available at **http://localhost:5173**  
 The API gateway will be at **http://localhost:3000**
-
-### Docker
-
-```bash
-docker compose -f infra/compose.yml up
-```
 
 ---
 

@@ -23,18 +23,6 @@ RUN npx nest build scraper-service
 # =========================================================
 FROM node:22-bullseye AS runner
 
-# Install Chromium and required fonts/libraries
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium \
-    fonts-freefont-ttf \
-    fonts-kacst \
-    fonts-thai-tlwg \
-    libcap2 \
-    sqlite3 \
-    libsqlite3-0 \
-    netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /workspace
 RUN corepack enable
 
