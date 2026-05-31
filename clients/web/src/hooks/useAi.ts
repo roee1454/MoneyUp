@@ -115,7 +115,7 @@ export function useSpendingScans(filters: ScanFilters = { period: 'current' }) {
     queryFn: () => api.get<SpendingScansResponse>(buildScansQuery({ ...filters, period })),
     enabled: !!session,
     staleTime: 1000 * 60,
-    gcTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 3, // 3 minutes instead of 10
   });
 }
 
@@ -131,7 +131,7 @@ export function useSpendingScansDebug(
     queryFn: () => api.get<SpendingScansResponse>(buildScansDebugQuery({ ...filters, period })),
     enabled: !!session && enabled,
     staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 2, // 2 minutes instead of 5
   });
 }
 

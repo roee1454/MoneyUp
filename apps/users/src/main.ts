@@ -13,6 +13,13 @@ async function bootstrap() {
       },
     },
   );
+
+  // Diagnostic memory logging
+  setInterval(() => {
+    const usage = process.memoryUsage();
+    console.log(`[Users Memory] RSS: ${Math.round(usage.rss / 1024 / 1024)}MB, Heap: ${Math.round(usage.heapUsed / 1024 / 1024)}MB`);
+  }, 60000);
+
   await app.listen();
 }
 

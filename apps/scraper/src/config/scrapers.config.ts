@@ -18,7 +18,13 @@ export const SCRAPERS_METADATA: Record<string, Omit<ScraperMetadata, 'id'>> = {
   [CompanyTypes.leumi]: {
     name: 'בנק לאומי',
     icon: 'leumi',
-    enabled: false,
+    enabled: true,
+    type: 'bank',
+  },
+  [CompanyTypes.yahav]: {
+    name: 'בנק יהב',
+    icon: 'yahav',
+    enabled: true,
     type: 'bank',
   },
   [CompanyTypes.max]: {

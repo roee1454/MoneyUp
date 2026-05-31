@@ -1,11 +1,11 @@
 # AI Microservice
-- Make sure methods for scanning bank & credit data exist.
-- Make sure to cache scan results (server & client), use tanstack query.
-- Construct AI prompt for categories widget
+- Make sure methods for scanning bank & credit data exist. DONE.
+- Make sure to cache scan results (server & client), use tanstack query. DONE.
+- Construct AI prompt for categories widget. DONE.
 
 # AI Client
-- Redesign, chat bubble, input bubble, debug bubble, etc...
-- Implement ai response data inside categories widget.
+- Redesign, chat bubble, input bubble, debug bubble, etc... DONE.
+- Implement ai response data inside categories widget. DONE.
 - Implement conversation history.
 
 # Future plans:

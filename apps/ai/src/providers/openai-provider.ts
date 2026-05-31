@@ -1,6 +1,7 @@
 import { Observable } from 'rxjs';
 import type { ReadableStream } from 'node:stream/web';
 import { AIProvider, PromptOptions } from './ai-provider';
+import { OPENAI_MODELS } from '@money-up/common';
 
 export class OpenAIProvider extends AIProvider {
   private readonly baseUrl = 'https://api.openai.com/v1';
@@ -19,24 +20,7 @@ export class OpenAIProvider extends AIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    const res = await fetch(`${this.baseUrl}/models`, {
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(
-        `OpenAI list models failed (${res.status}): ${text || 'unknown error'}`,
-      );
-    }
-
-    const json = (await res.json()) as { data?: Array<{ id?: string }> };
-    return (json.data ?? [])
-      .map((model) => model.id)
-      .filter((id): id is string => !!id)
-      .sort();
+    return OPENAI_MODELS;
   }
 
   async prompt(
@@ -45,13 +29,27 @@ export class OpenAIProvider extends AIProvider {
     options?: PromptOptions,
   ): Promise<string | Observable<string>> {
     const stream = !!options?.stream;
-    const payload = {
+
+    // Automatic detection for reasoning/newer models that require max_completion_tokens
+    const isNewModel =
+      modelName.startsWith('gpt-5') ||
+      modelName.startsWith('o1') ||
+      modelName.startsWith('o3') ||
+      modelName.startsWith('o4');
+
+    const payload: any = {
       model: modelName,
       messages: [{ role: 'user', content: prompt }],
-      temperature: options?.temperature ?? 0.7,
-      max_tokens: options?.maxTokens ?? 1024,
       stream,
     };
+
+    if (isNewModel) {
+      payload.max_completion_tokens = options?.maxTokens ?? 1024;
+      // Newer reasoning models often reject the temperature parameter
+    } else {
+      payload.max_tokens = options?.maxTokens ?? 1024;
+      payload.temperature = options?.temperature ?? 0.7;
+    }
 
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',

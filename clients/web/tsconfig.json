@@ -5,8 +5,11 @@
       "@/*": [
         "./src/*"
       ],
-      "@moneyup/types": [
+      "@money-up/types": [
         "../../packages/types/src/index.ts"
+      ],
+      "@money-up/common": [
+        "../../packages/common/src/index.ts"
       ]
     },
   },

@@ -20,8 +20,8 @@ export function getBankName(bankId: string | null | undefined): string {
       return 'לאומי';
     case 'pepper':
       return 'PEPPER';
-    case 'onezero':
-      return 'ONE ZERO';
+    case 'yahav':
+      return 'בנק יהב';
     default:
       return String(bankId ?? 'Unknown');
   }
@@ -34,11 +34,12 @@ export const BANK_ICON_BY_ID: Record<string, string> = {
   cal: '/banks/cal.png',
   leumi: '/banks/leumi.png',
   pepper: '/banks/pepper.png',
-  onezero: '/banks/onezero.png',
+  yahav: '/banks/yahav.png',
 };
 
 export const BANK_ICON_SHAPE_BY_ID: Record<string, BankIconShape> = {
   max: 'rounded-square',
   cal: 'rounded-square',
   hapoalim: 'rounded-square',
+  yahav: 'rounded-square',
 };

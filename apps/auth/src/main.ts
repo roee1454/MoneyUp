@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AuthModule } from './auth.module';
-import { AllExceptionsFilter, LoggingInterceptor } from '@money-up/common';
+import { AllExceptionsFilter, LoggingInterceptor } from '@money-up/common/backend';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
@@ -16,6 +16,13 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
+
+  // Diagnostic memory logging
+  setInterval(() => {
+    const usage = process.memoryUsage();
+    console.log(`[Auth Memory] RSS: ${Math.round(usage.rss / 1024 / 1024)}MB, Heap: ${Math.round(usage.heapUsed / 1024 / 1024)}MB`);
+  }, 60000);
+
   await app.listen();
 }
 bootstrap();

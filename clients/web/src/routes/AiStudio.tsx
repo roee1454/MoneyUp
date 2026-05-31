@@ -2,10 +2,10 @@ import { Sparkle } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
-import { AiConversation } from '@/components/AiConversation';
+import { AiConversation } from '@/features/ai/components/AiConversation';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { Button } from '@/components/ui/button';
-import { AddAiProviderDialog } from '@/components/AddAiProviderDialog';
+import { AddAiProviderDialog } from '@/features/ai/components/AddAiProviderDialog';
 
 export default function AiStudio() {
   const session = useAppStore((s) => s.session);

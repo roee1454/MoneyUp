@@ -59,6 +59,9 @@ export class User {
   @Column({ type: 'integer', default: 90 })
   scraperDefaultTimeoutSeconds: number;
 
+  @Column({ type: 'text', nullable: true })
+  scraperChromiumPath: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -1,17 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseScraper } from '../base';
+import { BrowserService } from '../../browser/browser.service';
 import {
   CompanyTypes,
   createScraper,
   ScraperCredentials,
 } from 'israeli-bank-scrapers';
-import { ScraperResponse } from '@moneyup/types';
+import { ScraperResponse } from '@money-up/types';
 
 @Injectable()
 export class HapoalimScraper extends BaseScraper {
-  constructor(configService: ConfigService) {
-    super(configService);
+  constructor(
+    configService: ConfigService,
+    browserService: BrowserService,
+  ) {
+    super(configService, browserService);
   }
 
   readonly companyId = CompanyTypes.hapoalim;
@@ -88,6 +92,9 @@ export class HapoalimScraper extends BaseScraper {
       showBrowser?: boolean;
       loginTimeoutSeconds?: number;
       defaultTimeoutSeconds?: number;
+      executablePath?: string;
+      browser?: any;
+      skipCloseBrowser?: boolean;
     },
   ): Promise<ScraperResponse> {
     try {
@@ -106,7 +113,7 @@ export class HapoalimScraper extends BaseScraper {
             );
 
       const scraper = createScraper({
-        ...this.getCommonScraperOptions({ showBrowser: options?.showBrowser }),
+        ...this.getCommonScraperOptions(options),
         companyId: this.companyId,
         startDate,
         combineInstallments: false,
@@ -114,7 +121,32 @@ export class HapoalimScraper extends BaseScraper {
         defaultTimeout: defaultTimeoutMs,
         additionalTransactionInformation: false,
         includeRawTransaction: true,
+        ...(options?.browser ? { browser: options.browser } : {}),
+        ...(options?.skipCloseBrowser !== undefined
+          ? { skipCloseBrowser: options.skipCloseBrowser }
+          : {}),
       });
+
+      // Patch the scraper instance to handle Hapoalim redirect to transactions page
+      // Some versions of Hapoalim redirect directly to /transactions instead of /homepage
+      const originalGetLoginOptions = (scraper as any).getLoginOptions.bind(
+        scraper,
+      );
+      (scraper as any).getLoginOptions = (creds: any) => {
+        const loginOptions = originalGetLoginOptions(creds);
+        if (loginOptions.possibleResults) {
+          // Success is usually the first key or a specific "SUCCESS" constant in the library
+          // We add the transactions pattern to all success-related arrays
+          for (const key of Object.keys(loginOptions.possibleResults)) {
+            if (key.toUpperCase() === 'SUCCESS') {
+              loginOptions.possibleResults[key].push(
+                /current-account\/transactions/,
+              );
+            }
+          }
+        }
+        return loginOptions;
+      };
 
       const scrapeResult = await scraper.scrape(credentials);
 
@@ -137,10 +169,11 @@ export class HapoalimScraper extends BaseScraper {
         status: 'SUCCESS',
         accounts: this.normalizeAccounts(rawAccounts),
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       return {
         status: 'FAILED',
-        error: err?.message || 'Unexpected bank scraper crash occurred',
+        error:
+          (err as Error)?.message || 'Unexpected bank scraper crash occurred',
       };
     }
   }

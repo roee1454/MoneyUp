@@ -5,12 +5,15 @@ import './index.css';
 import { queryClient } from '@/lib/queryClient';
 import { AppRouterProvider } from '@/router';
 import { Toaster } from '@/components/ui/sonner';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AppRouterProvider />
-      <Toaster position='bottom-left' />
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <AppRouterProvider />
+        <Toaster position="bottom-left" />
+      </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

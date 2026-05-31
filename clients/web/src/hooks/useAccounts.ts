@@ -13,6 +13,7 @@ interface Transaction {
   description: string;
   memo?: string;
   originalCurrency?: string;
+  isDuplicate?: boolean;
 }
 
 export interface BankAccount {
@@ -92,6 +93,25 @@ export function useSyncAccounts() {
     },
     onError: () => {
       toast.error('אירעה שגיאה בהפעלת הסנכרון. אנא נסה שנית.');
+    },
+  });
+}
+
+export function useToggleTransactionDuplicate() {
+  return useMutation({
+    mutationFn: (payload: {
+      bankId: string;
+      accountNumber: string;
+      id: string;
+      isDuplicate: boolean;
+    }) => {
+      return api.post(
+        `/spending/transactions/${payload.bankId}/${payload.accountNumber}/${payload.id}/duplicate`,
+        { isDuplicate: payload.isDuplicate },
+      );
+    },
+    onError: () => {
+      toast.error('שגיאה בעדכון התנועה');
     },
   });
 }

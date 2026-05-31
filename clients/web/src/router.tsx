@@ -18,9 +18,8 @@ import { useAppStore } from '@/store';
 import { Navbar } from '@/components/Navbar';
 import { useSession } from '@/hooks/useAuth';
 import { useGlobalSyncManager } from '@/hooks/useGlobalSync';
-import { GlobalSyncBubble } from '@/components/GlobalSyncBubble';
+import { GlobalSyncBubble } from '@/features/accounts/components/GlobalSyncBubble';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { ThemeProvider } from '@/components/ThemeProvider';
 
 const privatePaths = ['/dashboard', '/export', '/ai-studio', '/settings'];
 
@@ -184,11 +183,7 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({ routeTree });
 
 export function AppRouterProvider() {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <RouterProvider router={router} />
-    </ThemeProvider>
-  );
+  return <RouterProvider router={router} />;
 }
 
 declare module '@tanstack/react-router' {

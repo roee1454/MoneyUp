@@ -42,6 +42,9 @@ export class TransactionEntity {
   @Column({ nullable: true })
   originalCurrency?: string;
 
+  @Column({ default: false })
+  isDuplicate!: boolean;
+
   @CreateDateColumn()
   createdAt!: Date;
 }
