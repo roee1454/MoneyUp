@@ -18,10 +18,10 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@money-up/types": ["packages/types/src/index"],
-      "@money-up/types/*": ["packages/types/src/*"],
-      "@money-up/common": ["packages/common/src/index"],
-      "@money-up/common/backend": ["packages/common/src/backend"]
+      "@money-up/types": ["packages/types/dist/index"],
+      "@money-up/types/*": ["packages/types/dist/*"],
+      "@money-up/common": ["packages/common/dist/index"],
+      "@money-up/common/backend": ["packages/common/dist/backend"]
     },
   },
 

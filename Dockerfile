@@ -21,7 +21,7 @@ COPY . .
 RUN pnpm install --no-frozen-lockfile
 
 # Build the NestJS server monolith
-RUN npx nest build server
+RUN pnpm build:server
 
 # =========================================================
 # Stage 2: Runtime Production/Development Image
