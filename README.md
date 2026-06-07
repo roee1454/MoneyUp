@@ -22,17 +22,17 @@ Here is a preview of the MoneyUp interface in action:
 ### 📊 Financial Dashboard
 *Real-time charts tracking your income vs. expenses, transaction tables, and automatic smart classification of Israeli banking entities.*
 
-![📊 Financial Dashboard](docs/media/dashboard.mp4)
+<video src="docs/media/dashboard.mp4" width="100%" loop></video>
 
 ### 🤖 AI Financial Agents & Conversations
 *Chat with your customized local or cloud AI models (supporting GPT-4o, Claude, Gemini, or Ollama) to analyze your spending habits.*
 
-![🤖 AI Financial Agents & Conversations](docs/media/agent.mp4)
+<video src="docs/media/agent.mp4" width="100%" loop></video>
 
 ### ⚙️ Bank Scrapers & Security Settings
 *Easily connect your Israeli bank and credit card accounts securely using client-side AES-256 encryption.*
 
-![⚙️ Bank Scrapers & Security Settings](docs/media/settings.mp4)
+<video src="docs/media/settings.mp4" width="100%" loop></video>
 
 ---
 
