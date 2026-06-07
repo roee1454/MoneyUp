@@ -332,7 +332,7 @@ export function SpendingCategories({
           <TooltipProvider>
             <Tooltip delayDuration={300}>
               <TooltipTrigger asChild>
-                <button className="flex h-8.5 w-8.5 cursor-help items-center justify-center border border-border bg-background text-muted-foreground hover:bg-muted/40 transition-colors shadow-xs rounded-none p-0">
+                <button className="flex h-8.5 w-8.5 shrink-0 cursor-help items-center justify-center border border-border bg-background text-muted-foreground hover:bg-muted/40 transition-colors shadow-xs rounded-none p-0">
                   <Info className="h-4.5 w-4.5" weight="bold" />
                 </button>
               </TooltipTrigger>
@@ -427,7 +427,7 @@ export function SpendingCategories({
           <TooltipProvider>
             <Tooltip delayDuration={300}>
               <TooltipTrigger asChild>
-                <button className="flex h-8.5 w-8.5 cursor-help items-center justify-center border border-border bg-background text-muted-foreground hover:bg-muted/40 transition-colors shadow-xs rounded-none p-0">
+                <button className="flex h-8.5 w-8.5 shrink-0 cursor-help items-center justify-center border border-border bg-background text-muted-foreground hover:bg-muted/40 transition-colors shadow-xs rounded-none p-0">
                   <Info className="h-4.5 w-4.5" weight="bold" />
                 </button>
               </TooltipTrigger>

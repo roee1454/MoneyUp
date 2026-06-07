@@ -15,6 +15,27 @@
 
 ---
 
+## Quick Showcase
+
+Here is a preview of the MoneyUp interface in action:
+
+### 📊 Financial Dashboard
+*Real-time charts tracking your income vs. expenses, transaction tables, and automatic smart classification of Israeli banking entities.*
+
+<video src="docs/media/dashboard.mp4" width="100%" autoplay loop muted controls></video>
+
+### 🤖 AI Financial Agents & Conversations
+*Chat with your customized local or cloud AI models (supporting GPT-4o, Claude, Gemini, or Ollama) to analyze your spending habits.*
+
+<video src="docs/media/agent.mp4" width="100%" autoplay loop muted controls></video>
+
+### ⚙️ Bank Scrapers & Security Settings
+*Easily connect your Israeli bank and credit card accounts securely using client-side AES-256 encryption.*
+
+<video src="docs/media/settings.mp4" width="100%" autoplay loop muted controls></video>
+
+---
+
 ## Supported Institutions
 
 <sub>*Status of currently implemented scrapers and planned integrations.*</sub>
@@ -29,20 +50,17 @@
 
 ## Architecture
 
-MoneyUp is a **pnpm monorepo** with a NestJS microservices backend and a React (Vite) web client:
+MoneyUp is structured as a **pnpm monorepo** managed by **Turborepo** with a modular NestJS monolith backend and a React (Vite) frontend:
 
 ```
 apps/
-  gateway/        ← HTTP API gateway (port 3000)
-  auth/           ← JWT auth microservice
-  scraper/        ← Bank scraper microservice
-  ai/             ← AI provider microservice
-  users/          ← User profile microservice
+  server/         ← NestJS Modular Monolith server (compiled via SWC, port 3000)
+  web/            ← React + Vite web client (RTL, port 5173)
+  desktop/        ← Tauri desktop client (Coming soon)
 
-clients/
-  web/            ← React + Vite web app (port 5173)
-  desktop/        ← (Tauri - Coming soon)
-  mobile/         ← (Tauri - Coming soon)
+packages/
+  common/         ← Shared utilities, exception filters, interceptors, and model definitions
+  types/          ← Shared TypeScript interfaces, schemas, and Zod validators
 ```
 
 ---
@@ -91,7 +109,7 @@ pnpm dev
 ```
 
 The web app will be available at **http://localhost:5173**  
-The API gateway will be at **http://localhost:3000**
+The backend server will be at **http://localhost:3000**
 
 ---
 
