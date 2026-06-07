@@ -71,7 +71,9 @@ export class SyncService implements OnModuleDestroy {
   }
 
   clampStartDateForBank(bankId: string, startDate?: string): string {
-    const requested = (startDate ?? getOneMonthAgoUtcDateString()).slice(0, 10);
+    const requested = (
+      startDate ?? subtractUtcDate(new Date(), { months: 6 }).toISOString()
+    ).slice(0, 10);
     const minimum = this.getMinimumStartDateForBank(bankId);
     return requested < minimum ? minimum : requested;
   }
@@ -84,7 +86,7 @@ export class SyncService implements OnModuleDestroy {
     const today = getTodayUtcDateString();
     const requestedStart = startDate
       ? startDate.slice(0, 10)
-      : getOneMonthAgoUtcDateString();
+      : subtractUtcDate(new Date(), { months: 6 }).toISOString().slice(0, 10);
     let requestedEnd = endDate ? endDate.slice(0, 10) : today;
     if (requestedEnd > today) {
       requestedEnd = today;
@@ -139,6 +141,7 @@ export class SyncService implements OnModuleDestroy {
     },
   ): Promise<void> {
     const mode = options.mode ?? 'manual';
+    try {
 
     // Ensure browser is available if no executablePath is provided
     if (!options.executablePath) {
@@ -179,26 +182,38 @@ export class SyncService implements OnModuleDestroy {
       if (!requestedRange) continue;
 
       const coverage = coverageMap.get(conn.bankId) ?? [];
-      let uncoveredIntervals = this.coverageService.getUncoveredIntervals(
+      const gaps = this.coverageService.getUncoveredIntervals(
         requestedRange,
         coverage,
       );
 
+      let uncoveredIntervals = [...gaps];
+
       if (mode === 'manual') {
-        const threeDaysAgo = addDays(today, -3);
-        const recentStart =
-          threeDaysAgo < requestedRange.startDate
-            ? requestedRange.startDate
-            : threeDaysAgo;
-        if (recentStart <= requestedRange.endDate) {
+        // Always scrape today — transactions arrive throughout the day so we always
+        // want fresh data for the current date, even if it is already "covered".
+        // All historical dates use the gap approach: if already covered in the DB,
+        // they are served from cache without hitting the web scraper.
+        // Exception: to prevent WAF blocks / rate limits (especially after initial connection
+        // or rapid page reloads), skip scraping today if this connection was successfully
+        // scraped within the last 5 minutes.
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const shouldSkipTodayScrape =
+          conn.lastScrapedAt && new Date(conn.lastScrapedAt) > fiveMinutesAgo;
+
+        if (shouldSkipTodayScrape) {
+          console.log(
+            `[SyncService] Skipping manual refresh for today's data on ${conn.bankId} - recently scraped at ${conn.lastScrapedAt.toISOString()} (Cooldown: 5m)`,
+          );
+        } else {
           uncoveredIntervals.push({
-            startDate: recentStart,
-            endDate: requestedRange.endDate,
+            startDate: today,
+            endDate: today,
           });
+          uncoveredIntervals = this.coverageService.mergeIntervals(uncoveredIntervals);
         }
-        uncoveredIntervals =
-          this.coverageService.mergeIntervals(uncoveredIntervals);
       }
+
 
       if (uncoveredIntervals.length === 0) continue;
 
@@ -281,6 +296,12 @@ export class SyncService implements OnModuleDestroy {
           try {
             const scraper = this.scraperFactory.getScraper(job.bankId);
 
+            if (options.sessionId) {
+              this.sessionService.updateSession(options.sessionId, {
+                currentlySyncing: job.bankId,
+              });
+            }
+
             // Inject otpCodeRetriever if sessionId is provided
             const credentialsWithOtp = {
               ...job.credentials,
@@ -339,7 +360,9 @@ export class SyncService implements OnModuleDestroy {
                 userId,
                 job.bankId,
               );
+              await this.credentialsService.markScrapedAt(userId, job.bankId);
               job.completed = true;
+
               console.log(
                 `[SyncService] Successfully synced ${job.bankId} for user ${userId}`,
               );
@@ -418,11 +441,18 @@ export class SyncService implements OnModuleDestroy {
     }
 
     if (failures.length > 0) {
-      throw new Error(
-        `Failed scrapers: ${failures
+      console.warn(
+        `[SyncService] Completed sync with some failed scrapers: ${failures
           .map((f) => `${f.bankId}: ${f.reason}`)
           .join(' | ')}`,
       );
+    }
+    } finally {
+      if (options.sessionId) {
+        this.sessionService.updateSession(options.sessionId, {
+          currentlySyncing: null,
+        });
+      }
     }
   }
 
@@ -479,6 +509,11 @@ export class SyncService implements OnModuleDestroy {
     return true;
   }
 
+  private isCreditCompany(bankId: string): boolean {
+    const normalized = String(bankId ?? '').toLowerCase();
+    return normalized === 'max' || normalized === 'isracard' || normalized === 'cal';
+  }
+
   async onModuleDestroy() {
     if (this.activeSharedBrowser) {
       console.log('[SyncService] App shutdown: Killing active browser');
@@ -486,3 +521,4 @@ export class SyncService implements OnModuleDestroy {
     }
   }
 }
+

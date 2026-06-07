@@ -19,15 +19,17 @@ let AllExceptionsFilter = class AllExceptionsFilter {
             const status = exception instanceof common_1.HttpException
                 ? exception.getStatus()
                 : common_1.HttpStatus.INTERNAL_SERVER_ERROR;
-            const responseBody = exception instanceof common_1.HttpException
-                ? exception.getResponse()
-                : null;
+            const responseBody = exception instanceof common_1.HttpException ? exception.getResponse() : null;
+            const message = typeof responseBody === 'string'
+                ? responseBody
+                : responseBody?.message ||
+                    (exception instanceof Error
+                        ? exception.message
+                        : exception?.message || 'Http Exception');
             const payload = {
                 success: false,
                 statusCode: status,
-                message: typeof responseBody === 'string'
-                    ? responseBody
-                    : responseBody?.message || 'Http Exception',
+                message,
                 timestamp: new Date().toISOString(),
                 path: request.url ?? '',
                 correlationId: request.headers?.['x-correlation-id'] ?? null,

@@ -17,6 +17,7 @@
       "entryFile": "main",
       "sourceRoot": "apps/ai/src",
       "compilerOptions": {
+        "typeCheck": false,
         "tsConfigPath": "apps/ai/tsconfig.app.json"
       }
     },

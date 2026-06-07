@@ -43,6 +43,21 @@ export function GlobalSyncBubble() {
 
   const dashboardRange = useAppStore((s) => s.dashboardRange);
   const setSync = useAppStore((s) => s.setSync);
+
+  const currentlySyncing = useAppStore((s) => s.sync.currentlySyncing);
+  const [displayedBankId, setDisplayedBankId] = useState<string | null>(null);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    if (currentlySyncing !== displayedBankId) {
+      setFade(false);
+      const timeout = setTimeout(() => {
+        setDisplayedBankId(currentlySyncing);
+        setFade(true);
+      }, 180);
+      return () => clearTimeout(timeout);
+    }
+  }, [currentlySyncing, displayedBankId]);
   const syncMutation = useSyncAccounts();
   const [now, setNow] = useState(() => Date.now());
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
@@ -140,14 +155,31 @@ export function GlobalSyncBubble() {
                     ? "bg-rose-500 text-white rotate-3 shadow-rose-200 dark:shadow-none" 
                     : isChallenged 
                       ? "bg-amber-500 text-white shadow-amber-200 dark:shadow-none"
-                      : "bg-primary text-primary-foreground shadow-primary/20"
+                      : "bg-zinc-100 dark:bg-black border border-zinc-200 dark:border-zinc-800 text-foreground"
                 )}>
                   {isFailed ? (
                     <WarningCircle className="h-6 w-6" weight="fill" />
                   ) : isChallenged ? (
                     <WarningCircle className="h-6 w-6 animate-pulse" weight="bold" />
                   ) : (
-                    <ArrowsClockwise className="h-6 w-6 animate-spin" style={{ animationDuration: '3s' }} weight="bold" />
+                    <div className={cn(
+                      "relative flex h-10 w-10 items-center justify-center transition-all duration-300 ease-out transform",
+                      fade ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-75 -rotate-90"
+                    )}>
+                      {displayedBankId ? (
+                        <>
+                          <div className="absolute inset-0 rounded-full border-2 border-zinc-300 dark:border-zinc-700 border-t-zinc-900 dark:border-t-zinc-100 animate-spin" />
+                          <BankIcon
+                            bankId={displayedBankId}
+                            size="sm"
+                            className="h-6.5 w-6.5 border-none bg-transparent"
+                            shape="circle"
+                          />
+                        </>
+                      ) : (
+                        <ArrowsClockwise className="h-6 w-6 animate-spin" style={{ animationDuration: '3s' }} weight="bold" />
+                      )}
+                    </div>
                   )}
                 </div>
                 {!isFailed && !isChallenged && (

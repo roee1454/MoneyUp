@@ -16,7 +16,11 @@ import { Request } from 'express';
 import { firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
 import { UserPayload } from '../types/gateway.types';
-import { requireSessionUserId, toPublicUser, verifyJwtToken } from '../utils/auth.utils';
+import {
+  requireSessionUserId,
+  toPublicUser,
+  verifyJwtToken,
+} from '../utils/auth.utils';
 
 @Controller('users')
 export class UsersController {
@@ -96,6 +100,7 @@ export class UsersController {
         temperature?: number;
         maxTokens?: number;
         stream?: boolean;
+        forceMarkdown?: boolean;
       };
     },
   ) {
@@ -110,6 +115,26 @@ export class UsersController {
         .pipe(timeout(30000)),
     );
 
+    return toPublicUser(user);
+  }
+
+  @Patch('me/ai-settings')
+  async updateAiSettings(
+    @Req() request: Request,
+    @Body()
+    data: {
+      forceMarkdown: boolean;
+    },
+  ) {
+    const userId = requireSessionUserId(request);
+    const user = await firstValueFrom(
+      this.usersServiceClient
+        .send<UserPayload>('user_update_ai_settings', {
+          id: userId,
+          forceMarkdown: data.forceMarkdown,
+        })
+        .pipe(timeout(2000)),
+    );
     return toPublicUser(user);
   }
 
@@ -158,6 +183,26 @@ export class UsersController {
           scraperChromiumPath: data.scraperChromiumPath,
         })
         .pipe(timeout(2000)),
+    );
+    return toPublicUser(user);
+  }
+
+  @Post('delete-ai-provider')
+  async deleteAiProvider(
+    @Req() request: Request,
+    @Body()
+    payload: {
+      provider: 'openai' | 'claude' | 'gemini';
+    },
+  ) {
+    const userId = requireSessionUserId(request);
+    const user = await firstValueFrom(
+      this.usersServiceClient
+        .send<UserPayload>('user_delete_ai_provider', {
+          id: userId,
+          provider: payload.provider,
+        })
+        .pipe(timeout(5000)),
     );
     return toPublicUser(user);
   }

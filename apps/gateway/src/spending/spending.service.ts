@@ -126,6 +126,8 @@ export class SpendingService {
     period: 'current' | 'previous' | 'both',
     startDate?: string,
     endDate?: string,
+    overrideProvider?: 'openai' | 'claude' | 'gemini',
+    overrideModel?: string,
   ): Promise<SpendingScansResponse> {
     const response = await firstValueFrom(
       this.scraperServiceClient
@@ -158,6 +160,8 @@ export class SpendingService {
     const aiCategoryAnnotations = await this.classifyUnknownMerchantsWithAi(
       userId,
       unresolvedMerchants,
+      overrideProvider,
+      overrideModel,
     );
     if (aiCategoryAnnotations.length === 0) {
       return initial;
@@ -189,7 +193,9 @@ export class SpendingService {
     id: string,
     isDuplicate: boolean,
   ): Promise<void> {
-    console.log(`[Gateway] Sending mark_transaction_duplicate for ${id} (duplicate=${isDuplicate})`);
+    console.log(
+      `[Gateway] Sending mark_transaction_duplicate for ${id} (duplicate=${isDuplicate})`,
+    );
     try {
       await firstValueFrom(
         this.scraperServiceClient
@@ -212,6 +218,8 @@ export class SpendingService {
   private async classifyUnknownMerchantsWithAi(
     userId: string,
     unresolved: Array<{ normalizedMerchant: string; displayMerchant: string }>,
+    overrideProvider?: 'openai' | 'claude' | 'gemini',
+    overrideModel?: string,
   ): Promise<
     Array<{
       normalizedMerchant: string;
@@ -223,9 +231,28 @@ export class SpendingService {
     }>
   > {
     const cfg = await this.resolveUserAiConfig(userId);
-    if (!cfg.activeAiProvider || !cfg.decryptedApiKey || !cfg.preferredModel) {
+    const activeProvider = overrideProvider || cfg.activeAiProvider || cfg.configuredProviders?.[0];
+    let apiKey = activeProvider
+      ? (cfg.decryptedApiKeys?.[activeProvider] || (cfg.activeAiProvider === activeProvider ? cfg.decryptedApiKey : null))
+      : null;
+    let model = overrideModel || (activeProvider ? cfg.aiProviderConfigs?.[activeProvider]?.model : null) || cfg.preferredModel;
+
+    if (apiKey === '***') {
+      apiKey = null;
+    }
+
+    if (!activeProvider || !apiKey) {
       return [];
     }
+
+    // Fallback models if preferredModel/overrideModel is not set
+    if (!model) {
+      if (activeProvider === 'openai') model = 'gpt-4o-mini';
+      else if (activeProvider === 'claude') model = 'claude-3-5-haiku-20241022';
+      else if (activeProvider === 'gemini') model = 'gemini-1.5-flash';
+    }
+
+    if (!model) return [];
 
     const uniqueMap = new Map<string, string>();
     for (const item of unresolved) {
@@ -243,6 +270,7 @@ export class SpendingService {
       normalizedMerchant: string;
       displayMerchant: string;
       category: string;
+      keywords: string;
       source: 'ai';
       model?: string;
       confidence?: number;
@@ -253,31 +281,34 @@ export class SpendingService {
       const prompt = this.buildMerchantCategorizationPrompt(chunk);
 
       if (this.spendingScansDebugEnabled) {
-        console.log(`[AI_ANNOTATION] Sending batch of ${chunk.length} merchants to AI`);
+        console.log(
+          `[AI_ANNOTATION] Sending batch of ${chunk.length} merchants to AI`,
+        );
       }
 
       const response = await firstValueFrom(
         this.aiServiceClient
-          .send<{ text: string }>('ai_prompt', {
-            provider: cfg.activeAiProvider,
-            model: cfg.preferredModel,
-            prompt,
-            apiKey: cfg.decryptedApiKey,
+          .send<any>('ai_prompt', {
+            provider: activeProvider,
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            apiKey,
             temperature: 0,
             maxTokens: 2048,
           })
           .pipe(timeout(120000)),
       );
 
+      const rawText = response?.type === 'text' ? response.content : (response?.content ?? '');
       if (this.spendingScansDebugEnabled) {
-        console.log('[AI_ANNOTATION] Raw AI Response:', response?.text);
+        console.log('[AI_ANNOTATION] Raw AI Response:', rawText);
       }
 
-      const parsed = this.parseCategoryAiResponse(response?.text ?? '');
+      const parsed = this.parseCategoryAiResponse(rawText);
       for (const item of chunk) {
         const match = parsed.get(item.normalizedMerchant);
         const normalizedCategory = this.normalizeCategory(match?.category);
-        
+
         // Only add to results if AI actually found a classification that isn't 'Uncategorized'
         // This prevents permanently locking a merchant into 'Uncategorized' in the DB.
         if (normalizedCategory !== 'לא מסווג') {
@@ -285,8 +316,9 @@ export class SpendingService {
             normalizedMerchant: item.normalizedMerchant,
             displayMerchant: item.displayMerchant,
             category: normalizedCategory,
+            keywords: match?.keywords,
             source: 'ai',
-            model: cfg.preferredModel,
+            model,
             confidence: match?.confidence,
           });
         }
@@ -300,27 +332,45 @@ export class SpendingService {
   ): string {
     const categories = [
       'מזון',
-      'ביגוד',
-      'בידור',
-      'בילויים',
-      'אלקטרוניקה',
-      'אונליין',
+      'קניות',
+      'בילויים ופנאי',
       'דלק/תחבורה',
-      'סופר',
       'מנויים',
     ];
     return [
-      'You are a financial expert specializing in Israeli consumer data.',
-      'Your task is to classify merchants into exactly one of the provided categories.',
-      'Search your knowledge base or the web about these Israeli/International merchants.',
+      'You are are an Israeli consumer transaction classification expert.',
+      'Your task is to classify Israeli & international merchant names into exactly ONE of the allowed Hebrew categories AND provide 3-5 descriptive English/Hebrew keywords.',
       '',
-      `Allowed categories: ${categories.join(', ')}`,
+      `Allowed Hebrew Categories:`,
+      '- מזון (Restaurants, cafes, fast food, coffee shops, Wolt, Ten Bis, bars, and pubs where the primary expense is dining or drinking)',
+      '- קניות (Supermarkets, groceries, online shopping, clothing, fashion, electronics, KSP, Ivory, Amazon, AliExpress)',
+      '- בילויים ופנאי (Entertainment, cinemas, concert tickets, bowling, attractions, parties, and nightlife events. Do NOT place restaurants, cafes, or dining/drinking bars here.)',
+      '- דלק/תחבורה (Gas stations, Pango, Cello, public transit, taxis)',
+      '- מנויים (Recurring services, Netflix, Spotify, cellular, iCloud)',
       '',
       'Instructions:',
-      '1. Return ONLY a valid JSON array of objects.',
-      '2. Each object must have: "normalizedMerchant" (string), "category" (string), and "confidence" (number between 0 and 1).',
-      '3. If you are not at least 50% confident about a merchant, set its category to "לא מסווג".',
-      '4. Do not include any markdown formatting, preamble, or explanation outside the JSON.',
+      '1. The "category" field in your output JSON must match EXACTLY one of the allowed Hebrew categories listed above. Do not translate them to English.',
+      '2. Do NOT use "לא מסווג" (Unclassified) under any circumstances. You must classify every single merchant into one of the other 5 categories. If you are unsure, make your best educated guess based on the merchant name and typical consumer spending behavior.',
+      '3. Return ONLY a valid JSON array of objects. Do NOT include markdown code blocks (e.g. ```json) or any explanations.',
+      '',
+      'Example Input:',
+      '[{"normalizedMerchant":"wolt","displayMerchant":"Wolt"},{"normalizedMerchant":"zara","displayMerchant":"ZARA"}]',
+      '',
+      'Example Output:',
+      '[',
+      '  {',
+      '    "normalizedMerchant": "wolt",',
+      '    "category": "מזון",',
+      '    "keywords": "food delivery, restaurants, fast food",',
+      '    "confidence": 0.95',
+      '  },',
+      '  {',
+      '    "normalizedMerchant": "zara",',
+      '    "category": "קניות",',
+      '    "keywords": "clothing, fashion, apparel, shopping",',
+      '    "confidence": 0.90',
+      '  }',
+      ']',
       '',
       'Merchants to classify:',
       JSON.stringify(items),
@@ -329,11 +379,14 @@ export class SpendingService {
 
   private parseCategoryAiResponse(
     raw: string,
-  ): Map<string, { category: string; confidence?: number }> {
+  ): Map<string, { category: string; keywords?: string; confidence?: number }> {
     const direct =
       this.tryParseJsonArray(raw) ??
       this.tryParseJsonArray(this.extractJsonBlock(raw));
-    const map = new Map<string, { category: string; confidence?: number }>();
+    const map = new Map<
+      string,
+      { category: string; keywords?: string; confidence?: number }
+    >();
     for (const entry of direct ?? []) {
       if (!entry || typeof entry !== 'object') continue;
       const normalizedMerchant = String(
@@ -341,9 +394,11 @@ export class SpendingService {
       ).trim();
       if (!normalizedMerchant) continue;
       const category = String((entry as any).category ?? '').trim();
+      const keywords = String((entry as any).keywords ?? '').trim();
       const confidenceRaw = Number((entry as any).confidence);
       map.set(normalizedMerchant, {
         category,
+        keywords: keywords || undefined,
         confidence: Number.isFinite(confidenceRaw) ? confidenceRaw : undefined,
       });
     }
@@ -371,20 +426,82 @@ export class SpendingService {
   }
 
   private normalizeCategory(category: string | undefined): string {
-    const allowed = new Set([
-      'מזון',
-      'ביגוד',
-      'בידור',
-      'בילויים',
-      'אלקטרוניקה',
-      'אונליין',
-      'דלק/תחבורה',
-      'סופר',
-      'מנויים',
-      'לא מסווג',
-    ]);
     if (!category) return 'לא מסווג';
-    return allowed.has(category) ? category : 'לא מסווג';
+    const trimmed = category.trim().toLowerCase();
+
+    // Map common English and Hebrew category names to standard Hebrew keys
+    const categoryMap: Record<string, string> = {
+      // מזון / Food
+      'מזון': 'מזון',
+      'food': 'מזון',
+      'dining': 'מזון',
+      'restaurant': 'מזון',
+      'restaurants': 'מזון',
+      'cafe': 'מזון',
+      'wolt': 'מזון',
+      'ten bis': 'מזון',
+      'bar': 'מזון',
+      'bars': 'מזון',
+      'pub': 'מזון',
+
+      // קניות / Shopping (Supermarket + Online + Clothing + Electronics)
+      'קניות': 'קניות',
+      'shopping': 'קניות',
+      'supermarket': 'קניות',
+      'groceries': 'קניות',
+      'grocery': 'קניות',
+      'online shopping': 'קניות',
+      'online': 'קניות',
+      'clothing': 'קניות',
+      'apparel': 'קניות',
+      'fashion': 'קניות',
+      'shoes': 'קניות',
+      'electronics': 'קניות',
+      'gadgets': 'קניות',
+      'computers': 'קניות',
+      'super': 'קניות',
+      'amazon': 'קניות',
+      'aliexpress': 'קניות',
+      'ebay': 'קניות',
+      'ביגוד': 'קניות',
+      'אלקטרוניקה': 'קניות',
+      'אונליין': 'קניות',
+      'סופר': 'קניות',
+
+      // בילויים ופנאי / Leisure & Going Out
+      'בילויים ופנאי': 'בילויים ופנאי',
+      'בילויים': 'בילויים ופנאי',
+      'בידור': 'בילויים ופנאי',
+      'leisure': 'בילויים ופנאי',
+      'entertainment': 'בילויים ופנאי',
+      'going out': 'בילויים ופנאי',
+      'nightlife': 'בילויים ופנאי',
+      'cinema': 'בילויים ופנאי',
+      'movies': 'בילויים ופנאי',
+
+      // דלק/תחבורה / Transport
+      'דלק/תחבורה': 'דלק/תחבורה',
+      'תחבורה': 'דלק/תחבורה',
+      'דלק': 'דלק/תחבורה',
+      'fuel': 'דלק/תחבורה',
+      'transport': 'דלק/תחבורה',
+      'transportation': 'דלק/תחבורה',
+      'taxi': 'דלק/תחבורה',
+      'gas': 'דלק/תחבורה',
+
+      // מנויים / Subscriptions
+      'מנויים': 'מנויים',
+      'subscriptions': 'מנויים',
+      'subscription': 'מנויים',
+      'services': 'מנויים',
+
+      // לא מסווג / Unclassified
+      'לא מסווג': 'לא מסווג',
+      'uncategorized': 'לא מסווג',
+      'unknown': 'לא מסווג',
+    };
+
+    return categoryMap[trimmed] || 'לא מסווג';
   }
 
   private async resolveUserAiConfig(userId: string): Promise<UserAiConfig> {

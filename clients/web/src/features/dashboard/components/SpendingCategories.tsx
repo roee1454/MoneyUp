@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CircleNotch, CreditCard, Sparkle } from '@phosphor-icons/react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { PremiumCard } from '@/components/ui/premium-card';
+import { CircleNotch, CreditCard, Sparkle, Info } from '@phosphor-icons/react';
 import { getBankName } from '@/lib/bank-branding';
+import { getFriendlyModelName } from '@/lib/ai-models';
+import { Select, SelectItem } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import type { SpendingScansResponse } from '@/hooks/useAi';
+import { AiIcon } from '@/features/ai/components/AiIcon';
+import { toast } from 'sonner';
+import { useNavigate } from '@tanstack/react-router';
+import { PremiumButton } from '@/components/ui/premium-button';
+import type { SpendingCategoryItem, SpendingTransactionItem } from '../types';
+import { SpendingCategoryList } from './SpendingCategoryList';
+import { CategoryDetailsSheet } from './CategoryDetailsSheet';
+import { FilterChips } from '@/components/ui/filter-chips';
 import {
-  SpendingCategoryGridCard,
-  type SpendingCategoryItem,
-  type SpendingTransactionItem,
-} from './SpendingCategoryGridCard';
-import { SpendingCategoryDetailsCard } from './SpendingCategoryDetailsCard';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface SpendingCategoriesProps {
   scans?: SpendingScansResponse | null;
@@ -30,22 +33,19 @@ interface SpendingCategoriesProps {
   isRefreshingScans?: boolean;
   hasConnectedAccounts?: boolean;
   canUseAiAnnotation?: boolean;
+  configuredProviders?: string[];
   isAnnotatingWithAi?: boolean;
   isWidgetBusy?: boolean;
-  onAnnotateWithAi?: () => void;
+  onAnnotateWithAi?: (provider?: 'openai' | 'claude' | 'gemini', model?: string) => void;
   onGoToAiStudio?: () => void;
   onExcludedExpensesChange?: (amount: number) => void;
 }
 
 const categoryEmojis: Record<string, string> = {
   מזון: '🍔',
-  ביגוד: '👗',
-  בידור: '🎬',
-  בילויים: '🎉',
-  אלקטרוניקה: '💻',
-  אונליין: '🛍️',
+  קניות: '🛒',
+  'בילויים ופנאי': '🎉',
   'דלק/תחבורה': '⛽',
-  סופר: '🛒',
   מנויים: '📱',
   'לא מסווג': '📦',
 };
@@ -68,6 +68,19 @@ function getDisplayReason(reason?: string): string | null {
   return null;
 }
 
+const MODELS_BY_PROVIDER = {
+  openai: ['gpt-4o-mini', 'gpt-4o'],
+  claude: [
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+  ],
+  gemini: [
+    'gemini-1.5-flash',
+    'gemini-2.5-flash',
+    'gemini-1.5-pro',
+  ],
+};
+
 export function SpendingCategories({
   scans,
   period,
@@ -77,15 +90,72 @@ export function SpendingCategories({
   isRefreshingScans = false,
   hasConnectedAccounts = false,
   canUseAiAnnotation = false,
+  configuredProviders = [],
   isAnnotatingWithAi = false,
   isWidgetBusy = false,
   onAnnotateWithAi,
   onGoToAiStudio,
   onExcludedExpensesChange,
 }: SpendingCategoriesProps) {
+  const navigate = useNavigate();
+
+  const [classProvider, setClassProvider] = useState<'openai' | 'claude' | 'gemini'>(() => {
+    const saved = localStorage.getItem('moneyup_classification_provider');
+    if (saved && configuredProviders.includes(saved)) {
+      return saved as any;
+    }
+    return (configuredProviders[0] as any) || 'gemini';
+  });
+
+  const [classModel, setClassModel] = useState<string>(() => {
+    const saved = localStorage.getItem('moneyup_classification_model');
+    if (saved) return saved;
+    const provider = (configuredProviders[0] as any) || 'gemini';
+    if (provider === 'openai') return 'gpt-4o-mini';
+    if (provider === 'claude') return 'claude-3-5-haiku-20241022';
+    return 'gemini-1.5-flash';
+  });
+
+  useEffect(() => {
+    if (configuredProviders.length > 0 && !configuredProviders.includes(classProvider)) {
+      const fallbackProvider = configuredProviders[0] as 'openai' | 'claude' | 'gemini';
+      setClassProvider(fallbackProvider);
+      let defaultModel = 'gemini-1.5-flash';
+      if (fallbackProvider === 'openai') defaultModel = 'gpt-4o-mini';
+      else if (fallbackProvider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
+      setClassModel(defaultModel);
+    }
+  }, [configuredProviders, classProvider]);
+
+  const handleProviderChange = (provider: 'openai' | 'claude' | 'gemini') => {
+    if (!configuredProviders.includes(provider)) {
+      toast.error(`ספק ${provider.toUpperCase()} אינו מחובר.`, {
+        action: {
+          label: 'להגדרות',
+          onClick: () => void navigate({ to: '/settings/ai' }),
+        },
+      });
+      return;
+    }
+
+    setClassProvider(provider);
+    localStorage.setItem('moneyup_classification_provider', provider);
+    let defaultModel = 'gemini-1.5-flash';
+    if (provider === 'openai') defaultModel = 'gpt-4o-mini';
+    else if (provider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
+    
+    setClassModel(defaultModel);
+    localStorage.setItem('moneyup_classification_model', defaultModel);
+  };
+
+  const handleModelChange = (model: string) => {
+    setClassModel(model);
+    localStorage.setItem('moneyup_classification_model', model);
+  };
+
   const [selectedCategory, setSelectedCategory] =
     useState<SpendingCategoryItem | null>(null);
-  const [isMobileDialogOpen, setIsMobileDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [excludedTransactionKeys, setExcludedTransactionKeys] = useState<
     Set<string>
   >(new Set());
@@ -132,7 +202,9 @@ export function SpendingCategories({
 
     const allTransactions = displayCategories
       .flatMap((c) => c.transactions)
-      .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
+      .sort(
+        (a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime(),
+      );
 
     return {
       name: 'כל ההוצאות',
@@ -236,7 +308,7 @@ export function SpendingCategories({
 
   const activeCategory = useMemo(() => {
     if (!selectedCategory) return allExpensesCategory;
-    
+
     return (
       sortedCategories.find(
         (category) => category.name === selectedCategory.name,
@@ -244,42 +316,126 @@ export function SpendingCategories({
     );
   }, [selectedCategory, sortedCategories, allExpensesCategory]);
 
-  const dialogCategory = useMemo(() => {
-    if (!selectedCategory) return null;
-    return (
-      sortedCategories.find(
-        (category) => category.name === selectedCategory.name,
-      ) ?? selectedCategory
-    );
-  }, [selectedCategory, sortedCategories]);
-
   const showShimmer = isLoadingScans || (hasConnectedAccounts && !scans);
+  const isBusy = (isWidgetBusy || isAnnotatingWithAi) && !showShimmer;
   const shouldShimmerSpendingValues = showShimmer || isRefreshingScans;
+
   const aiAction = hasConnectedAccounts ? (
-    canUseAiAnnotation && onAnnotateWithAi ? (
-      <button
-        type="button"
-        onClick={onAnnotateWithAi}
-        disabled={isAnnotatingWithAi || isWidgetBusy}
-        className="inline-flex h-8 items-center justify-center gap-1.5 border border-primary bg-primary px-3 text-[11px] font-black text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isAnnotatingWithAi ? (
-          <CircleNotch className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Sparkle className="h-3.5 w-3.5" weight="duotone" />
-        )}
-        <span>{isAnnotatingWithAi ? 'מסווג...' : 'סיווג חכם'}</span>
-      </button>
-    ) : onGoToAiStudio ? (
-      <button
-        type="button"
-        onClick={onGoToAiStudio}
-        className="inline-flex h-8 items-center justify-center gap-1.5 border border-primary bg-primary px-3 text-[11px] font-black text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-      >
-        <Sparkle className="h-3.5 w-3.5" weight="duotone" />
-        <span>הוסף סיווג חכם</span>
-      </button>
-    ) : null
+    <div className="flex items-center gap-2">
+      {canUseAiAnnotation && onAnnotateWithAi ? (
+        <div className={cn(
+          "flex items-center gap-2 border border-border/80 bg-muted/30 p-1.5 rounded-none shadow-xs",
+          (isAnnotatingWithAi || isWidgetBusy) && "pointer-events-none opacity-60"
+        )}>
+          <TooltipProvider>
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <button className="flex h-8.5 w-8.5 cursor-help items-center justify-center border border-border bg-background text-muted-foreground hover:bg-muted/40 transition-colors shadow-xs rounded-none p-0">
+                  <Info className="h-4.5 w-4.5" weight="bold" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                className="text-right rounded-none border border-border bg-card/95 backdrop-blur-md text-foreground px-4 py-3 font-semibold shadow-xl"
+              >
+                <p className="text-sm leading-relaxed">
+                  הקפד להשתמש בסיווג החכם פעם בשבוע לשיפור הדיוק. ה-AI לומד את הרגלי
+                  הקנייה שלך ומשפר את הדיוק לאורך זמן.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Select
+            value={classProvider}
+            onValueChange={(val) => handleProviderChange(val as any)}
+            className="h-8.5 rounded-none border border-border/60 bg-background text-xs font-bold uppercase tracking-tight shadow-xs min-w-[125px] px-3 hover:border-border transition-colors"
+          >
+            <SelectItem value="gemini">
+              <div className="flex items-center gap-1.5">
+                <AiIcon provider="gemini" size="xs" />
+                <span>Gemini</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="openai">
+              <div className="flex items-center gap-1.5">
+                <AiIcon provider="openai" size="xs" />
+                <span>OpenAI</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="claude">
+              <div className="flex items-center gap-1.5">
+                <AiIcon provider="claude" size="xs" />
+                <span>Claude</span>
+              </div>
+            </SelectItem>
+          </Select>
+
+          <Select
+            value={classModel}
+            onValueChange={(val) => handleModelChange(val)}
+            className="h-8.5 rounded-none border border-border/60 bg-background text-xs font-bold uppercase tracking-tight shadow-xs min-w-[160px] px-3 hover:border-border transition-colors"
+          >
+            {(MODELS_BY_PROVIDER[classProvider] || []).map((m) => (
+              <SelectItem key={m} value={m}>
+                <div className="flex items-center gap-1.5">
+                  <AiIcon provider={classProvider} size="xs" />
+                  <span>{getFriendlyModelName(m)}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </Select>
+
+          <PremiumButton
+            type="button"
+            onClick={() => onAnnotateWithAi(classProvider, classModel)}
+            disabled={isAnnotatingWithAi || isWidgetBusy}
+            size="sm"
+            className="h-8.5 px-5 rounded-none border-none shadow-sm font-black text-xs min-w-[160px] cursor-pointer bg-primary text-primary-foreground hover:bg-primary/95"
+          >
+            {isAnnotatingWithAi ? (
+              <CircleNotch className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkle className="h-4 w-4" weight="fill" />
+            )}
+            <span>{isAnnotatingWithAi ? 'מסווג...' : 'סיווג חכם'}</span>
+          </PremiumButton>
+        </div>
+      ) : onGoToAiStudio ? (
+        <div className={cn(
+          "flex items-center gap-2 border border-border/80 bg-muted/30 p-1.5 rounded-none shadow-xs",
+          isWidgetBusy && "pointer-events-none opacity-60"
+        )}>
+          <TooltipProvider>
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <button className="flex h-8.5 w-8.5 cursor-help items-center justify-center border border-border bg-background text-muted-foreground hover:bg-muted/40 transition-colors shadow-xs rounded-none p-0">
+                  <Info className="h-4.5 w-4.5" weight="bold" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                className="max-w-[280px] text-right rounded-none border border-border bg-card/95 backdrop-blur-md text-foreground px-4 py-3 font-semibold shadow-xl"
+              >
+                <p className="text-xs leading-relaxed">
+                  הקפד להשתמש בסיווג החכם פעם בשבוע לשיפור הדיוק. ה-AI לומד את הרגלי
+                  הקנייה שלך ומשפר את הדיוק לאורך זמן.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <button
+            type="button"
+            onClick={onGoToAiStudio}
+            className="inline-flex h-8.5 cursor-pointer items-center justify-center gap-2 border-none bg-primary px-5 text-xs font-black text-primary-foreground shadow-md transition-all hover:bg-primary/95 active:scale-95 rounded-none"
+          >
+            <Sparkle className="h-4 w-4" weight="fill" />
+            <span>הפעל עוזר AI</span>
+          </button>
+        </div>
+      ) : null}
+    </div>
   ) : null;
 
   function isTransactionExcluded(
@@ -306,18 +462,8 @@ export function SpendingCategories({
   }
 
   function handleCategorySelect(category: SpendingCategoryItem) {
-    if (selectedCategory?.name === category.name) {
-      setSelectedCategory(null);
-    } else {
-      setSelectedCategory(category);
-    }
-    
-    if (
-      typeof window !== 'undefined' &&
-      window.matchMedia('(max-width: 1023px)').matches
-    ) {
-      setIsMobileDialogOpen(true);
-    }
+    setSelectedCategory(category);
+    setIsSheetOpen(true);
   }
 
   useEffect(() => {
@@ -327,7 +473,9 @@ export function SpendingCategories({
         (category) => category.name === selectedCategory.name,
       )
     ) {
-      setSelectedCategory(null);
+      if (selectedCategory.name !== 'כל ההוצאות') {
+        setSelectedCategory(null);
+      }
     }
   }, [selectedCategory, sortedCategories]);
 
@@ -342,10 +490,10 @@ export function SpendingCategories({
 
   if (!hasConnectedAccounts) {
     return (
-      <PremiumCard className="relative flex min-h-72 flex-col items-center justify-center overflow-hidden border-dashed px-6 py-14 text-center">
+      <div className="relative flex min-h-72 flex-col items-center justify-center overflow-hidden border border-dashed border-border bg-muted/20 px-6 py-14 text-center">
         <div className="absolute inset-0 bg-linear-to-br from-muted/20 via-background to-muted/40" />
         <div className="relative z-10 max-w-md space-y-5">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-border bg-background shadow-inner">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-none border border-border bg-background shadow-inner">
             <CreditCard
               className="h-7 w-7 text-muted-foreground"
               weight="duotone"
@@ -360,12 +508,12 @@ export function SpendingCategories({
             </p>
           </div>
         </div>
-      </PremiumCard>
+      </div>
     );
   }
 
   return (
-    <div className="relative grid gap-5">
+    <div className="space-y-6">
       {(isWidgetBusy || isRefreshingScans) && !showShimmer ? (
         <div className="pointer-events-none fixed bottom-5 left-5 z-30 border border-border bg-background px-4 py-2 text-xs font-black text-foreground shadow-lg">
           {isAnnotatingWithAi
@@ -374,77 +522,79 @@ export function SpendingCategories({
         </div>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-        <SpendingCategoryGridCard
-          categories={sortedCategories}
-          allExpensesCategory={allExpensesCategory}
-          activeCategoryName={activeCategory?.name}
-          cardOptions={cardOptions}
-          selectedCardIds={Array.from(selectedCardKeys)}
-          isLoading={showShimmer}
-          isBusy={isWidgetBusy}
-          unmappedTransactionsCount={unmappedTransactionsCount}
-          shouldShimmerValues={shouldShimmerSpendingValues}
-          action={aiAction}
-          onCardFilterChange={(ids) => setSelectedCardKeys(new Set(ids))}
-          onCategorySelect={handleCategorySelect}
-        />
-
-        <div className="hidden xl:block">
-          <SpendingCategoryDetailsCard
-            category={activeCategory}
-            isTransactionExcluded={isTransactionExcluded}
-            onToggleTransactionExcluded={toggleTransactionExcluded}
-            getDisplayReason={getDisplayReason}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between border-b border-border pb-4">
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-black text-foreground uppercase tracking-tight">
+            ניתוח הוצאות
+          </h2>
+          <FilterChips
+            options={cardOptions}
+            selectedIds={Array.from(selectedCardKeys)}
+            onChange={(ids) => setSelectedCardKeys(new Set(ids))}
+            allLabel="כל הכרטיסים"
+            disabled={isWidgetBusy}
+            className="min-w-0"
           />
         </div>
+
+        <div className="shrink-0">{aiAction}</div>
       </div>
 
-      <div className="hidden lg:block xl:hidden">
-        <SpendingCategoryDetailsCard
-          category={activeCategory}
-          isTransactionExcluded={isTransactionExcluded}
-          onToggleTransactionExcluded={toggleTransactionExcluded}
-          getDisplayReason={getDisplayReason}
-        />
-      </div>
+      {selectedCardKeys.size > 0 && unmappedTransactionsCount > 0 ? (
+        <p className="inline-block border border-border bg-muted/30 p-2 text-[11px] font-semibold text-muted-foreground">
+          חלק מהתנועות אינן משויכות לכרטיס ספציפי ומוצגות רק בתצוגת "כל
+          הכרטיסים".
+        </p>
+      ) : null}
 
-      {dialogCategory ? (
-        <Dialog
-          open={isMobileDialogOpen}
-          onOpenChange={(open) => {
-            setIsMobileDialogOpen(open);
-            if (!open) setSelectedCategory(null);
-          }}
-        >
-          <DialogContent
-            className="max-w-md rounded-none border border-border bg-card p-6 shadow-2xl"
-            dir="rtl"
-            showCloseButton={false}
-          >
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base font-black text-foreground">
-                <span>{dialogCategory.emoji}</span>
-                <span>{dialogCategory.name}</span>
-              </DialogTitle>
-              <DialogDescription className="text-xs font-semibold text-muted-foreground">
-                {dialogCategory.amount.toLocaleString('he-IL')} ₪
-                {typeof dialogCategory.count === 'number'
-                  ? ` • ${dialogCategory.count} תנועות`
-                  : ''}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-2">
-              <SpendingCategoryDetailsCard
-                category={dialogCategory}
-                isTransactionExcluded={isTransactionExcluded}
-                onToggleTransactionExcluded={toggleTransactionExcluded}
-                getDisplayReason={getDisplayReason}
+      <div className="relative w-full">
+        {isBusy && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-card/60 backdrop-blur-[1px] transition-all duration-300">
+            <div className="flex items-center gap-3 border border-border bg-background px-5 py-4 shadow-xl rounded-none">
+              <CircleNotch className="h-5 w-5 animate-spin text-primary" />
+              <span className="text-xs font-black text-foreground uppercase tracking-wider">
+                {isAnnotatingWithAi ? 'מבצע סיווג חכם...' : 'סנכרון נתונים פעיל...'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {displayCategories.length === 0 && !showShimmer ? (
+          <div className="flex flex-col items-center justify-center py-20 border border-dashed border-border bg-muted/5 space-y-4">
+            <div className="h-16 w-16 bg-background border border-border flex items-center justify-center shadow-sm">
+              <CreditCard
+                className="h-8 w-8 text-muted-foreground/40"
+                weight="thin"
               />
             </div>
-          </DialogContent>
-        </Dialog>
-      ) : null}
+            <div className="text-center space-y-1">
+              <p className="text-sm font-black text-foreground uppercase tracking-tight">
+                לא נמצאו הוצאות בטווח התאריכים הנבחר
+              </p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+                נסה להרחיב את טווח התאריכים או לסנכרן נתונים
+              </p>
+            </div>
+          </div>
+        ) : (
+          <SpendingCategoryList
+            categories={sortedCategories}
+            allExpensesCategory={allExpensesCategory}
+            onCategorySelect={handleCategorySelect}
+            isLoading={showShimmer}
+          />
+        )}
+      </div>
+
+      <CategoryDetailsSheet
+        category={activeCategory}
+        open={isSheetOpen}
+        onOpenChange={setIsSheetOpen}
+        isLoading={shouldShimmerSpendingValues}
+        isTransactionExcluded={isTransactionExcluded}
+        onToggleTransactionExcluded={toggleTransactionExcluded}
+        getDisplayReason={getDisplayReason}
+      />
     </div>
   );
 }

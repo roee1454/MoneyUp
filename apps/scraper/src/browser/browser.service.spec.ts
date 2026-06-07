@@ -3,6 +3,8 @@ import { BrowserService } from './browser.service';
 import * as browsers from '@puppeteer/browsers';
 import * as puppeteer from 'puppeteer';
 
+import { ConfigService } from '@nestjs/config';
+
 // Mock fs
 jest.mock('fs', () => {
   const originalFs = jest.requireActual('fs');
@@ -32,10 +34,14 @@ const CHROMIUM_PATH = '/usr/bin/chromium';
 
 describe('BrowserService', () => {
   let service: BrowserService;
+  let mockConfigService: ConfigService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new BrowserService();
+    mockConfigService = {
+      get: jest.fn(),
+    } as unknown as ConfigService;
+    service = new BrowserService(mockConfigService);
   });
 
   describe('detectChromium', () => {

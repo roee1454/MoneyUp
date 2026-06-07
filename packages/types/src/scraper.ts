@@ -92,6 +92,7 @@ export type ScanTransaction = {
   reason: string;
   confidence: number;
   tags: string[];
+  type?: 'income' | 'expense';
 };
 
 export type ScanDebugTrace = {
@@ -135,6 +136,7 @@ export type ScanIncomeResult = {
   totalBalance: number;
   categories: CategorizedExpense[];
   categoryTransactions: Record<string, ScanTransaction[]>;
+  incomeTransactions?: ScanTransaction[];
   unresolvedMerchants?: Array<{
     normalizedMerchant: string;
     displayMerchant: string;

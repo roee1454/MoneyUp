@@ -36,6 +36,12 @@ export class User {
   geminiKeyEncrypted: string | null;
 
   @Column({ type: 'text', nullable: true })
+  ollamaKeyEncrypted: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  openrouterKeyEncrypted: string | null;
+
+  @Column({ type: 'text', nullable: true })
   preferredModel: string | null;
 
   @Column({ type: 'text', nullable: true })

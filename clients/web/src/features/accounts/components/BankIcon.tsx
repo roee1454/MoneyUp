@@ -6,6 +6,7 @@ import {
   getBankName,
   normalizeBankId,
 } from '@/lib/bank-branding';
+import { cn } from '@/lib/utils';
 
 interface BankIconProps {
   bankId: string;
@@ -13,6 +14,7 @@ interface BankIconProps {
   shape?: BankIconShape;
   fill?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const sizeClassByVariant: Record<NonNullable<BankIconProps['size']>, string> = {
@@ -28,6 +30,7 @@ export function BankIcon({
   shape,
   fill,
   className = '',
+  style,
 }: BankIconProps) {
   const [failed, setFailed] = useState(false);
   const normalizedBankId = normalizeBankId(bankId);
@@ -43,6 +46,7 @@ export function BankIcon({
   if (!src || failed) {
     return (
       <div
+        style={style}
         className={`${sizeClassByVariant[size]} ${shapeClass} border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center font-black text-zinc-600 dark:text-zinc-300 ${className}`}
       >
         {fallback}
@@ -52,7 +56,8 @@ export function BankIcon({
 
   return (
     <div
-      className={`${sizeClassByVariant[size]} ${shapeClass} border border-zinc-200 dark:border-zinc-200 bg-white overflow-hidden ${className}`}
+      style={style}
+      className={cn(`${sizeClassByVariant[size]} ${shapeClass} border border-zinc-200 dark:border-zinc-200 bg-white overflow-hidden`, className)}
     >
       <img
         src={src}

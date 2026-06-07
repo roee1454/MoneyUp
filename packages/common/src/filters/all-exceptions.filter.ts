@@ -17,7 +17,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const response = http.getResponse<{
         status: (code: number) => { json: (body: unknown) => void };
       }>();
-      const request = http.getRequest<{ url?: string; headers?: Record<string, string> }>();
+      const request = http.getRequest<{
+        url?: string;
+        headers?: Record<string, string>;
+      }>();
 
       const status =
         exception instanceof HttpException
@@ -25,17 +28,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
           : HttpStatus.INTERNAL_SERVER_ERROR;
 
       const responseBody =
-        exception instanceof HttpException
-          ? exception.getResponse()
-          : null;
+        exception instanceof HttpException ? exception.getResponse() : null;
+
+      const message =
+        typeof responseBody === 'string'
+          ? responseBody
+          : (responseBody as any)?.message ||
+            (exception instanceof Error
+              ? exception.message
+              : (exception as any)?.message || 'Http Exception');
 
       const payload = {
         success: false,
         statusCode: status,
-        message:
-          typeof responseBody === 'string'
-            ? responseBody
-            : (responseBody as any)?.message || 'Http Exception',
+        message,
         timestamp: new Date().toISOString(),
         path: request.url ?? '',
         correlationId: request.headers?.['x-correlation-id'] ?? null,

@@ -1,0 +1,88 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { useAppStore } from '@/store';
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  tool_calls?: any[];
+  tool_call_id?: string;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface ConversationDetail {
+  conversation: Conversation;
+  messages: Message[];
+}
+
+export function useConversations() {
+  const session = useAppStore((s) => s.session);
+  return useQuery({
+    queryKey: ['ai-conversations'],
+    queryFn: () => api.get<Conversation[]>('/ai/conversations'),
+    enabled: !!session,
+  });
+}
+
+export function useConversation(id: string | null) {
+  const session = useAppStore((s) => s.session);
+  return useQuery({
+    queryKey: ['ai-conversation', id],
+    queryFn: () => api.get<ConversationDetail>(`/ai/conversations/${id}`),
+    enabled: !!session && !!id,
+  });
+}
+
+export function useCreateConversation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (title: string) =>
+      api.post<Conversation>('/ai/conversations', { title }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
+    },
+  });
+}
+
+export function useAddMessage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      conversationId,
+      role,
+      content,
+    }: {
+      conversationId: string;
+      role: 'user' | 'assistant' | 'system';
+      content: string;
+    }) =>
+      api.post<Message>(`/ai/conversations/${conversationId}/messages`, {
+        role,
+        content,
+      }),
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['ai-conversation', variables.conversationId],
+      });
+    },
+  });
+}
+
+export function useDeleteConversation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/ai/conversations/${id}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
+    },
+  });
+}

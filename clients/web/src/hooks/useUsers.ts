@@ -15,6 +15,7 @@ export type User = {
   scraperLoginTimeoutSeconds?: number;
   scraperDefaultTimeoutSeconds?: number;
   scraperChromiumPath?: string | null;
+  forceMarkdown?: boolean;
   aiProviderConfigs?: Record<
     string,
     {
@@ -22,6 +23,8 @@ export type User = {
       preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
       temperature?: number;
       maxTokens?: number;
+      stream?: boolean;
+      forceMarkdown?: boolean;
     }
   > | null;
 };
@@ -66,6 +69,19 @@ export function useDeleteUserConfirmed() {
         confirmationEmail: payload.confirmationEmail,
       }),
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useUpdateAiSettings() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { forceMarkdown: boolean }) =>
+      api.patch<User>('/users/me/ai-settings', payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       await queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });

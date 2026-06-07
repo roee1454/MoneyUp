@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Link } from '@tanstack/react-router';
 import {
   isBankAccountBankId,
   isCreditCompanyBankId,
@@ -9,74 +8,23 @@ import {
 import { useUserProfile } from '@/hooks/useUsers';
 import { useAnnotateSpendingScans, useSpendingScans } from '@/hooks/useAi';
 import { useAppStore } from '@/store';
+import { Button } from '@/components/ui/button';
+import { PremiumCard } from '@/components/ui/premium-card';
+import { ArrowLeft } from '@phosphor-icons/react';
+
 
 // Feature Components
+import { DashboardHeader } from '@/features/dashboard/components/DashboardHeader';
+import { DashboardRangePicker } from '@/features/dashboard/components/DashboardRangePicker';
 import { DashboardMetricsGrid } from '@/features/dashboard/components/DashboardMetricsGrid';
-import { IncomeTransactionsDialog } from '@/features/dashboard/components/IncomeTransactionsDialog';
-import { DashboardRangeCard } from '@/features/dashboard/components/DashboardRangeCard';
+import { IncomeTransactionsSheet } from '@/features/dashboard/components/IncomeTransactionsSheet';
 import { SpendingCategories } from '@/features/dashboard/components/SpendingCategories';
 import { getBankName } from '@/lib/bank-branding';
-
-function toDateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function getCurrentRange(): { startDate: string; endDate: string } {
-  const now = new Date();
-  const currentStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-  );
-  const currentEnd = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  return {
-    startDate: toDateInputValue(currentStart),
-    endDate: toDateInputValue(currentEnd),
-  };
-}
-
-type ScraperDateLimit = {
-  years?: number;
-  months?: number;
-  days?: number;
-};
-
-const SCRAPER_MIN_LOOKBACKS: Record<string, ScraperDateLimit> = {
-  hapoalim: { years: 1, days: 1 },
-  isracard: { years: 1 },
-  max: { years: 4 },
-  cal: { years: 1, months: 6, days: 1 },
-};
-
-function subtractUtcDate(date: Date, amount: ScraperDateLimit): Date {
-  const year = date.getUTCFullYear() - (amount.years ?? 0);
-  const month = date.getUTCMonth() - (amount.months ?? 0);
-  const firstOfTargetMonth = new Date(Date.UTC(year, month, 1));
-  const lastDayOfTargetMonth = new Date(
-    Date.UTC(
-      firstOfTargetMonth.getUTCFullYear(),
-      firstOfTargetMonth.getUTCMonth() + 1,
-      0,
-    ),
-  ).getUTCDate();
-  const targetDay = Math.min(date.getUTCDate(), lastDayOfTargetMonth);
-  const result = new Date(
-    Date.UTC(
-      firstOfTargetMonth.getUTCFullYear(),
-      firstOfTargetMonth.getUTCMonth(),
-      targetDay,
-    ),
-  );
-  result.setUTCDate(result.getUTCDate() + (amount.days ?? 0));
-  return result;
-}
-
-function getMinimumStartDateForBank(bankId: string, now = new Date()): string {
-  const limit = SCRAPER_MIN_LOOKBACKS[String(bankId).toLowerCase()] ?? {
-    years: 1,
-  };
-  return toDateInputValue(subtractUtcDate(now, limit));
-}
+import {
+  getCurrentRange,
+  getMinimumStartDateForBank,
+  toDateInputValue,
+} from '@/lib/date-range-utils';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -114,15 +62,53 @@ export default function Dashboard() {
 
   const { data: userProfile } = useUserProfile(session?.userId);
   const {
-    data: scans,
+    data: rawScans,
     isLoading: isLoadingScans,
     isFetching: isFetchingScans,
     refetch: refetchScans,
   } = useSpendingScans({ period: scanPeriod, startDate, endDate });
 
+  const scans = useMemo(() => {
+    if (!rawScans) return rawScans;
+
+    const categoryTransactions: Record<string, any[]> = {};
+    const categories: any[] = [];
+    let totalExpenses = 0;
+
+    for (const catName in rawScans.categoryTransactions) {
+      const txns = rawScans.categoryTransactions[catName].filter((t) =>
+        isCreditCompanyBankId(t.bankId),
+      );
+      if (txns.length > 0) {
+        const catAmount = txns.reduce((sum, t) => sum + t.amount, 0);
+        categoryTransactions[catName] = txns;
+        totalExpenses += catAmount;
+
+        const originalCat = rawScans.categories.find((c) => c.name === catName);
+        if (originalCat) {
+          categories.push({
+            ...originalCat,
+            amount: catAmount,
+            count: txns.length,
+          });
+        }
+      }
+    }
+
+    categories.sort((a, b) => b.amount - a.amount);
+
+    return {
+      ...rawScans,
+      totalExpenses,
+      categories,
+      categoryTransactions,
+    };
+  }, [rawScans]);
+
   const annotateMutation = useAnnotateSpendingScans();
 
-  const isSyncing = syncState.status === 'running' || syncState.status === 'reconnecting';
+  const isSyncing =
+    syncState.status === 'running' || syncState.status === 'reconnecting';
   const isInitialLoad = isLoadingAccounts;
   const isAccountsRefreshing = isFetchingAccounts && !isInitialLoad;
   const isScansInitialLoading = isLoadingScans;
@@ -130,30 +116,70 @@ export default function Dashboard() {
   const maxEndDate = toDateInputValue(new Date());
 
   const minStartDate = useMemo(() => {
-    const limits = accounts.map((account) => getMinimumStartDateForBank(account.bankId));
-    return limits.length > 0 ? limits.sort().at(-1) : undefined;
+    const limits = accounts.map((account) =>
+      getMinimumStartDateForBank(account.bankId),
+    );
+    return limits.length > 0 ? limits.sort().at(0) : undefined;
   }, [accounts]);
 
-  const isAnyActionBusy = isSyncing || isScansInitialLoading || isScansRefreshing || isWidgetBusy;
+  const isAnyActionBusy =
+    isSyncing || isScansInitialLoading || isScansRefreshing || isWidgetBusy;
 
   // Range Sync
   useEffect(() => {
-    setDashboardRange({ startDate: startDate || null, endDate: endDate || null });
+    setDashboardRange({
+      startDate: startDate || null,
+      endDate: endDate || null,
+    });
   }, [startDate, endDate, setDashboardRange]);
 
   useEffect(() => {
-    if (!startDate || !endDate || isFetchingAccounts || isFetchingScans || isSyncing) return;
-    setDashboardRange({ committedStartDate: startDate, committedEndDate: endDate });
-  }, [startDate, endDate, isFetchingAccounts, isFetchingScans, isSyncing, setDashboardRange]);
+    if (
+      !startDate ||
+      !endDate ||
+      isFetchingAccounts ||
+      isFetchingScans ||
+      isSyncing
+    )
+      return;
+    setDashboardRange({
+      committedStartDate: startDate,
+      committedEndDate: endDate,
+    });
+  }, [
+    startDate,
+    endDate,
+    isFetchingAccounts,
+    isFetchingScans,
+    isSyncing,
+    setDashboardRange,
+  ]);
 
   useEffect(() => {
-    if (syncState.status !== 'failed' || !dashboardRange.committedStartDate || !dashboardRange.committedEndDate) return;
-    if (syncState.rangeStartDate === startDate && syncState.rangeEndDate === endDate && 
-       (startDate !== dashboardRange.committedStartDate || endDate !== dashboardRange.committedEndDate)) {
+    if (
+      syncState.status !== 'failed' ||
+      !dashboardRange.committedStartDate ||
+      !dashboardRange.committedEndDate
+    )
+      return;
+    if (
+      syncState.rangeStartDate === startDate &&
+      syncState.rangeEndDate === endDate &&
+      (startDate !== dashboardRange.committedStartDate ||
+        endDate !== dashboardRange.committedEndDate)
+    ) {
       setStartDate(dashboardRange.committedStartDate);
       setEndDate(dashboardRange.committedEndDate);
     }
-  }, [syncState.status, syncState.rangeStartDate, syncState.rangeEndDate, startDate, endDate, dashboardRange.committedStartDate, dashboardRange.committedEndDate]);
+  }, [
+    syncState.status,
+    syncState.rangeStartDate,
+    syncState.rangeEndDate,
+    startDate,
+    endDate,
+    dashboardRange.committedStartDate,
+    dashboardRange.committedEndDate,
+  ]);
 
   useEffect(() => {
     if (syncState.status === 'done' || syncState.status === 'failed') {
@@ -162,10 +188,16 @@ export default function Dashboard() {
     }
   }, [refetch, refetchScans, syncState.status]);
 
-  async function handleAnnotateWithAi() {
+  async function handleAnnotateWithAi(provider?: 'openai' | 'claude' | 'gemini', model?: string) {
     setIsWidgetBusy(true);
     try {
-      await annotateMutation.mutateAsync({ period: scanPeriod, startDate, endDate });
+      await annotateMutation.mutateAsync({
+        period: scanPeriod,
+        startDate,
+        endDate,
+        provider,
+        model,
+      });
       await refetchScans();
     } finally {
       setIsWidgetBusy(false);
@@ -195,91 +227,121 @@ export default function Dashboard() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [accounts]);
 
-  const hasCreditAccounts = accounts.some((account) => isCreditCompanyBankId(account.bankId));
-  const hasBankAccounts = accounts.some((account) => isBankAccountBankId(account.bankId));
-  const hasAiProvider = !!userProfile?.activeAiProvider;
+  const hasCreditAccounts = accounts.some((account) =>
+    isCreditCompanyBankId(account.bankId),
+  );
+  const hasBankAccounts = accounts.some((account) =>
+    isBankAccountBankId(account.bankId),
+  );
+  const hasAiProvider = (userProfile?.configuredProviders ?? []).length > 0;
+
+  const isCreditExpensesLoading =
+    hasCreditAccounts && (isScansInitialLoading || !scans);
+  const isIncomeLoading =
+    hasBankAccounts &&
+    (isInitialLoad || isAccountsRefreshing || !accounts.length);
+  const isNetSpendingLoading = isCreditExpensesLoading || isIncomeLoading;
+  const isBalanceLoading = isIncomeLoading;
 
   return (
     <section className="space-y-7 py-8" dir="rtl">
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px] lg:items-stretch">
-        <div className="relative overflow-hidden border border-border bg-linear-to-br from-background via-muted/20 to-muted/40 p-6 shadow-sm">
-          <div className="absolute -left-16 top-0 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="relative z-10 space-y-3 text-right">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">דשבורד MoneyUp</p>
-            <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl">
-              {greeting}, <span className="text-muted-foreground">{session?.username}</span>
-            </h1>
-            {!isInitialLoad && accounts.length === 0 ? (
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <p className="text-sm font-semibold leading-relaxed text-muted-foreground">חבר מקור נתונים כדי להתחיל.</p>
-                <Link to="/settings" className="shrink-0 border border-border bg-card/80 px-4 py-1.5 text-xs font-black text-foreground transition-colors hover:border-primary/50 hover:text-primary">עבור להגדרות ←</Link>
-              </div>
-            ) : (
-              <p className="max-w-2xl text-sm font-semibold leading-relaxed text-muted-foreground">הוצאות מגיעות מכרטיסי אשראי. הכנסות ויתרה מגיעות מחשבונות בנק. טווח התאריכים משותף לכל הדשבורד.</p>
-            )}
-          </div>
-        </div>
+      <DashboardHeader
+        greeting={greeting}
+        username={session?.username}
+        controls={
+          <DashboardRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            minStartDate={minStartDate}
+            maxEndDate={maxEndDate}
+            isBusy={isAnyActionBusy}
+            isLocked={!isInitialLoad && accounts.length === 0}
+            onStartDateChange={(v) => {
+              const clamped =
+                minStartDate && v < minStartDate ? minStartDate : v;
+              if (clamped !== startDate) {
+                setStartDate(clamped);
+                if (endDate && clamped > endDate) setEndDate(clamped);
+              }
+            }}
+            onEndDateChange={(v) => {
+              let clamped = v > maxEndDate ? maxEndDate : v;
+              if (startDate && clamped < startDate) clamped = startDate;
+              if (clamped !== endDate) setEndDate(clamped);
+            }}
+          />
+        }
+      />
 
-        <DashboardRangeCard
-          startDate={startDate}
-          endDate={endDate}
-          minStartDate={minStartDate}
-          maxEndDate={maxEndDate}
-          isBusy={isAnyActionBusy}
-          isLocked={!isInitialLoad && accounts.length === 0}
-          onStartDateChange={(v) => {
-            const clamped = minStartDate && v < minStartDate ? minStartDate : v;
-            if (clamped !== startDate) {
-              setStartDate(clamped);
-              if (endDate && clamped > endDate) setEndDate(clamped);
-            }
-          }}
-          onEndDateChange={(v) => {
-            let clamped = v > maxEndDate ? maxEndDate : v;
-            if (startDate && clamped < startDate) clamped = startDate;
-            if (clamped !== endDate) setEndDate(clamped);
-          }}
-        />
-      </div>
+      {accounts.length === 0 && !isLoadingAccounts && (
+        <PremiumCard className="relative border border-dashed border-primary/40 bg-linear-to-br from-primary/5 via-background to-muted/20 p-6 md:p-8 text-right space-y-4 animate-in fade-in-50 duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-foreground flex items-center gap-2">
+                <span>🚀 ברוך הבא ל-MoneyUp!</span>
+              </h3>
+              <p className="text-sm font-semibold text-muted-foreground leading-relaxed max-w-2xl">
+                כדי שנוכל להתחיל לנתח את ההוצאות שלך, להפיק דוחות חכמים ולהפעיל את סוכן ה-AI,
+                עליך לחבר תחילה את חשבון הבנק או כרטיס האשראי שלך.
+              </p>
+            </div>
+            <div className="shrink-0">
+              <Button
+                onClick={() => navigate({ to: '/settings' })}
+                className="rounded-none font-black text-xs h-11 bg-primary hover:bg-primary/90 text-primary-foreground uppercase tracking-widest shadow-lg shadow-primary/20 flex items-center gap-2"
+              >
+                <span>חבר חשבון ראשון</span>
+                <ArrowLeft className="h-4 w-4" weight="bold" />
+              </Button>
+            </div>
+          </div>
+        </PremiumCard>
+      )}
 
       <DashboardMetricsGrid
         accounts={accounts}
         scans={scans}
         hasBankAccounts={hasBankAccounts}
         hasCreditAccounts={hasCreditAccounts}
-        isCreditExpensesLoading={hasCreditAccounts && (isScansInitialLoading || !scans)}
-        isIncomeLoading={hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length)}
-        isNetSpendingLoading={(hasCreditAccounts && (isScansInitialLoading || !scans)) || (hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length))}
-        isBalanceLoading={hasBankAccounts && (isInitialLoad || isAccountsRefreshing || !accounts.length)}
+        isCreditExpensesLoading={isCreditExpensesLoading}
+        isIncomeLoading={isIncomeLoading}
+        isNetSpendingLoading={isNetSpendingLoading}
+        isBalanceLoading={isBalanceLoading}
         isSyncing={isSyncing}
         excludedExpenseAmount={excludedExpenseAmount}
         onShowIncomeClick={() => setIsIncomeDialogOpen(true)}
       />
 
-      <SpendingCategories
-        scans={scans}
-        period={scanPeriod}
-        startDate={startDate}
-        endDate={endDate}
-        minStartDate={minStartDate}
-        maxEndDate={maxEndDate}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
-        isLoadingScans={hasCreditAccounts && isLoadingScans}
-        isRefreshingScans={hasCreditAccounts && isFetchingScans && !isLoadingScans}
-        hasConnectedAccounts={hasCreditAccounts}
-        canUseAiAnnotation={hasAiProvider}
-        isAnnotatingWithAi={annotateMutation.isPending}
-        isWidgetBusy={isAnyActionBusy}
-        onAnnotateWithAi={handleAnnotateWithAi}
-        onGoToAiStudio={() => navigate({ to: '/ai-studio' })}
-        onExcludedExpensesChange={setExcludedExpenseAmount}
-      />
+      <div className="space-y-8">
+        <SpendingCategories
+          scans={scans}
+          period={scanPeriod}
+          startDate={startDate}
+          endDate={endDate}
+          minStartDate={minStartDate}
+          maxEndDate={maxEndDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          isLoadingScans={hasCreditAccounts && isLoadingScans}
+          isRefreshingScans={
+            hasCreditAccounts && isFetchingScans && !isLoadingScans
+          }
+          hasConnectedAccounts={hasCreditAccounts}
+          canUseAiAnnotation={hasAiProvider}
+          configuredProviders={(userProfile?.configuredProviders ?? []) as string[]}
+          isAnnotatingWithAi={annotateMutation.isPending}
+          isWidgetBusy={isAnyActionBusy}
+          onAnnotateWithAi={handleAnnotateWithAi}
+          onGoToAiStudio={() => navigate({ to: '/ai-studio' })}
+          onExcludedExpensesChange={setExcludedExpenseAmount}
+        />
+      </div>
 
-      <IncomeTransactionsDialog
+      <IncomeTransactionsSheet
         open={isIncomeDialogOpen}
         onOpenChange={setIsIncomeDialogOpen}
         transactions={recentIncomeTransactions}
+        isLoading={isIncomeLoading}
       />
     </section>
   );

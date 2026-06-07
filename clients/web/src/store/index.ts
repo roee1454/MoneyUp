@@ -32,6 +32,7 @@ type AppState = {
       message: string;
       bankId?: string;
     } | null;
+    currentlySyncing: string | null;
   };
   dashboardRange: {
     startDate: string | null;
@@ -65,6 +66,7 @@ export const useAppStore = create<AppState>()(
       updatedAt: null,
       visible: false,
       challenge: null,
+      currentlySyncing: null,
     },
     dashboardRange: {
       startDate: null,
@@ -105,6 +107,7 @@ export const useAppStore = create<AppState>()(
           updatedAt: null,
           visible: false,
           challenge: null,
+          currentlySyncing: null,
         },
       }),
   }))

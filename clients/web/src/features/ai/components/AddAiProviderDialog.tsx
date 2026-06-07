@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Check } from '@phosphor-icons/react';
 import { AiIcon, type AiProvider } from './AiIcon';
 import { Button } from '@/components/ui/button';
@@ -10,14 +10,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  useFetchAiModels,
   useSaveAiConfig,
   useVerifyAiConnection,
 } from '@/hooks/useAi';
 import { PremiumInput } from '@/components/ui/premium-input';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { PremiumGridButton } from '@/components/ui/premium-grid-button';
-import { Select, SelectItem } from '@/components/ui/select';
 
 type Provider = AiProvider;
 
@@ -31,6 +29,16 @@ const providerLabels: Record<Provider, string> = {
   openai: 'OpenAI',
   claude: 'Anthropic Claude',
   gemini: 'Gemini',
+  ollama: 'Ollama (מקומי)',
+  openrouter: 'OpenRouter',
+};
+
+const DEFAULT_MODELS: Record<Provider, string> = {
+  openai: 'gpt-4o-mini',
+  claude: 'claude-3-5-haiku-20241022',
+  gemini: 'gemini-1.5-flash',
+  ollama: 'qwen2.5:14b-instruct',
+  openrouter: 'meta-llama/llama-3.1-8b-instruct:free',
 };
 
 export function AddAiProviderDialog({
@@ -42,54 +50,45 @@ export function AddAiProviderDialog({
     null,
   );
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
-  const [isVerified, setIsVerified] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [error, setError] = useState('');
 
   const verifyMutation = useVerifyAiConnection();
   const saveMutation = useSaveAiConfig();
-  const modelsQuery = useFetchAiModels(
-    isVerified ? (selectedProvider ?? undefined) : undefined,
-    isVerified ? apiKey : undefined,
-  );
-
-  const models = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data]);
-  const canVerify = !!selectedProvider && apiKey.trim().length > 0;
+  const canVerify = !!selectedProvider && (selectedProvider === 'ollama' || apiKey.trim().length > 0);
 
   async function handleVerify() {
-    if (!selectedProvider || !apiKey.trim()) return;
+    if (!selectedProvider) return;
+    const resolvedKey = selectedProvider === 'ollama' && !apiKey.trim() ? 'http://localhost:11434/v1' : apiKey;
     setError('');
-    setIsVerified(false);
-    setSelectedModel('');
     try {
       const res = await verifyMutation.mutateAsync({
         provider: selectedProvider,
-        apiKey,
+        apiKey: resolvedKey,
       });
       if (!res.success) {
         setError('בדיקת החיבור נכשלה');
         return;
       }
-      setIsVerified(true);
-    } catch {
-      setError('בדיקת החיבור נכשלה');
-    }
-  }
 
-  async function handleSave() {
-    if (!selectedProvider || !selectedModel) return;
-    setError('');
-    try {
+      const defaultModel = DEFAULT_MODELS[selectedProvider];
       await saveMutation.mutateAsync({
         provider: selectedProvider,
-        apiKey,
-        preferredModel: selectedModel,
+        apiKey: resolvedKey,
+        preferredModel: defaultModel,
+        config: {
+          model: defaultModel,
+          preset: 'moderate',
+          temperature: 0.5,
+          maxTokens: 2048,
+          stream: true,
+        },
       });
+
       setIsDone(true);
       onSuccess?.();
     } catch {
-      setError('שמירת ההגדרה נכשלה');
+      setError('בדיקת החיבור או השמירה נכשלה');
     }
   }
 
@@ -97,8 +96,6 @@ export function AddAiProviderDialog({
     onOpenChange(false);
     setTimeout(() => {
       setApiKey('');
-      setSelectedModel('');
-      setIsVerified(false);
       setIsDone(false);
       setError('');
       setSelectedProvider(null);
@@ -133,7 +130,7 @@ export function AddAiProviderDialog({
             </DialogHeader>
 
             <div className="space-y-2 pt-2">
-              {(['openai', 'claude', 'gemini'] as const).map((provider) => (
+              {(['openai', 'claude', 'gemini', 'ollama', 'openrouter'] as const).map((provider) => (
                 <PremiumGridButton
                   key={provider}
                   onClick={() => {
@@ -146,12 +143,12 @@ export function AddAiProviderDialog({
               ))}
             </div>
           </div>
-        ) : verifyMutation.isPending ? (
+        ) : verifyMutation.isPending || saveMutation.isPending ? (
           <SyncingView
             provider={selectedProvider}
             providerName={providerLabels[selectedProvider]}
           />
-        ) : !isVerified ? (
+        ) : (
           <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
             <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
               <div className="flex items-center gap-3">
@@ -170,13 +167,13 @@ export function AddAiProviderDialog({
             <div className="space-y-4 pt-4">
               <div className="space-y-1.5 text-right">
                 <label className="text-sm font-bold text-muted-foreground">
-                  מפתח API
+                  {selectedProvider === 'ollama' ? 'כתובת שרת / מפתח API' : 'מפתח API'}
                 </label>
                 <PremiumInput
-                  isPassword
+                  isPassword={selectedProvider !== 'ollama'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
+                  placeholder={selectedProvider === 'ollama' ? 'http://localhost:11434/v1 (או השאר ריק)' : 'sk-...'}
                   dir="ltr"
                 />
               </div>
@@ -213,71 +210,6 @@ export function AddAiProviderDialog({
                   className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
                 >
                   בדוק חיבור
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
-            <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <AiIcon provider={selectedProvider} size="md" />
-                <div>
-                  <DialogTitle className="text-lg font-black text-foreground">
-                    בחירת מודל מועדף
-                  </DialogTitle>
-                  <DialogDescription className="text-xs font-semibold text-muted-foreground">
-                    בחר מודל ברירת מחדל מתוך רשימת המודלים הזמינים בחשבונך
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <div className="space-y-4 pt-4">
-              <div className="space-y-1.5 text-right">
-                <label className="text-sm font-bold text-muted-foreground">
-                  מודל ברירת מחדל
-                </label>
-                <Select
-                  value={selectedModel}
-                  onValueChange={(val) => setSelectedModel(val)}
-                  placeholder="Select Model"
-                >
-                  <SelectItem value="">Select Model</SelectItem>
-                  {models.map((model) => (
-                    <SelectItem key={model} value={model}>
-                      {model}
-                    </SelectItem>
-                  ))}
-                </Select>
-              </div>
-
-              {error && (
-                <p className="text-[11px] font-bold text-destructive mt-2 bg-destructive/10 p-2.5 border border-destructive/20 text-right">
-                  {error}
-                </p>
-              )}
-
-              <div className="flex items-center gap-3 pt-4 justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
-                  onClick={() => {
-                    setIsVerified(false);
-                    setSelectedModel('');
-                    setError('');
-                  }}
-                  disabled={saveMutation.isPending}
-                >
-                  חזור לפרטים
-                </Button>
-                <Button
-                  onClick={() => void handleSave()}
-                  disabled={!selectedModel || saveMutation.isPending}
-                  className="rounded-none font-bold text-xs h-10 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                >
-                  {saveMutation.isPending ? 'שומר...' : 'שמור הגדרות'}
                 </Button>
               </div>
             </div>

@@ -267,9 +267,16 @@ export class ScraperSocketGateway
               challenge?: { type?: string; message?: string };
               errorCode?: string;
               error?: string;
+              currentlySyncing?: string | null;
             }>('get_scraper_status', { sessionId })
             .pipe(timeout(10000)),
         );
+
+        if (response.currentlySyncing !== undefined && client.data.userId) {
+          this.syncJobService.patchSyncJob(client.data.userId, {
+            currentlySyncing: response.currentlySyncing,
+          });
+        }
 
         if (response.status === 'CHALLENGE_REQUIRED') {
           client.emit('scraper:challenge', { sessionId, ...response });

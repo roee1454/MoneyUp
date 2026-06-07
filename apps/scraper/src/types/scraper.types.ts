@@ -25,6 +25,7 @@ export interface SessionState {
   resolveOtp?: (code: string) => void;
   rejectOtp?: (error: any) => void;
   resultData?: any;
+  currentlySyncing?: string | null;
 }
 
 export type ScraperDateLimit = {

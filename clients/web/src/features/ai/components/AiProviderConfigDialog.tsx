@@ -7,7 +7,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Select, SelectItem } from '@/components/ui/select';
+
 import { Switch } from '@/components/ui/switch';
 import { AiIcon, type AiProvider } from './AiIcon';
 import { useSaveAiConfig } from '@/hooks/useAi';
@@ -26,13 +26,35 @@ interface AiProviderConfigDialogProps {
     temperature?: number;
     maxTokens?: number;
     stream?: boolean;
+    forceMarkdown?: boolean;
   };
 }
 
 const MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
   openai: OPENAI_MODELS,
-  claude: ['Sonnet 4.5', 'Opus 4.6'],
-  gemini: ['gemini-3-flash-preview', 'gemini-3.1-flash-lite'],
+  claude: [
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+    'claude-3-opus-20240229',
+  ],
+  gemini: [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+  ],
+  ollama: [
+    'qwen2.5:14b-instruct',
+    'llama3.1:8b',
+    'mistral',
+    'gemma2',
+  ],
+  openrouter: [
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'google/gemini-2.5-flash',
+    'deepseek/deepseek-chat',
+    'anthropic/claude-3.5-sonnet',
+  ],
 };
 
 const PRESETS = {
@@ -63,9 +85,7 @@ export function AiProviderConfigDialog({
   onOpenChange,
   currentConfig,
 }: AiProviderConfigDialogProps) {
-  const [model, setModel] = useState(
-    currentConfig?.model || MODELS_BY_PROVIDER[provider][0],
-  );
+  const model = currentConfig?.model || MODELS_BY_PROVIDER[provider][0];
   const [preset, setPreset] = useState<
     'accurate' | 'moderate' | 'save_tokens' | 'custom'
   >(currentConfig?.preset || 'moderate');
@@ -74,6 +94,7 @@ export function AiProviderConfigDialog({
   );
   const [maxTokens, setMaxTokens] = useState(currentConfig?.maxTokens ?? 2048);
   const [stream, setStream] = useState(currentConfig?.stream ?? true);
+  const forceMarkdown = true;
 
   const saveAiConfig = useSaveAiConfig();
 
@@ -97,6 +118,7 @@ export function AiProviderConfigDialog({
           temperature,
           maxTokens,
           stream,
+          forceMarkdown,
         },
       },
       {
@@ -133,20 +155,6 @@ export function AiProviderConfigDialog({
         </DialogHeader>
 
         <div className="py-6 space-y-6">
-          {/* Model Selection */}
-          <div className="space-y-2.5">
-            <label className="text-xs font-black text-foreground">
-              מודל עבודה
-            </label>
-            <Select value={model} onValueChange={setModel}>
-              {MODELS_BY_PROVIDER[provider].map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
-            </Select>
-          </div>
-
           {/* Preset Selection */}
           <div className="space-y-2.5">
             <label className="text-xs font-black text-foreground">
@@ -161,7 +169,7 @@ export function AiProviderConfigDialog({
                     className={cn(
                       'relative flex flex-col p-3 text-right border transition-all group',
                       preset === key
-                        ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
+                        ? 'border-border bg-primary/10 ring-1 ring-primary/20'
                         : 'border-border bg-card hover:border-foreground/20',
                     )}
                   >
@@ -237,6 +245,8 @@ export function AiProviderConfigDialog({
             </div>
             <Switch checked={stream} onCheckedChange={setStream} />
           </div>
+
+
 
           <Button
             onClick={handleSave}

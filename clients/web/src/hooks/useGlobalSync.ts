@@ -25,6 +25,7 @@ type SyncStartResponse = {
   updatedAt: string;
   cooldownBlockedUntil?: string;
   cooldownRemainingMs?: number;
+  currentlySyncing?: string | null;
 };
 
 type SyncEventPayload = {
@@ -41,6 +42,7 @@ type SyncEventPayload = {
   cooldownRemainingMs?: number;
   startedAt?: string;
   updatedAt?: string;
+  currentlySyncing?: string | null;
 };
 
 export function useStartGlobalSync() {
@@ -66,6 +68,7 @@ export function useStartGlobalSync() {
         startedAt: data.startedAt,
         updatedAt: data.updatedAt,
         visible: data.status === 'running',
+        currentlySyncing: data.currentlySyncing ?? null,
       });
     },
   });
@@ -141,6 +144,10 @@ export function useGlobalSyncManager(enabled: boolean) {
         updatedAt: payload.updatedAt ?? new Date().toISOString(),
         visible: shouldBeVisible,
         challenge: normalizedStatus === 'running' && payload.phase === 'syncing_scrapers' ? currentSync.challenge : null,
+        currentlySyncing:
+          payload.currentlySyncing !== undefined
+            ? payload.currentlySyncing
+            : currentSync.currentlySyncing,
       });
 
       if (isDone) {
@@ -260,6 +267,7 @@ export function useGlobalSyncManager(enabled: boolean) {
               updatedAt: data.updatedAt,
               visible: data.status === 'running',
               challenge: null,
+              currentlySyncing: data.currentlySyncing ?? null,
             });
           });
         })

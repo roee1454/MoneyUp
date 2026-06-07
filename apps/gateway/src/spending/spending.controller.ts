@@ -62,6 +62,8 @@ export class SpendingController {
       period?: 'current' | 'previous' | 'both';
       startDate?: string;
       endDate?: string;
+      provider?: 'openai' | 'claude' | 'gemini';
+      model?: string;
     },
   ): Promise<SpendingScansResponse> {
     const userId = requireSessionUserId(request);
@@ -71,6 +73,8 @@ export class SpendingController {
       normalizedPeriod,
       payload.startDate,
       payload.endDate,
+      payload.provider,
+      payload.model,
     );
   }
 

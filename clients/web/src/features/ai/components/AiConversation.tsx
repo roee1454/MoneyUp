@@ -1,393 +1,298 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { CircleNotch } from '@phosphor-icons/react';
 import {
-  CircleNotch,
-  ChatText,
-  PaperPlaneRight,
-  Sliders,
-} from '@phosphor-icons/react';
-import ReactMarkdown from 'react-markdown';
-import { useFetchAiModels } from '@/hooks/useAi';
-import { api } from '@/lib/api';
-import type { AiProvider } from './AiIcon';
-import { Button } from '@/components/ui/button';
-import { PremiumInput } from '@/components/ui/premium-input';
-import { Select, SelectItem } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-
-type Message = {
-  id: string;
-  role: 'user' | 'assistant';
-  text: string;
-};
+  useFetchAiModels,
+  useConversation,
+  useSaveAiConfig,
+} from '@/hooks/useAi';
+import { useUpdateAiSettings } from '@/hooks/useUsers';
+import { useAiStream } from './AiConversation/useAiStream';
+import { AiMessageList } from './AiConversation/AiMessageList';
+import { AiInputPanel } from './AiConversation/AiInputPanel';
+import { AiSettingsDialog } from './AiConversation/AiSettingsDialog';
+import { OPENAI_MODELS } from '@money-up/common';
+import { toast } from 'sonner';
+import { useNavigate } from '@tanstack/react-router';
 
 interface AiConversationProps {
-  provider: AiProvider;
-  preferredModel?: string | null;
   userProfile?: {
+    configuredProviders?: string[] | null;
     aiProviderConfigs?: Record<string, any> | null;
+    forceMarkdown?: boolean;
   } | null;
+  conversationId: string | null;
+  onConversationCreated: (id: string) => void;
 }
+
+const MODELS_BY_PROVIDER: Record<string, string[]> = {
+  openai: OPENAI_MODELS,
+  claude: [
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+    'claude-3-opus-20240229',
+  ],
+  gemini: [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+  ],
+  ollama: [
+    'qwen2.5:14b-instruct',
+    'llama3.1:8b',
+    'mistral',
+    'gemma2',
+  ],
+  openrouter: [
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'google/gemini-2.5-flash',
+    'deepseek/deepseek-chat',
+    'anthropic/claude-3.5-sonnet',
+  ],
+};
 
 const debugEnabled = import.meta.env.VITE_DEBUG_AI_CHAT === 'true';
 
 export function AiConversation({
-  provider,
-  preferredModel,
   userProfile,
+  conversationId,
+  onConversationCreated,
 }: AiConversationProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [prompt, setPrompt] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const configuredProviders = useMemo(() => {
+    return (userProfile?.configuredProviders ?? []) as string[];
+  }, [userProfile?.configuredProviders]);
+
+  const configs = useMemo(() => {
+    return userProfile?.aiProviderConfigs || {};
+  }, [userProfile?.aiProviderConfigs]);
+
+  const currentProvider = configuredProviders[0] || 'gemini';
+
+  const [agentProvider, setAgentProvider] = useState<'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter'>(() => {
+    const saved = localStorage.getItem('moneyup_studio_provider');
+    if (saved && configuredProviders.includes(saved)) return saved as any;
+    return (currentProvider as any) || 'gemini';
+  });
+
+  const [agentModel, setAgentModel] = useState<string>(() => {
+    const saved = localStorage.getItem('moneyup_studio_model');
+    if (saved) return saved;
+    return configs[currentProvider]?.model || MODELS_BY_PROVIDER[currentProvider]?.[0] || 'gemini-1.5-flash';
+  });
+
+  const { data: conversationDetail, isLoading: isLoadingHistory } =
+    useConversation(conversationId);
+  const updateAiSettingsMutation = useUpdateAiSettings();
+  const saveAiConfig = useSaveAiConfig();
+
+  useEffect(() => {
+    if (configuredProviders.length > 0 && !configuredProviders.includes(agentProvider)) {
+      const prov = configuredProviders[0] as 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      setAgentProvider(prov);
+      setAgentModel(
+        configs[prov]?.model ||
+        MODELS_BY_PROVIDER[prov]?.[0] ||
+        'gemini-1.5-flash'
+      );
+    }
+  }, [configuredProviders]);
+
+  const handleAgentProviderChange = (provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter') => {
+    if (!configuredProviders.includes(provider)) {
+      toast.error(`ספק ${provider.toUpperCase()} אינו מחובר.`, {
+        action: {
+          label: 'להגדרות',
+          onClick: () => void navigate({ to: '/settings/ai' }),
+        },
+      });
+      return;
+    }
+
+    setAgentProvider(provider);
+    localStorage.setItem('moneyup_studio_provider', provider);
+    const config = configs[provider] || {
+      model: MODELS_BY_PROVIDER[provider][0],
+      preset: 'moderate',
+    };
+
+    saveAiConfig.mutate(
+      {
+        provider,
+        apiKey: '***',
+        config,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`ספק AI הוחלף ל-${provider.toUpperCase()}`);
+        },
+      },
+    );
+  };
+
+  const handleAgentModelChange = (model: string) => {
+    setAgentModel(model);
+    localStorage.setItem('moneyup_studio_model', model);
+    const config = configs[agentProvider] || {
+      model,
+      preset: 'moderate',
+    };
+    config.model = model;
+
+    saveAiConfig.mutate(
+      {
+        provider: agentProvider,
+        apiKey: '***',
+        config,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`מודל הוחלף ל-${model}`);
+        },
+      },
+    );
+  };
 
   const providerConfig = useMemo(() => {
-    return userProfile?.aiProviderConfigs?.[provider] || {};
-  }, [userProfile, provider]);
+    return configs[agentProvider] || {};
+  }, [configs, agentProvider]);
 
   const [streaming, setStreaming] = useState(providerConfig.stream ?? false);
+  const [forceMarkdown, setForceMarkdown] = useState(
+    userProfile?.forceMarkdown ?? true,
+  );
   const [temperature, setTemperature] = useState(
     providerConfig.temperature ?? 0.7,
   );
   const [maxTokens, setMaxTokens] = useState(providerConfig.maxTokens ?? 1024);
   const [modelOverride, setModelOverride] = useState('');
   const [showDebug, setShowDebug] = useState(false);
-  const endRef = useRef<HTMLDivElement | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
-  const modelsQuery = useFetchAiModels(provider);
+  const modelsQuery = useFetchAiModels(agentProvider);
   const availableModels = useMemo(
     () => modelsQuery.data ?? [],
     [modelsQuery.data],
   );
-  const selectedModel =
-    modelOverride || preferredModel || availableModels[0] || '';
+
+  const selectedModel = useMemo(() => {
+    return (
+      (modelOverride && modelOverride !== 'none'
+        ? modelOverride
+        : agentModel) ||
+      availableModels[0] ||
+      ''
+    );
+  }, [modelOverride, agentModel, availableModels]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
-
-  useEffect(() => {
-    setMessages([]);
-    setPrompt('');
-    setError('');
-    setModelOverride('');
-    setStreaming(providerConfig.stream ?? false);
-    setTemperature(providerConfig.temperature ?? 0.7);
-    setMaxTokens(providerConfig.maxTokens ?? 1024);
-
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-    };
-  }, [provider, preferredModel, providerConfig]);
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    const trimmedPrompt = prompt.trim();
-    if (!trimmedPrompt || !selectedModel || isLoading) return;
-
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      text: trimmedPrompt,
-    };
-    const assistantId = crypto.randomUUID();
-    setMessages((prev) => [
-      ...prev,
-      userMessage,
-      { id: assistantId, role: 'assistant', text: '' },
-    ]);
-    setPrompt('');
-    setError('');
-    setIsLoading(true);
-
-    if (streaming) {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-
-      const qs = new URLSearchParams({
-        provider,
-        model: selectedModel,
-        prompt: trimmedPrompt,
-        temperature: String(temperature),
-        maxTokens: String(maxTokens),
-      });
-      const eventSource = new EventSource(
-        `http://localhost:3000/ai/prompt/stream?${qs.toString()}`,
-        {
-          withCredentials: true,
-        },
-      );
-      eventSourceRef.current = eventSource;
-
-      eventSource.onmessage = (eventData) => {
-        const chunk = String(eventData.data ?? '');
-        if (!chunk) return;
-        setMessages((prev) =>
-          prev.map((message) =>
-            message.id === assistantId
-              ? { ...message, text: `${message.text}${chunk}` }
-              : message,
-          ),
-        );
-      };
-
-      eventSource.onerror = () => {
-        eventSource.close();
-        if (eventSourceRef.current === eventSource) {
-          eventSourceRef.current = null;
-        }
-        setIsLoading(false);
-      };
-
-      eventSource.addEventListener('end', () => {
-        eventSource.close();
-        if (eventSourceRef.current === eventSource) {
-          eventSourceRef.current = null;
-        }
-        setIsLoading(false);
-      });
-
-      setTimeout(() => {
-        if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
-          eventSource.close();
-          if (eventSourceRef.current === eventSource) {
-            eventSourceRef.current = null;
-          }
-          setIsLoading(false);
-        }
-      }, 180000);
-      return;
+    if (userProfile?.forceMarkdown !== undefined) {
+      setForceMarkdown(userProfile.forceMarkdown);
     }
+  }, [userProfile?.forceMarkdown]);
 
-    try {
-      const response = await api.post<{ text: string }>('/ai/prompt', {
-        provider,
-        model: selectedModel,
-        prompt: trimmedPrompt,
-        temperature,
-        maxTokens,
-      });
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === assistantId
-            ? { ...message, text: response.text ?? '' }
-            : message,
-        ),
-      );
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : 'שליחת ההודעה נכשלה',
-      );
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === assistantId
-            ? { ...message, text: 'אירעה שגיאה בקבלת תשובה מהעוזר.' }
-            : message,
-        ),
-      );
-    } finally {
-      setIsLoading(false);
-    }
+  // Hook handles AI stream communication and syncing messages from react query
+  const {
+    messages,
+    isLoading,
+    error,
+    activeSources,
+    toolStatus,
+    processSubmit,
+  } = useAiStream({
+    provider: agentProvider,
+    selectedModel,
+    temperature,
+    maxTokens,
+    forceMarkdown,
+    streaming,
+    conversationId,
+    conversationDetail,
+    onConversationCreated,
+  });
+
+  const defaultPrompts = [
+    'כמה בזבזתי על קניות ומזון בחודש האחרון?',
+    'האם יש מנויים או חיובים מחזוריים שאתה מזהה בחשבון שלי?',
+    'מה תזרים המזומנים שלי החודש לעומת חודש שעבר?',
+    'תראה לי את התנועות הכי גדולות שלי בכרטיס אשראי',
+  ];
+
+  const handlePromptClick = (text: string) => {
+    processSubmit(text);
+  };
+
+  const handleSubmitPrompt = (promptValue: string) => {
+    if (!promptValue.trim() || isLoading) return;
+    processSubmit(promptValue);
+    setPrompt('');
+  };
+
+  if (isLoadingHistory && conversationId && messages.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center text-center">
+        <CircleNotch className="h-6 w-6 animate-spin text-muted-foreground/60" />
+      </div>
+    );
   }
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-3">
-      <div
-        dir="rtl"
-        className={cn(
-          'flex-1 min-h-0 rounded-2xl border border-border bg-muted/40 px-3 py-4 pb-6 md:px-5 md:py-5 md:pb-7 space-y-3',
-          messages.length > 0 ? 'overflow-y-auto' : 'overflow-hidden',
-        )}
-      >
-        {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-center">
-            <p className="text-sm font-semibold text-muted-foreground">
-              שאל שאלה כדי להתחיל שיחה עם העוזר החכם
-            </p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={
-                  message.role === 'user'
-                    ? 'max-w-[90%] rounded-[1.75rem] rounded-br-md bg-primary text-primary-foreground px-5 py-3 text-sm font-semibold'
-                    : 'max-w-[90%] rounded-[1.75rem] rounded-bl-md border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground'
-                }
-              >
-                <div
-                  className={cn(
-                    'markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right',
-                    message.role === 'user'
-                      ? 'text-primary-foreground'
-                      : 'text-foreground',
-                  )}
-                >
-                  <ReactMarkdown>
-                    {message.text ||
-                      (isLoading && message.role === 'assistant' ? '...' : '')}
-                  </ReactMarkdown>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-        <div ref={endRef} />
-      </div>
+      <AiMessageList
+        messages={messages}
+        isLoading={isLoading}
+        toolStatus={toolStatus}
+        defaultPrompts={defaultPrompts}
+        selectedModel={selectedModel}
+        onPromptClick={handlePromptClick}
+      />
 
       {error ? (
-        <p className="text-xs font-bold text-destructive bg-destructive/10 px-4 py-2.5 rounded-2xl border border-destructive/20 text-right">
-          {error}
-        </p>
+        <div className="max-w-3xl mx-auto w-full px-3 md:px-5 shrink-0">
+          <p className="text-xs font-bold text-destructive bg-destructive/10 px-4 py-2.5 rounded-none border border-destructive/20 text-right uppercase">
+            {error}
+          </p>
+        </div>
       ) : null}
 
-      <form
-        onSubmit={handleSubmit}
-        className="mt-auto flex items-center gap-2 rounded-4xl border border-border bg-card px-2.5 py-2"
-      >
-        {debugEnabled && (
-          <Button
-            type="button"
-            onClick={() => setShowDebug(true)}
-            variant="outline"
-            className="h-12 w-12 rounded-full border border-border bg-muted/30 p-0 text-muted-foreground hover:text-foreground flex items-center justify-center shrink-0 cursor-pointer"
-          >
-            <Sliders className="h-4.5 w-4.5" weight="duotone" />
-          </Button>
-        )}
-        <PremiumInput
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          placeholder="הקלד כאן שאלה..."
-          className="w-full h-12 rounded-full text-sm font-semibold"
-          disabled={isLoading || !selectedModel}
+      <div className="max-w-3xl mx-auto w-full px-3 md:px-5 pb-2 shrink-0">
+        <AiInputPanel
+          prompt={prompt}
+          setPrompt={setPrompt}
+          onSubmit={handleSubmitPrompt}
+          isLoading={isLoading}
+          selectedModel={selectedModel}
+          debugEnabled={debugEnabled}
+          activeSources={activeSources}
+          onShowDebug={() => setShowDebug(true)}
+          agentProvider={agentProvider}
+          setAgentProvider={handleAgentProviderChange}
+          agentModel={agentModel}
+          setAgentModel={handleAgentModelChange}
+          modelsByProvider={MODELS_BY_PROVIDER}
         />
-        <Button
-          type="submit"
-          disabled={!prompt.trim() || isLoading || !selectedModel}
-          className="h-12 rounded-full px-5 font-bold text-sm bg-primary hover:bg-primary/90 text-primary-foreground"
-        >
-          {isLoading ? (
-            <CircleNotch className="h-4 w-4 animate-spin" />
-          ) : (
-            <PaperPlaneRight className="h-4 w-4" weight="duotone" />
-          )}
-          <span className="hidden sm:inline">
-            {isLoading ? 'שולח...' : 'שלח'}
-          </span>
-          <span className="sm:hidden">
-            <ChatText className="h-4 w-4" weight="duotone" />
-          </span>
-        </Button>
-      </form>
+      </div>
 
-      {/* Debug Advanced Parameter Dialog */}
       {debugEnabled && (
-        <Dialog open={showDebug} onOpenChange={setShowDebug}>
-          <DialogContent
-            className="max-w-md bg-card border border-border rounded-3xl text-right"
-            dir="rtl"
-            showCloseButton={true}
-          >
-            <DialogHeader className="text-right">
-              <DialogTitle className="text-base font-black text-foreground">
-                הגדרות דיבאג מתקדמות
-              </DialogTitle>
-              <DialogDescription className="text-xs font-semibold text-muted-foreground">
-                שנה פרמטרי מודל ומשתני שיחה בזמן אמת.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="py-4 space-y-4 text-xs font-semibold text-foreground/80 max-h-96 overflow-y-auto pr-1">
-              <div className="space-y-1 text-right">
-                <Label className="text-[11px] font-bold text-muted-foreground">
-                  Model Override
-                </Label>
-                <Select
-                  value={modelOverride}
-                  onValueChange={(val) => setModelOverride(val)}
-                  placeholder="Use Profile Default"
-                >
-                  <SelectItem value="">Use Profile Default</SelectItem>
-                  {availableModels.map((model) => (
-                    <SelectItem key={model} value={model}>
-                      {model}
-                    </SelectItem>
-                  ))}
-                </Select>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 py-1">
-                <Label className="font-bold text-foreground/70">
-                  Streaming
-                </Label>
-                <Switch
-                  checked={streaming}
-                  onCheckedChange={(val) => setStreaming(val)}
-                />
-              </div>
-
-              <div className="space-y-1.5 text-right">
-                <Label className="font-bold text-foreground/70">
-                  Temperature: {temperature.toFixed(1)}
-                </Label>
-                <Slider
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  value={temperature}
-                  onValueChange={(val) => setTemperature(val)}
-                />
-              </div>
-
-              <div className="space-y-1 text-right">
-                <Label className="font-bold text-foreground/70">
-                  Max Tokens
-                </Label>
-                <PremiumInput
-                  type="number"
-                  value={maxTokens}
-                  onChange={(event) =>
-                    setMaxTokens(Number(event.target.value) || 1)
-                  }
-                  className="h-10 text-xs"
-                  min={1}
-                  dir="ltr"
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="sm:justify-start">
-              <Button
-                type="button"
-                onClick={() => setShowDebug(false)}
-                className="w-full sm:w-auto h-10 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6"
-              >
-                סגור הגדרות
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <AiSettingsDialog
+          open={showDebug}
+          onOpenChange={setShowDebug}
+          modelOverride={modelOverride}
+          setModelOverride={setModelOverride}
+          availableModels={availableModels}
+          streaming={streaming}
+          setStreaming={setStreaming}
+          forceMarkdown={forceMarkdown}
+          onForceMarkdownChange={(val) => {
+            setForceMarkdown(val);
+            updateAiSettingsMutation.mutate({ forceMarkdown: val });
+          }}
+          temperature={temperature}
+          setTemperature={setTemperature}
+          maxTokens={maxTokens}
+          setMaxTokens={setMaxTokens}
+        />
       )}
     </div>
   );

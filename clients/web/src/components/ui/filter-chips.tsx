@@ -45,7 +45,7 @@ export function FilterChips({
           className={cn(
             'h-8 whitespace-nowrap border px-3 text-[11px] font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
             allSelected
-              ? 'border-primary bg-primary text-primary-foreground shadow-md'
+              ? 'border-border bg-primary text-primary-foreground shadow-md'
               : 'border-border text-muted-foreground hover:bg-muted bg-muted/30',
           )}
         >
@@ -62,7 +62,7 @@ export function FilterChips({
               className={cn(
                 'h-8 whitespace-nowrap border px-3 text-[11px] font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
                 isActive
-                  ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                  ? 'border-border bg-primary text-primary-foreground shadow-md'
                   : 'border-border text-muted-foreground hover:bg-muted bg-muted/30',
               )}
             >
