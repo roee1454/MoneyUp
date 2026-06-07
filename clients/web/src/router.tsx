@@ -11,6 +11,9 @@ import Login from '@/routes/Login';
 import Export from '@/routes/Export';
 import AiStudio from '@/routes/AiStudio';
 import Settings from '@/routes/Settings';
+import AccountsSettings from '@/routes/settings/Accounts';
+import AiSettings from '@/routes/settings/Ai';
+import ScrapersSettings from '@/routes/settings/Scrapers';
 
 import { useState, useEffect } from 'react';
 import { useRouterState, useNavigate } from '@tanstack/react-router';
@@ -21,7 +24,14 @@ import { useGlobalSyncManager } from '@/hooks/useGlobalSync';
 import { GlobalSyncBubble } from '@/features/accounts/components/GlobalSyncBubble';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
-const privatePaths = ['/dashboard', '/export', '/ai-studio', '/settings'];
+const privatePaths = [
+  '/dashboard',
+  '/export',
+  '/ai-studio',
+  '/settings',
+  '/settings/ai',
+  '/settings/scrapers',
+];
 
 function AppLayout() {
   const session = useAppStore((s) => s.session);
@@ -117,7 +127,7 @@ function AppLayout() {
       {showNavbar && <Navbar />}
       {showNavbar ? (
         <div className="min-h-0 flex-1 overflow-y-auto md:pr-72">
-          <div className="mx-auto max-w-7xl p-6">
+          <div className="mx-auto max-w-7xl px-10 py-8">
             <Outlet />
           </div>
         </div>
@@ -171,13 +181,35 @@ const settingsRoute = createRoute({
   component: Settings,
 });
 
+const settingsIndexRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/',
+  component: AccountsSettings,
+});
+
+const settingsAiRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/ai',
+  component: AiSettings,
+});
+
+const settingsScrapersRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/scrapers',
+  component: ScrapersSettings,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   dashboardRoute,
   exportRoute,
   aiStudioRoute,
-  settingsRoute,
+  settingsRoute.addChildren([
+    settingsIndexRoute,
+    settingsAiRoute,
+    settingsScrapersRoute,
+  ]),
 ]);
 
 export const router = createRouter({ routeTree });

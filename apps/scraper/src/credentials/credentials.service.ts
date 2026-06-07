@@ -67,11 +67,18 @@ export class CredentialsService {
     const vaultEntry = await this.vaultRepository.findOne({
       where: { userId, bankId },
     });
-    if (vaultEntry?.lastError) {
+    if (vaultEntry) {
       vaultEntry.lastError = null;
       vaultEntry.updatedAt = new Date();
       await this.vaultRepository.save(vaultEntry);
     }
+  }
+
+  /** Records the timestamp of the last successful scrape.
+   *  This is intentionally separate from updatedAt so we can
+   *  reliably distinguish "recently scraped" from "recently connected". */
+  async markScrapedAt(userId: string, bankId: string): Promise<void> {
+    await this.vaultRepository.update({ userId, bankId }, { lastScrapedAt: new Date() });
   }
 
   async getLastError(userId: string, bankId: string): Promise<string | null> {
@@ -79,5 +86,9 @@ export class CredentialsService {
       where: { userId, bankId },
     });
     return vaultEntry?.lastError ?? null;
+  }
+
+  async removeConnection(userId: string, bankId: string): Promise<void> {
+    await this.vaultRepository.delete({ userId, bankId });
   }
 }

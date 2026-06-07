@@ -1,15 +1,8 @@
-import { Plus, Trash, Lock } from '@phosphor-icons/react';
+import { Plus, Trash, Lock, ArrowLeft } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { PremiumCard } from '@/components/ui/premium-card';
+import { PremiumInput } from '@/components/ui/premium-input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { profileCreationSchema } from '@money-up/types';
@@ -99,8 +92,8 @@ export default function Login() {
       setUnlockKey('');
       setLockProfile(false);
       setShowForm(false);
-    } catch {
-      setError('יצירת פרופיל נכשלה');
+    } catch (err: any) {
+      setError(err.message || 'יצירת פרופיל נכשלה');
     }
   }
 
@@ -125,8 +118,8 @@ export default function Login() {
         userId: user.id,
         username: user.username,
       });
-    } catch {
-      setError('התחברות נכשלה');
+    } catch (err: any) {
+      setError(err.message || 'התחברות נכשלה');
     }
   }
 
@@ -145,8 +138,8 @@ export default function Login() {
       });
       setUnlockTarget(null);
       setUnlockInput('');
-    } catch {
-      setUnlockError('קוד פתיחה שגוי');
+    } catch (err: any) {
+      setUnlockError(err.message || 'קוד פתיחה שגוי');
     }
   }
 
@@ -159,8 +152,8 @@ export default function Login() {
       });
       setDeleteSuccess(true);
       if (selectedId === deleteTarget.id) setSelectedId('');
-    } catch {
-      setError('מחיקת הפרופיל נכשלה');
+    } catch (err: any) {
+      setError(err.message || 'מחיקת הפרופיל נכשלה');
     }
   }
 
@@ -170,11 +163,11 @@ export default function Login() {
         className="flex min-h-[calc(100vh-140px)] items-center justify-center px-4"
         dir="rtl"
       >
-        <Card className="w-full max-w-md border-border bg-card shadow-sm rounded-xl">
-          <CardContent className="py-12 text-center text-sm font-semibold text-muted-foreground">
+        <PremiumCard className="w-full max-w-md border-border bg-card shadow-sm rounded-none">
+          <div className="py-12 text-center text-sm font-semibold text-muted-foreground">
             טוען פרופילים במערכת...
-          </CardContent>
-        </Card>
+          </div>
+        </PremiumCard>
       </div>
     );
   }
@@ -186,49 +179,55 @@ export default function Login() {
     >
       <div className="w-full max-w-5xl py-8">
         {error ? (
-          <div className="mx-auto mb-6 max-w-md rounded-lg border border-border bg-muted/50 p-4 text-center text-sm font-bold text-foreground">
+          <div className="mx-auto mb-6 max-w-md rounded-none border border-border bg-muted/50 p-4 text-center text-sm font-bold text-foreground">
             {error}
           </div>
         ) : null}
 
         {shouldShowForm ? (
           <div className="mx-auto flex max-w-md items-center justify-center">
-            <Card className="w-full border-border bg-card shadow-md rounded-xl">
-              <CardHeader className="space-y-1">
-                <CardTitle className="text-center text-2xl font-black tracking-tight text-foreground">
+            <PremiumCard className="w-full border-border bg-card shadow-md rounded-none">
+              <div className="space-y-1 mb-6 text-right">
+                <h2 className="text-2xl font-black tracking-tight text-foreground uppercase">
                   הוסף פרופיל חדש
-                </CardTitle>
-                <CardDescription className="text-center text-muted-foreground font-semibold">
+                </h2>
+                <p className="text-muted-foreground font-semibold text-xs uppercase tracking-widest">
                   השתמש בפרופילים מקומיים לניתוח מהיר
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                </p>
+              </div>
+
+              <div className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="font-semibold">
+                  <Label
+                    htmlFor="username"
+                    className="text-xs font-black uppercase tracking-widest text-muted-foreground"
+                  >
                     שם משתמש
                   </Label>
-                  <Input
+                  <PremiumInput
                     id="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="הכנס שם משתמש..."
                     className={cn(
-                      'rounded-lg border-border focus-visible:ring-ring',
                       fieldErrors.username &&
                         'border-destructive focus-visible:ring-destructive',
                     )}
                   />
                   {fieldErrors.username && (
-                    <p className="text-xs font-bold text-destructive mt-1">
+                    <p className="text-[10px] font-bold text-destructive mt-1 uppercase">
                       {fieldErrors.username}
                     </p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="font-semibold">
+                  <Label
+                    htmlFor="email"
+                    className="text-xs font-black uppercase tracking-widest text-muted-foreground"
+                  >
                     אימייל
                   </Label>
-                  <Input
+                  <PremiumInput
                     id="email"
                     type="email"
                     autoComplete="email"
@@ -236,21 +235,20 @@ export default function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="example@mail.com"
                     className={cn(
-                      'rounded-lg border-border focus-visible:ring-ring',
                       fieldErrors.email &&
                         'border-destructive focus-visible:ring-destructive',
                     )}
                   />
                   {fieldErrors.email && (
-                    <p className="text-xs font-bold text-destructive mt-1">
+                    <p className="text-[10px] font-bold text-destructive mt-1 uppercase">
                       {fieldErrors.email}
                     </p>
                   )}
                 </div>
 
-                <div className="space-y-2 rounded-lg border border-border p-3">
+                <div className="space-y-2 border border-border p-4 bg-muted/10">
                   <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-sm font-bold text-foreground/80">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-foreground/80">
                       לנעול את הפרופיל?
                     </span>
                     <input
@@ -265,24 +263,26 @@ export default function Login() {
                   </label>
 
                   {lockProfile && (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="unlockKey" className="font-semibold">
+                    <div className="space-y-1.5 pt-2 border-t border-border mt-2">
+                      <Label
+                        htmlFor="unlockKey"
+                        className="text-[10px] font-black uppercase tracking-widest text-muted-foreground"
+                      >
                         קוד פתיחה זמני
                       </Label>
-                      <Input
+                      <PremiumInput
                         id="unlockKey"
-                        type="password"
+                        isPassword
                         value={unlockKey}
                         onChange={(e) => setUnlockKey(e.target.value)}
                         placeholder="הזן קוד פתיחה"
                         className={cn(
-                          'rounded-lg border-border focus-visible:ring-ring',
                           fieldErrors.unlockKey &&
                             'border-destructive focus-visible:ring-destructive',
                         )}
                       />
                       {fieldErrors.unlockKey && (
-                        <p className="text-xs font-bold text-destructive mt-1">
+                        <p className="text-[10px] font-bold text-destructive mt-1 uppercase">
                           {fieldErrors.unlockKey}
                         </p>
                       )}
@@ -291,7 +291,7 @@ export default function Login() {
                 </div>
 
                 <Button
-                  className="w-full h-11 rounded-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm mt-2"
+                  className="w-full h-12 rounded-none font-black text-xs uppercase tracking-widest bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 mt-2"
                   onClick={() => void createProfile()}
                 >
                   שמור פרופיל
@@ -299,102 +299,104 @@ export default function Login() {
 
                 {profiles.length > 0 ? (
                   <>
-                    <Separator className="my-2 bg-border" />
+                    <Separator className="my-2 bg-border/50" />
                     <Button
                       variant="ghost"
-                      className="w-full h-11 rounded-lg font-bold text-muted-foreground hover:text-foreground"
+                      className="w-full h-12 rounded-none font-black text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground flex items-center gap-2"
                       onClick={() => setShowForm(false)}
                     >
+                      <ArrowLeft className="h-4 w-4" weight="bold" />
                       חזור לבחירת פרופיל
                     </Button>
                   </>
                 ) : null}
-              </CardContent>
-            </Card>
+              </div>
+            </PremiumCard>
           </div>
         ) : (
-          <div className="mx-auto flex flex-col items-center justify-center space-y-12">
+          <div className="mx-auto flex flex-col items-center justify-center space-y-12 max-w-4xl">
             <div className="text-center space-y-3">
-              <h1 className="text-5xl font-black tracking-tight text-foreground">
+              <h1 className="text-5xl font-black tracking-tight text-foreground uppercase">
                 מי מתחבר?
               </h1>
-              <p className="text-muted-foreground font-semibold">
+              <p className="text-muted-foreground font-black text-xs uppercase tracking-[0.2em]">
                 בחר פרופיל על מנת להיכנס לדשבורד
               </p>
             </div>
 
-            <div className="flex flex-wrap items-start justify-center gap-8 md:gap-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full">
               {profiles.map((user, index) => (
-                <div
-                  key={user.id}
-                  className="space-y-4 text-center group relative"
-                >
+                <div key={user.id} className="group relative">
                   <button
                     onClick={() => {
                       setDeleteTarget(user);
                       setDeleteSuccess(false);
                       setDeleteConfirmation('');
                     }}
-                    className="absolute -top-2 -left-2 z-20 h-7 w-7 rounded-full border border-destructive/20 bg-background text-destructive hover:bg-destructive/10 transition-colors flex items-center justify-center cursor-pointer"
+                    className="absolute -top-2 -left-2 z-20 h-8 w-8 rounded-none border border-destructive/20 bg-background text-destructive opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive hover:text-white flex items-center justify-center cursor-pointer shadow-sm"
                     aria-label={`Delete ${user.username}`}
                   >
-                    <Trash className="h-3.5 w-3.5" weight="duotone" />
+                    <Trash className="h-4 w-4" weight="bold" />
                   </button>
 
-                  <Button
-                    variant="ghost"
-                    className="h-auto p-0 rounded-xl hover:bg-transparent transition-all duration-300 group-hover:scale-105"
+                  <button
+                    className={cn(
+                      'w-full text-right transition-all duration-300 cursor-pointer outline-none border border-border bg-card p-5 flex flex-col justify-between h-44 hover:border-foreground/20 hover:shadow-xl active:scale-95',
+                      selectedId === user.id &&
+                        'border-primary ring-1 ring-primary/20 bg-primary/5 shadow-lg shadow-primary/5',
+                    )}
                     onClick={() => {
                       setSelectedId(user.id);
                       void login(user.id);
                     }}
                   >
-                    <Avatar
-                      className={cn(
-                        'h-28 w-28 rounded-xl border-2 transition-all duration-300 shadow-md',
-                        avatarGrays[index % avatarGrays.length],
-                        selectedId === user.id
-                          ? 'ring-4 ring-primary scale-105'
-                          : 'group-hover:border-primary/50',
-                      )}
-                    >
-                      <AvatarFallback className="rounded-xl bg-transparent text-3xl font-black">
+                    <div className="flex justify-between items-start">
+                      <div
+                        className={cn(
+                          'h-12 w-12 border border-border flex items-center justify-center text-xl font-black shadow-sm',
+                          avatarGrays[index % avatarGrays.length],
+                        )}
+                      >
                         {user.username.slice(0, 1).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                  <p
-                    className={cn(
-                      'text-base transition-colors duration-200 flex items-center justify-center gap-1',
-                      selectedId === user.id
-                        ? 'font-black text-foreground'
-                        : 'font-semibold text-muted-foreground group-hover:text-foreground',
-                    )}
-                  >
-                    {user.username}
-                    {user.isLocked ? (
-                      <Lock className="h-3.5 w-3.5" weight="duotone" />
-                    ) : null}
-                  </p>
+                      </div>
+                      {user.isLocked && (
+                        <div className="bg-muted p-1.5 border border-border shadow-xs">
+                          <Lock
+                            className="h-3.5 w-3.5 text-muted-foreground"
+                            weight="bold"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-lg font-black text-foreground uppercase truncate">
+                        {user.username}
+                      </p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">
+                        פרופיל מקומי
+                      </p>
+                    </div>
+                  </button>
                 </div>
               ))}
 
-              <div className="space-y-4 text-center group">
-                <Button
-                  variant="ghost"
-                  className="h-auto p-0 rounded-xl hover:bg-transparent transition-all duration-300 group-hover:scale-105"
-                  onClick={() => setShowForm(true)}
-                >
-                  <Avatar className="h-28 w-28 rounded-xl bg-muted/30 border-2 border-dashed border-border transition-colors group-hover:border-muted-foreground flex items-center justify-center">
-                    <AvatarFallback className="rounded-xl bg-transparent text-muted-foreground group-hover:text-foreground">
-                      <Plus className="h-10 w-10" weight="bold" />
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-                <p className="text-base font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
-                  הוסף פרופיל
-                </p>
-              </div>
+              <button
+                onClick={() => setShowForm(true)}
+                className="group w-full text-center transition-all duration-300 cursor-pointer outline-none border border-dashed border-border bg-muted/5 p-5 flex flex-col items-center justify-center gap-4 h-44 hover:bg-muted/10 hover:border-foreground/40 active:scale-95"
+              >
+                <div className="h-12 w-12 rounded-none bg-background border border-border flex items-center justify-center transition-all group-hover:scale-110 group-hover:shadow-md">
+                  <Plus
+                    className="h-6 w-6 text-muted-foreground transition-colors group-hover:text-primary"
+                    weight="bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-black text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-tight">
+                    הוסף פרופיל
+                  </p>
+                </div>
+              </button>
             </div>
           </div>
         )}
@@ -410,23 +412,23 @@ export default function Login() {
           dir="rtl"
         >
           <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
-            <DialogTitle className="text-lg font-black text-foreground">
+            <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
               פרופיל נעול
             </DialogTitle>
-            <DialogDescription className="text-xs font-semibold text-muted-foreground">
+            <DialogDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
               הזן קוד פתיחה עבור {unlockTarget?.username}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-4">
-            <Input
-              type="password"
+            <PremiumInput
+              isPassword
               value={unlockInput}
               onChange={(e) => setUnlockInput(e.target.value)}
               placeholder="קוד פתיחה כאן..."
               className="w-full h-12 bg-muted/50 border border-border rounded-none"
             />
             {unlockError ? (
-              <p className="text-[11px] font-bold text-destructive bg-destructive/10 p-2 border border-destructive/20">
+              <p className="text-[11px] font-bold text-destructive bg-destructive/10 p-2 border border-destructive/20 text-right uppercase">
                 {unlockError}
               </p>
             ) : null}
@@ -434,14 +436,14 @@ export default function Login() {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
+                className="rounded-none font-bold text-xs h-10 border-border cursor-pointer uppercase tracking-widest"
                 onClick={() => setUnlockTarget(null)}
               >
                 ביטול
               </Button>
               <Button
                 type="button"
-                className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
+                className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer uppercase tracking-widest px-6"
                 onClick={() => void unlockAndLogin()}
               >
                 שחרר והתחבר
@@ -462,14 +464,14 @@ export default function Login() {
         >
           {deleteSuccess ? (
             <div className="min-h-[220px] flex flex-col items-center justify-center text-center gap-4">
-              <div className="h-11 w-11 rounded-full bg-emerald-600 text-white flex items-center justify-center text-2xl font-black">
+              <div className="h-11 w-11 rounded-none border border-emerald-600 bg-emerald-600/10 text-emerald-600 flex items-center justify-center text-2xl font-black shadow-lg shadow-emerald-500/20">
                 ✓
               </div>
-              <p className="text-sm font-black text-foreground">
+              <p className="text-sm font-black text-foreground uppercase tracking-tight">
                 הפרופיל נמחק בהצלחה
               </p>
               <Button
-                className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-8"
+                className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-10 uppercase tracking-widest"
                 onClick={() => {
                   setDeleteTarget(null);
                   setDeleteSuccess(false);
@@ -481,21 +483,21 @@ export default function Login() {
           ) : (
             <>
               <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
-                <DialogTitle className="text-lg font-black text-foreground">
+                <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
                   מחיקת פרופיל
                 </DialogTitle>
-                <DialogDescription className="text-xs font-semibold text-muted-foreground">
+                <DialogDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                   כדי למחוק את הפרופיל, הקלד את האימייל שלו בדיוק.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-3 pt-4">
-                <p className="text-xs font-semibold text-muted-foreground">
+              <div className="space-y-3 pt-4 text-right">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-tight">
                   הקלד:{' '}
-                  <span className="font-black text-foreground">
+                  <span className="font-black text-foreground underline underline-offset-4 decoration-destructive/40">
                     {deleteTarget?.email}
                   </span>
                 </p>
-                <Input
+                <PremiumInput
                   value={deleteConfirmation}
                   onChange={(e) => setDeleteConfirmation(e.target.value)}
                   placeholder="profile@email.com"
@@ -505,14 +507,14 @@ export default function Login() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
+                    className="rounded-none font-bold text-xs h-10 border-border cursor-pointer uppercase tracking-widest"
                     onClick={() => setDeleteTarget(null)}
                   >
                     ביטול
                   </Button>
                   <Button
                     type="button"
-                    className="rounded-none font-bold text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer"
+                    className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer uppercase tracking-widest px-6"
                     disabled={deleteConfirmation !== deleteTarget?.email}
                     onClick={() => void deleteProfile()}
                   >

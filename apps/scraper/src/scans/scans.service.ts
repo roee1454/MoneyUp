@@ -14,13 +14,9 @@ import { isWithinRange } from '../utils/date.utils';
 
 const EXPENSE_CATEGORIES = [
   'מזון',
-  'ביגוד',
-  'בידור',
-  'בילויים',
-  'אלקטרוניקה',
-  'אונליין',
+  'קניות',
+  'בילויים ופנאי',
   'דלק/תחבורה',
-  'סופר',
   'מנויים',
   'לא מסווג',
 ] as const;
@@ -47,6 +43,7 @@ export class ScansService {
       normalizedMerchant: string;
       displayMerchant: string;
       category: string;
+      keywords?: string;
       source?: 'ai' | 'manual' | 'rule_seed';
       model?: string;
       confidence?: number;
@@ -68,6 +65,7 @@ export class ScansService {
       entity.category = this.isValidCategory(item.category)
         ? item.category
         : 'לא מסווג';
+      entity.keywords = item.keywords || entity.keywords || null;
       entity.source = item.source ?? 'ai';
       entity.model = item.model;
       entity.confidence = Number.isFinite(item.confidence)
@@ -77,6 +75,53 @@ export class ScansService {
       upserted += 1;
     }
     return { upserted };
+  }
+
+  async getAllAnnotations(): Promise<MerchantAnnotationEntity[]> {
+    return this.annotationRepository.find({
+      select: ['displayMerchant', 'normalizedMerchant', 'category', 'keywords'],
+    });
+  }
+
+  async findMerchantsByTopic(topic: string): Promise<string[]> {
+    const term = topic.toLowerCase().trim();
+    if (!term) return [];
+
+    // Strategy 1: Find all annotations for the user
+    // In a production app, we would use a more advanced search index.
+    // For this self-hosted version, we'll fetch unique annotations and rank them in-memory.
+    const allAnnotations = await this.annotationRepository.find({
+      select: ['displayMerchant', 'normalizedMerchant', 'category', 'keywords'],
+    });
+
+    const scores = allAnnotations
+      .map((ma) => {
+        let score = 0;
+        const display = (ma.displayMerchant || '').toLowerCase();
+        const normalized = (ma.normalizedMerchant || '').toLowerCase();
+        const category = (ma.category || '').toLowerCase();
+        const keywords = (ma.keywords || '').toLowerCase().split(/[,\s]+/);
+
+        // Exact matches (Highest priority)
+        if (display === term || normalized === term) score += 100;
+        // Contains matches
+        else if (display.includes(term) || normalized.includes(term))
+          score += 50;
+
+        // Category matches
+        if (category.includes(term)) score += 30;
+
+        // Keyword matches (Semantic bridge)
+        if (keywords.some((k) => k === term)) score += 80;
+        else if (keywords.some((k) => k.includes(term))) score += 40;
+
+        return { merchant: ma.displayMerchant, score };
+      })
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    // Return unique merchant names, top 15
+    return [...new Set(scores.map((s) => s.merchant))].slice(0, 15);
   }
 
   private async scanIncomeDeterministic(
@@ -92,6 +137,7 @@ export class ScansService {
       categoryMap.set(category, { amount: 0, count: 0 });
       categoryTransactions[category] = [];
     }
+    const incomeTransactions: ScanTransaction[] = [];
 
     let totalIncome = 0;
     let totalExpenses = 0;
@@ -213,7 +259,7 @@ export class ScansService {
           continue;
         }
 
-        if (amount < 0 && isCredit) {
+        if (amount < 0) {
           const merchantName = this.getCleanDescription(
             txn.description,
             txn.memo,
@@ -260,7 +306,7 @@ export class ScansService {
             }
           }
 
-          if (!category && normalizedMerchant) {
+          if ((!category || category === 'לא מסווג') && normalizedMerchant) {
             unresolvedMerchants.set(normalizedMerchant, merchantName);
             resolutionReason = 'Uncategorized merchant';
           }
@@ -284,6 +330,7 @@ export class ScansService {
             reason: resolutionReason || `Category: ${finalCategory}`,
             confidence: category ? 0.9 : 0.5,
             tags: this.inferTags(merchantName, Math.abs(amount), txns),
+            type: 'expense',
           });
           if (debugTrace && baseDebugTxn) {
             debugTrace.transactions.push({
@@ -291,14 +338,6 @@ export class ScansService {
               status: 'included_expense',
               category: finalCategory,
               reason: resolutionReason || 'Included expense',
-            });
-          }
-        } else if (amount < 0) {
-          if (debugTrace && baseDebugTxn) {
-            debugTrace.transactions.push({
-              ...baseDebugTxn,
-              status: 'skipped_non_credit_expense',
-              reason: 'Expense ignored because account is not a credit company',
             });
           }
         }
@@ -317,6 +356,22 @@ export class ScansService {
           }
           const cleaned = this.getCleanDescription(txn.description, txn.memo);
           totalIncome += amount;
+
+          const merchantName = cleaned || txn.description || 'הפקדה/העברה';
+          incomeTransactions.push({
+            transactionId: txn.id,
+            bankId: String(account.bankId ?? ''),
+            accountNumber: String(account.accountNumber ?? ''),
+            cardLast4: undefined,
+            merchant: merchantName,
+            date: txn.date,
+            amount: amount,
+            reason: 'הפקדה לחשבון בנק',
+            confidence: 1.0,
+            tags: this.inferTags(merchantName, amount, txns),
+            type: 'income',
+          });
+
           if (debugTrace && baseDebugTxn) {
             debugTrace.transactions.push({
               ...baseDebugTxn,
@@ -341,6 +396,7 @@ export class ScansService {
       totalBalance,
       categories,
       categoryTransactions,
+      incomeTransactions,
       unresolvedMerchants: Array.from(unresolvedMerchants.entries()).map(
         ([normalizedMerchant, displayMerchant]) => ({
           normalizedMerchant,
@@ -437,86 +493,91 @@ export class ScansService {
       desc.includes('ארומה') ||
       desc.includes('קופיקס') ||
       desc.includes('אוכל') ||
-      desc.includes('פיצה')
+      desc.includes('פיצה') ||
+      desc.includes('פאב') ||
+      desc.includes('בר ')
     )
       return 'מזון';
+
+    // Grouping: super, clothing, electronics, online shopping -> קניות
     if (
+      desc.includes('סופר') ||
+      desc.includes('מכולת') ||
+      desc.includes('קנייה') ||
+      desc.includes('מרקט') ||
+      desc.includes('שופרסל') ||
+      desc.includes('רמי לוי') ||
+      desc.includes('יוחננוף') ||
+      desc.includes('חצי חינם') ||
+      desc.includes('טיב טעם') ||
+      desc.includes('ויקטורי') ||
+      desc.includes('אמזון') ||
+      desc.includes('amazon') ||
+      desc.includes('ebay') ||
+      desc.includes('איביי') ||
+      desc.includes('עלי אקספרס') ||
+      desc.includes('aliexpress') ||
+      desc.includes('שיין') ||
+      desc.includes('shein') ||
+      desc.includes('קניות') ||
       desc.includes('זארה') ||
       desc.includes('zara') ||
       desc.includes('h&m') ||
-      desc.includes('אסוס') ||
-      desc.includes('asos') ||
-      desc.includes('ביגוד') ||
+      desc.includes('נעליים') ||
       desc.includes('בגדים') ||
-      desc.includes('נעליים')
-    )
-      return 'ביגוד';
-    if (
-      desc.includes('סינמה') ||
-      desc.includes('נטפליקס') ||
-      desc.includes('netflix') ||
-      desc.includes('בר ') ||
-      desc.includes('הופעה') ||
-      desc.includes('סרט') ||
-      desc.includes('בידור') ||
-      desc.includes('קולנוע')
-    )
-      return 'בידור';
-    if (
-      desc.includes('פאב') ||
-      desc.includes('מועדון') ||
-      desc.includes('ליין') ||
-      desc.includes('בילוי') ||
-      desc.includes('אטרקציה') ||
-      desc.includes('לונה פארק') ||
-      desc.includes('חדר בריחה')
-    )
-      return 'בילויים';
-    if (
-      desc.includes('אייבורי') ||
       desc.includes('ksp') ||
+      desc.includes('אייבורי') ||
+      desc.includes('ivory') ||
+      desc.includes('מחשב') ||
+      desc.includes('טלפון') ||
       desc.includes('מחסני חשמל') ||
       desc.includes('באג') ||
       desc.includes('electronics') ||
       desc.includes('אלקטרוניקה') ||
-      desc.includes('חשמל')
-    )
-      return 'אלקטרוניקה';
-    if (
-      desc.includes('amazon') ||
-      desc.includes('aliexpress') ||
-      desc.includes('ebay') ||
+      desc.includes('חשמל') ||
       desc.includes('etsy') ||
-      desc.includes('עלי אקספרס') ||
-      desc.includes('שיין') ||
-      desc.includes('shein') ||
       desc.includes('online') ||
       desc.includes('אונליין')
     )
-      return 'אונליין';
+      return 'קניות';
+
+    // Grouping: entertainment, going out -> בילויים ופנאי
     if (
+      desc.includes('סינמה') ||
+      desc.includes('קולנוע') ||
+      desc.includes('הופעה') ||
+      desc.includes('כרטיס') ||
+      desc.includes('סרט') ||
+      desc.includes('בידור') ||
+      desc.includes('קולנוע') ||
+      desc.includes('מסיבה') ||
+      desc.includes('בילוי') ||
+      desc.includes('אטרקציה') ||
+      desc.includes('לונה פארק') ||
+      desc.includes('חדר בריחה') ||
+      desc.includes('מועדון') ||
+      desc.includes('ליין')
+    )
+      return 'בילויים ופנאי';
+
+    if (
+      desc.includes('דלק') ||
+      desc.includes('תחבורה') ||
       desc.includes('פז') ||
       desc.includes('סונול') ||
-      desc.includes('דלק') ||
-      desc.includes('רכבת') ||
-      desc.includes('אוטובוס') ||
+      desc.includes('דור אלון') ||
+      desc.includes('delek') ||
+      desc.includes('פנגו') ||
+      desc.includes('pango') ||
+      desc.includes('סלופארק') ||
       desc.includes('מונית') ||
-      desc.includes('גט') ||
+      desc.includes('גט ') ||
       desc.includes('gett') ||
-      desc.includes('תחבורה')
+      desc.includes('רכבת') ||
+      desc.includes('אוטובוס')
     )
       return 'דלק/תחבורה';
-    if (
-      desc.includes('שופרסל') ||
-      desc.includes('רמי לוי') ||
-      desc.includes('טיב טעם') ||
-      desc.includes('סופר') ||
-      desc.includes('מכולת') ||
-      desc.includes('יוחננוף') ||
-      desc.includes('חצי חינם') ||
-      desc.includes('ויקטורי')
-    )
-      return 'סופר';
+
     if (
       desc.includes('ספוטיפיי') ||
       desc.includes('spotify') ||
@@ -526,9 +587,15 @@ export class ScansService {
       desc.includes('אינטרנט') ||
       desc.includes('טלפון') ||
       desc.includes('הוסט') ||
-      desc.includes('domain')
+      desc.includes('domain') ||
+      desc.includes('נטפליקס') ||
+      desc.includes('netflix') ||
+      desc.includes('גוגל') ||
+      desc.includes('google') ||
+      desc.includes('icloud')
     )
       return 'מנויים';
+
     return null;
   }
 

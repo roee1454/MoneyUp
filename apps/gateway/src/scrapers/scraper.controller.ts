@@ -183,6 +183,22 @@ export class ScraperController {
     return response;
   }
 
+  @Post('disconnect')
+  async disconnectScraper(
+    @Body() payload: { bankId: string },
+    @Req() request: Request,
+  ) {
+    const userId = requireSessionUserId(request);
+    return firstValueFrom(
+      this.scraperServiceClient
+        .send('disconnect_scraper', {
+          userId,
+          bankId: payload.bankId,
+        })
+        .pipe(timeout(10000)),
+    );
+  }
+
   @Get('status')
   async getScraperStatus(
     @Query('sessionId') sessionId: string,

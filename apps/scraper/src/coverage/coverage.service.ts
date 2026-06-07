@@ -141,4 +141,8 @@ export class CoverageService {
     );
     await this.coverageRepository.save(newEntities);
   }
+
+  async removeCoverage(userId: string, bankId: string): Promise<void> {
+    await this.coverageRepository.delete({ userId, bankId });
+  }
 }

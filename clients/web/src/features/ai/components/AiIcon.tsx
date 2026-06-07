@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
-export type AiProvider = 'openai' | 'claude' | 'gemini';
+export type AiProvider = 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
 export type AiIconShape = 'circle' | 'rounded-square';
 
 interface AiIconProps {
   provider: AiProvider;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   shape?: AiIconShape;
   fill?: boolean;
   className?: string;
@@ -15,15 +15,20 @@ const AI_ICON_BY_PROVIDER: Record<AiProvider, string> = {
   openai: '/ai-providers/gpt.jpeg',
   claude: '/ai-providers/claude.png',
   gemini: '/ai-providers/gemini.png',
+  ollama: '/ai-providers/ollama.png',
+  openrouter: '/ai-providers/openrouter.png',
 };
 
 const AI_LABEL_BY_PROVIDER: Record<AiProvider, string> = {
   openai: 'OpenAI',
   claude: 'Anthropic Claude',
   gemini: 'Gemini',
+  ollama: 'Ollama',
+  openrouter: 'OpenRouter',
 };
 
 const sizeClassByVariant: Record<NonNullable<AiIconProps['size']>, string> = {
+  xs: 'h-4.5 w-4.5 text-[8px]',
   sm: 'h-8 w-8 text-[10px]',
   md: 'h-10 w-10 text-xs',
   lg: 'h-16 w-16 text-lg',

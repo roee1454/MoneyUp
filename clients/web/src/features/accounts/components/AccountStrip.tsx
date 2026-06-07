@@ -1,7 +1,12 @@
 import { useState } from 'react';
-import { Warning } from '@phosphor-icons/react';
+import { Warning, Trash, CircleNotch } from '@phosphor-icons/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { type BankAccount, isCreditCompanyBankId } from '@/hooks/useAccounts';
+import {
+  type BankAccount,
+  isCreditCompanyBankId,
+  useDisconnectAccount,
+} from '@/hooks/useAccounts';
 import { BankIcon } from './BankIcon';
 import { getBankName, normalizeBankId } from '@/lib/bank-branding';
 import {
@@ -10,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 
 interface AccountStripProps {
@@ -68,6 +74,29 @@ export function AccountStrip({
   isRefreshingValues = false,
 }: AccountStripProps) {
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const disconnectAccount = useDisconnectAccount();
+  const queryClient = useQueryClient();
+
+  const handleDisconnect = async () => {
+    if (!selectedBankId) return;
+    if (
+      !window.confirm(
+        `האם אתה בטוח שברצונך לנתק את החיבור ל-${getBankName(selectedBankId)}? כל הנתונים השמורים יימחקו.`,
+      )
+    ) {
+      return;
+    }
+
+    setIsDisconnecting(true);
+    try {
+      await disconnectAccount.mutateAsync(selectedBankId);
+      void queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
+      setSelectedBankId(null);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
 
   if (isInitialLoading) {
     return (
@@ -148,6 +177,16 @@ export function AccountStrip({
         );
         const transactionsCount = getTransactionsCount(bankAccounts);
 
+        const lastScrapedAt = bankAccounts[0]?.lastScrapedAt;
+        const lastScrapedText = lastScrapedAt
+          ? `סונכרן: ${new Date(lastScrapedAt).toLocaleDateString('he-IL', {
+              month: 'numeric',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}`
+          : 'טרם סונכרן';
+
         return (
           <button
             key={bankId}
@@ -166,6 +205,7 @@ export function AccountStrip({
                       ? 'כרטיס אחד'
                       : 'חשבון אחד'
                     : `${bankAccounts.length} ${isCard ? 'כרטיסים' : 'חשבונות'}`}
+                  {` • ${lastScrapedText}`}
                 </p>
               </div>
             </div>
@@ -221,6 +261,12 @@ export function AccountStrip({
                   </DialogTitle>
                   <DialogDescription className="text-xs font-semibold text-muted-foreground">
                     פירוט החשבונות והכרטיסים המחוברים בסנכרון זה
+                    {selectedAccounts[0]?.lastScrapedAt && (
+                      <>
+                        <br />
+                        סונכרן לאחרונה: {new Date(selectedAccounts[0].lastScrapedAt).toLocaleString('he-IL')}
+                      </>
+                    )}
                   </DialogDescription>
                 </div>
               </div>
@@ -267,6 +313,22 @@ export function AccountStrip({
                 );
               })}
             </div>
+
+            <DialogFooter className="pt-4 border-t border-border flex flex-col gap-2">
+              <Button
+                variant="outline"
+                className="w-full h-10 border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 font-bold transition-all flex items-center justify-center gap-2"
+                onClick={handleDisconnect}
+                disabled={isDisconnecting}
+              >
+                {isDisconnecting ? (
+                  <CircleNotch className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash className="h-4 w-4" />
+                )}
+                <span>נתק חיבור זה ומחק נתונים</span>
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

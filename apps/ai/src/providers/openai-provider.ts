@@ -2,6 +2,7 @@ import { Observable } from 'rxjs';
 import type { ReadableStream } from 'node:stream/web';
 import { AIProvider, PromptOptions } from './ai-provider';
 import { OPENAI_MODELS } from '@money-up/common';
+import { AiMessage, StructuredResponse } from '@money-up/types';
 
 export class OpenAIProvider extends AIProvider {
   private readonly baseUrl = 'https://api.openai.com/v1';
@@ -25,9 +26,9 @@ export class OpenAIProvider extends AIProvider {
 
   async prompt(
     modelName: string,
-    prompt: string,
+    messages: AiMessage[],
     options?: PromptOptions,
-  ): Promise<string | Observable<string>> {
+  ): Promise<StructuredResponse | Observable<StructuredResponse>> {
     const stream = !!options?.stream;
 
     // Automatic detection for reasoning/newer models that require max_completion_tokens
@@ -37,15 +38,48 @@ export class OpenAIProvider extends AIProvider {
       modelName.startsWith('o3') ||
       modelName.startsWith('o4');
 
+    const openAiMessages = messages.map((m) => {
+      const msg: any = {
+        role: m.role,
+        content: m.content || null,
+      };
+      if (m.role === 'tool') {
+        msg.tool_call_id = m.tool_call_id;
+      }
+      if (m.tool_calls && m.tool_calls.length > 0) {
+        msg.tool_calls = m.tool_calls.map((tc) => ({
+          id: tc.id,
+          type: 'function',
+          function: {
+            name: tc.name,
+            arguments: JSON.stringify(tc.arguments),
+          },
+        }));
+      }
+      return msg;
+    });
+
+    const openAiTools = options?.tools?.map((t) => ({
+      type: 'function' as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters,
+      },
+    }));
+
     const payload: any = {
       model: modelName,
-      messages: [{ role: 'user', content: prompt }],
+      messages: openAiMessages,
       stream,
     };
 
+    if (openAiTools && openAiTools.length > 0) {
+      payload.tools = openAiTools;
+    }
+
     if (isNewModel) {
       payload.max_completion_tokens = options?.maxTokens ?? 1024;
-      // Newer reasoning models often reject the temperature parameter
     } else {
       payload.max_tokens = options?.maxTokens ?? 1024;
       payload.temperature = options?.temperature ?? 0.7;
@@ -69,9 +103,38 @@ export class OpenAIProvider extends AIProvider {
 
     if (!stream) {
       const json = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
+        choices?: Array<{
+          message?: {
+            content?: string;
+            tool_calls?: Array<{
+              id: string;
+              type: 'function';
+              function: { name: string; arguments: string };
+            }>;
+          };
+        }>;
       };
-      return json.choices?.[0]?.message?.content ?? '';
+
+      const choice = json.choices?.[0];
+      const message = choice?.message;
+
+      if (message?.tool_calls && message.tool_calls.length > 0) {
+        const toolCalls = message.tool_calls.map((tc) => ({
+          id: tc.id,
+          name: tc.function.name,
+          arguments: JSON.parse(tc.function.arguments),
+        }));
+        return {
+          type: 'tool_calls',
+          tool_calls: toolCalls,
+          content: message.content || undefined,
+        };
+      }
+
+      return {
+        type: 'text',
+        content: message?.content || '',
+      };
     }
 
     if (!res.body) {
@@ -80,20 +143,22 @@ export class OpenAIProvider extends AIProvider {
 
     return this.createSseObservable(
       res.body as ReadableStream<Uint8Array<ArrayBuffer>>,
-      (json) => {
-        return json?.choices?.[0]?.delta?.content || '';
-      },
     );
   }
 
   private createSseObservable(
     body: ReadableStream<Uint8Array>,
-    extractText: (json: any) => string,
-  ): Observable<string> {
-    return new Observable<string>((subscriber) => {
+  ): Observable<StructuredResponse> {
+    return new Observable<StructuredResponse>((subscriber) => {
       const reader = body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+
+      const toolCallMap = new Map<
+        number,
+        { id?: string; name?: string; arguments: string }
+      >();
+      let accumulatedContent = '';
 
       const pump = async (): Promise<void> => {
         try {
@@ -113,11 +178,60 @@ export class OpenAIProvider extends AIProvider {
 
               try {
                 const parsed = JSON.parse(data);
-                const chunk = extractText(parsed);
-                if (chunk) subscriber.next(chunk);
+                const choice = parsed.choices?.[0];
+                const delta = choice?.delta;
+
+                if (delta?.content) {
+                  accumulatedContent += delta.content;
+                  subscriber.next({ type: 'text', content: delta.content });
+                }
+
+                if (delta?.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    const idx = tc.index ?? 0;
+                    let existing = toolCallMap.get(idx);
+                    if (!existing) {
+                      existing = { arguments: '' };
+                      toolCallMap.set(idx, existing);
+                    }
+                    if (tc.id) existing.id = tc.id;
+                    if (tc.function?.name) existing.name = tc.function.name;
+                    if (tc.function?.arguments) {
+                      existing.arguments += tc.function.arguments;
+                    }
+                  }
+                }
               } catch {
                 // Ignore malformed partial frame
               }
+            }
+          }
+
+          if (toolCallMap.size > 0) {
+            const toolCalls: any[] = [];
+            for (const [_, tc] of toolCallMap.entries()) {
+              if (tc.id && tc.name) {
+                try {
+                  toolCalls.push({
+                    id: tc.id,
+                    name: tc.name,
+                    arguments: JSON.parse(tc.arguments),
+                  });
+                } catch (e) {
+                  console.error(
+                    'Failed to parse OpenAI tool call arguments',
+                    tc.arguments,
+                    e,
+                  );
+                }
+              }
+            }
+            if (toolCalls.length > 0) {
+              subscriber.next({
+                type: 'tool_calls',
+                tool_calls: toolCalls,
+                content: accumulatedContent || undefined,
+              });
             }
           }
 

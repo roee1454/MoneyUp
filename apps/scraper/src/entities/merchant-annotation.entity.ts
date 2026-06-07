@@ -22,6 +22,9 @@ export class MerchantAnnotationEntity {
   @Column()
   category: string;
 
+  @Column({ type: 'text', nullable: true })
+  keywords?: string | null;
+
   @Column({ default: 'ai' })
   source: 'ai' | 'manual' | 'rule_seed';
 

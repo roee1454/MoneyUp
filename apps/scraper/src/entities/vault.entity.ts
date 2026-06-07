@@ -1,4 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('vault')
 export class VaultEntity {
@@ -14,9 +19,15 @@ export class VaultEntity {
   @Column()
   encryptedCredentials: string;
 
-  @Column({ nullable: true, type: "text" })
+  @Column({ nullable: true, type: 'text' })
   lastError: string | null;
 
-  @Column({ type: 'date', default: () => 'CURRENT_TIMESTAMP' })
+  /** Timestamp of the last SUCCESSFUL scrape for this connection.
+   *  Distinct from updatedAt which changes on credential saves and error updates. */
+  @Column({ nullable: true, type: 'datetime' })
+  lastScrapedAt: Date | null;
+
+  @UpdateDateColumn()
   updatedAt: Date;
 }
+

@@ -20,6 +20,7 @@ export interface BankAccount {
   bankId: string;
   accountNumber: string;
   balance?: number;
+  lastScrapedAt?: string | null;
   transactions: Transaction[];
 }
 
@@ -36,7 +37,11 @@ type AccountsRangeFilters = {
 
 function buildAccountsQuery(filters: AccountsRangeFilters = {}): string {
   const params = new URLSearchParams();
-  if (filters.startDate && filters.endDate && filters.startDate <= filters.endDate) {
+  if (
+    filters.startDate &&
+    filters.endDate &&
+    filters.startDate <= filters.endDate
+  ) {
     params.set('startDate', filters.startDate);
     params.set('endDate', filters.endDate);
   }
@@ -46,7 +51,9 @@ function buildAccountsQuery(filters: AccountsRangeFilters = {}): string {
 
 export function isCreditCompanyBankId(bankId: string): boolean {
   const normalized = String(bankId ?? '').toLowerCase();
-  return normalized === 'max' || normalized === 'isracard' || normalized === 'cal';
+  return (
+    normalized === 'max' || normalized === 'isracard' || normalized === 'cal'
+  );
 }
 
 export function isBankAccountBankId(bankId: string): boolean {
@@ -57,7 +64,11 @@ export function useAccounts(filters: AccountsRangeFilters = {}) {
   const session = useAppStore((s) => s.session);
 
   return useQuery({
-    queryKey: ['connected-accounts', filters.startDate ?? '', filters.endDate ?? ''],
+    queryKey: [
+      'connected-accounts',
+      filters.startDate ?? '',
+      filters.endDate ?? '',
+    ],
     queryFn: () => api.get<BankAccount[]>(buildAccountsQuery(filters)),
     enabled: !!session,
   });
@@ -65,7 +76,9 @@ export function useAccounts(filters: AccountsRangeFilters = {}) {
 
 export function useCreditAccount() {
   const query = useAccounts();
-  const accounts = (query.data ?? []).filter((account) => isCreditCompanyBankId(account.bankId));
+  const accounts = (query.data ?? []).filter((account) =>
+    isCreditCompanyBankId(account.bankId),
+  );
   return {
     ...query,
     accounts,
@@ -74,7 +87,9 @@ export function useCreditAccount() {
 
 export function useBankAccount() {
   const query = useAccounts();
-  const accounts = (query.data ?? []).filter((account) => isBankAccountBankId(account.bankId));
+  const accounts = (query.data ?? []).filter((account) =>
+    isBankAccountBankId(account.bankId),
+  );
   return {
     ...query,
     accounts,
@@ -112,6 +127,20 @@ export function useToggleTransactionDuplicate() {
     },
     onError: () => {
       toast.error('שגיאה בעדכון התנועה');
+    },
+  });
+}
+
+export function useDisconnectAccount() {
+  return useMutation({
+    mutationFn: (bankId: string) => {
+      return api.post('/scrapers/disconnect', { bankId });
+    },
+    onSuccess: () => {
+      toast.success('החשבון נותק בהצלחה');
+    },
+    onError: () => {
+      toast.error('שגיאה בניתוק החשבון');
     },
   });
 }

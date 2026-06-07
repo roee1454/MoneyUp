@@ -1,4 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
+// Mock browser service and factory to prevent Jest loading the ESM @puppeteer/browsers dependencies
+jest.mock('./browser/browser.service', () => ({
+  BrowserService: jest.fn().mockImplementation(() => ({
+    detectChromium: jest.fn(),
+    installChromium: jest.fn(),
+    installChromiumStream: jest.fn(),
+    ensureBrowser: jest.fn(),
+  })),
+}));
+
+jest.mock('./scraper-factory.service', () => ({
+  ScraperFactory: jest.fn().mockImplementation(() => ({
+    getScraper: jest.fn(),
+  })),
+}));
+
 import { ScraperController } from './scraper.controller';
 import { BrowserService } from './browser/browser.service';
 import { SessionService } from './session/session.service';
@@ -8,6 +25,7 @@ import { CacheService } from './cache/cache.service';
 import { CoverageService } from './coverage/coverage.service';
 import { ScansService } from './scans/scans.service';
 import { ScraperFactory } from './scraper-factory.service';
+
 
 describe('ScraperController', () => {
   let scraperServiceController: ScraperController;

@@ -1,9 +1,13 @@
 import { Observable } from 'rxjs';
+import { AiMessage, AiToolDefinition, StructuredResponse } from '@money-up/types';
+
+export { AiMessage, AiToolDefinition as AiTool, StructuredResponse } from '@money-up/types';
 
 export interface PromptOptions {
   stream?: boolean;
   temperature?: number;
   maxTokens?: number;
+  tools?: AiToolDefinition[];
 }
 
 export abstract class AIProvider {
@@ -13,7 +17,7 @@ export abstract class AIProvider {
   abstract listModels(): Promise<string[]>;
   abstract prompt(
     modelName: string,
-    prompt: string,
+    messages: AiMessage[],
     options?: PromptOptions,
-  ): Promise<string | Observable<string>>;
+  ): Promise<StructuredResponse | Observable<StructuredResponse>>;
 }

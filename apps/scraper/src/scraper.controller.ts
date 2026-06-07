@@ -22,6 +22,10 @@ type PublicScraperErrorCode =
 
 @Controller()
 export class ScraperController {
+  /** Tracks userIds that currently have a sync_accounts call in flight.
+   *  Prevents duplicate browser sessions when the gateway sends concurrent messages. */
+  private readonly syncInProgress = new Set<string>();
+
   constructor(
     private readonly scraperFactory: ScraperFactory,
     private readonly browserService: BrowserService,
@@ -72,12 +76,16 @@ export class ScraperController {
     const { userId, bankId, startDate } = data;
     try {
       // Prevent duplicate connections
-      const existingCredentials = await this.credentialsService.getCredentials(userId, bankId);
+      const existingCredentials = await this.credentialsService.getCredentials(
+        userId,
+        bankId,
+      );
       if (existingCredentials) {
         return {
           status: 'FAILED',
           errorCode: 'ACCOUNT_ALREADY_CONNECTED',
-          error: 'החשבון כבר מחובר. אנא בחר חשבון אחר או נתק את החשבון הקיים תחילה.',
+          error:
+            'החשבון כבר מחובר. אנא בחר חשבון אחר או נתק את החשבון הקיים תחילה.',
         };
       }
 
@@ -216,6 +224,7 @@ export class ScraperController {
             startDate: coverageStartDate,
             endDate: coverageEndDate,
           });
+          await this.credentialsService.markScrapedAt(userId, bankId);
         }
         this.sessionService.updateSession(sessionId, {
           status: 'SUCCESS',
@@ -274,6 +283,7 @@ export class ScraperController {
       error: session.error,
       internalErrorRaw: session.internalErrorRaw,
       resultData: session.resultData,
+      currentlySyncing: session.currentlySyncing ?? null,
     };
   }
 
@@ -312,6 +322,49 @@ export class ScraperController {
       errorCode: sanitized.code,
       error: sanitized.message,
     };
+  }
+
+  @MessagePattern('get_all_connected_accounts_metadata')
+  async getAllConnectedAccountsMetadata(data: { userId: string }): Promise<any[]> {
+    // Fetch every vault entry (one per connected bank/card)
+    const vaultEntries = await this.credentialsService.getUserConnections(data.userId);
+
+    // Fetch cache entries to resolve account numbers + last-known balances
+    const cacheEntries = await this.cacheService.getAllCacheEntries(data.userId);
+    const cacheMap = new Map<string, any[]>();
+    for (const entry of cacheEntries) {
+      try {
+        const parsed = JSON.parse(entry.cachedData);
+        cacheMap.set(entry.bankId, parsed);
+      } catch {
+        // ignore corrupt entries
+      }
+    }
+
+    const result: any[] = [];
+    for (const vault of vaultEntries) {
+      const accounts = cacheMap.get(vault.bankId) ?? [];
+      if (accounts.length === 0) {
+        // Connected but never synced — still show it
+        result.push({
+          bankId: vault.bankId,
+          accountNumber: null,
+          balance: null,
+          lastScrapedAt: vault.lastScrapedAt ?? null,
+        });
+      } else {
+        for (const acc of accounts) {
+          result.push({
+            bankId: vault.bankId,
+            accountNumber: acc.accountNumber ?? null,
+            balance: acc.balance ?? null,
+            lastScrapedAt: vault.lastScrapedAt ?? null,
+          });
+        }
+      }
+    }
+
+    return result;
   }
 
   @MessagePattern('get_connected_accounts')
@@ -375,6 +428,22 @@ export class ScraperController {
     defaultTimeoutSeconds?: number;
     sessionId?: string;
   }): Promise<any[]> {
+    // Guard: if a sync is already in progress for this user, skip the scrape
+    // and return the current cached data immediately. This prevents duplicate
+    // browser sessions when the gateway sends concurrent sync_accounts messages.
+    if (this.syncInProgress.has(data.userId)) {
+      console.log(
+        `[ScraperController] sync_accounts already in progress for user ${data.userId} — skipping duplicate`,
+      );
+      return this.cacheService.getCachedAccountsForRange(
+        data.userId,
+        data.startDate,
+        data.endDate,
+      );
+    }
+
+    this.syncInProgress.add(data.userId);
+
     if (data.sessionId) {
       this.sessionService.createSession(data.sessionId, {
         userId: data.userId,
@@ -396,6 +465,7 @@ export class ScraperController {
         sessionId: data.sessionId,
       });
     } finally {
+      this.syncInProgress.delete(data.userId);
       if (data.sessionId) {
         this.sessionService.removeSession(data.sessionId);
       }
@@ -441,14 +511,23 @@ export class ScraperController {
       normalizedMerchant: string;
       displayMerchant: string;
       category: string;
+      keywords?: string;
       source?: 'ai' | 'manual' | 'rule_seed';
       model?: string;
       confidence?: number;
     }>;
   }) {
-    return this.scansService.upsertMerchantAnnotations(
-      data.annotations ?? [],
-    );
+    return this.scansService.upsertMerchantAnnotations(data.annotations ?? []);
+  }
+
+  @MessagePattern('spending_find_merchants')
+  async findMerchantsByTopic(data: { topic: string }) {
+    return this.scansService.findMerchantsByTopic(data.topic);
+  }
+
+  @MessagePattern('spending_get_all_annotations')
+  async getAllAnnotations() {
+    return this.scansService.getAllAnnotations();
   }
 
   @MessagePattern('mark_transaction_duplicate')
@@ -459,20 +538,46 @@ export class ScraperController {
     id: string;
     isDuplicate: boolean;
   }) {
-    console.log(`[Scraper] Marking transaction ${data.id} as duplicate=${data.isDuplicate}`);
-    return this.cacheService.markTransactionDuplicate(
-      data.userId,
-      data.bankId,
-      data.accountNumber,
-      data.id,
-      data.isDuplicate,
-    ).then(() => {
-      console.log(`[Scraper] Successfully updated transaction ${data.id}`);
-      return { success: true };
-    }).catch(err => {
-      console.error(`[Scraper] Failed to update transaction ${data.id}:`, err);
-      throw err;
-    });
+    console.log(
+      `[Scraper] Marking transaction ${data.id} as duplicate=${data.isDuplicate}`,
+    );
+    return this.cacheService
+      .markTransactionDuplicate(
+        data.userId,
+        data.bankId,
+        data.accountNumber,
+        data.id,
+        data.isDuplicate,
+      )
+      .then(() => {
+        console.log(`[Scraper] Successfully updated transaction ${data.id}`);
+        return { success: true };
+      })
+      .catch((err) => {
+        console.error(
+          `[Scraper] Failed to update transaction ${data.id}:`,
+          err,
+        );
+        throw err;
+      });
+  }
+
+  @MessagePattern('disconnect_scraper')
+  async disconnectScraper(data: {
+    userId: string;
+    bankId: string;
+  }): Promise<{ success: boolean }> {
+    const { userId, bankId } = data;
+    console.log(`[Scraper] Disconnecting ${bankId} for user ${userId}`);
+
+    await this.credentialsService.removeConnection(userId, bankId);
+    await this.cacheService.removeCachedAccounts(userId, bankId);
+    await this.coverageService.removeCoverage(userId, bankId);
+
+    console.log(
+      `[Scraper] Successfully disconnected ${bankId} for user ${userId}`,
+    );
+    return { success: true };
   }
 
   private normalizeCredentials(
@@ -518,10 +623,7 @@ export class ScraperController {
     }
 
     if (bankId === 'leumi') {
-      if (
-        isMissing(credentials.username) ||
-        isMissing(credentials.password)
-      ) {
+      if (isMissing(credentials.username) || isMissing(credentials.password)) {
         return "Missing required leumi credentials. Expected 'username' and 'password'.";
       }
     }

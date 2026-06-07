@@ -13,9 +13,6 @@ export function AiProvidersSection({
   userProfile,
   onAddClick,
 }: AiProvidersSectionProps) {
-  const activeProvider = userProfile?.activeAiProvider as
-    | AiProvider
-    | undefined;
   const configuredProviders = (userProfile?.configuredProviders ?? []) as Array<
     AiProvider
   >;
@@ -47,7 +44,6 @@ export function AiProvidersSection({
         {configuredProviders.length > 0 ? (
           <AiProviderStrip
             configuredProviders={configuredProviders}
-            activeProvider={activeProvider || null}
             configs={userProfile?.aiProviderConfigs || null}
           />
         ) : (

@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { Observable } from 'rxjs';
 import { AiService } from './ai.service';
+import { AiMessage, AiTool, StructuredResponse } from './providers/ai-provider';
 
 @Controller()
 export class AiController {
@@ -11,7 +12,7 @@ export class AiController {
   async verifyConnection(
     @Payload()
     data: {
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
       apiKey: string;
     },
   ) {
@@ -23,7 +24,7 @@ export class AiController {
   async listModels(
     @Payload()
     data: {
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
       apiKey?: string;
     },
   ) {
@@ -35,42 +36,46 @@ export class AiController {
   async prompt(
     @Payload()
     data: {
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
       model: string;
-      prompt: string;
+      messages: AiMessage[];
       apiKey?: string;
       temperature?: number;
       maxTokens?: number;
+      tools?: AiTool[];
     },
-  ) {
+  ): Promise<StructuredResponse> {
     const p = this.aiService.getProvider(data.provider, data.apiKey);
-    const result = await p.prompt(data.model, data.prompt, {
+    const result = await p.prompt(data.model, data.messages, {
       stream: false,
       temperature: data.temperature,
       maxTokens: data.maxTokens,
+      tools: data.tools,
     });
-    return { text: result as string };
+    return result as StructuredResponse;
   }
 
   @MessagePattern('ai_prompt_stream')
   async promptStream(
     @Payload()
     data: {
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
       model: string;
-      prompt: string;
+      messages: AiMessage[];
       apiKey?: string;
       temperature?: number;
       maxTokens?: number;
+      tools?: AiTool[];
     },
-  ): Promise<Observable<string>> {
+  ): Promise<Observable<StructuredResponse>> {
     const p = this.aiService.getProvider(data.provider, data.apiKey);
-    const result = await p.prompt(data.model, data.prompt, {
+    const result = await p.prompt(data.model, data.messages, {
       stream: true,
       temperature: data.temperature,
       maxTokens: data.maxTokens,
+      tools: data.tools,
     });
-    return result as Observable<string>;
+    return result as Observable<StructuredResponse>;
   }
 
   @MessagePattern('ping')

@@ -7,13 +7,11 @@ import { useDeleteAiProvider } from '@/hooks/useAi';
 
 interface AiProviderStripProps {
   configuredProviders: AiProvider[];
-  activeProvider: AiProvider | null;
   configs: Record<string, any> | null;
 }
 
 export function AiProviderStrip({
   configuredProviders,
-  activeProvider,
   configs,
 }: AiProviderStripProps) {
   const [editingProvider, setEditingProvider] = useState<AiProvider | null>(
@@ -28,7 +26,6 @@ export function AiProviderStrip({
   return (
     <div className="flex flex-col gap-2 w-full">
       {configuredProviders.map((provider) => {
-        const isActive = activeProvider === provider;
         const config = configs?.[provider];
         const modelName = config?.model || 'לא הוגדר מודל';
         const presetLabel =
@@ -51,11 +48,6 @@ export function AiProviderStrip({
                   <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
                     {provider.toUpperCase()}
                   </p>
-                  {isActive && (
-                    <span className="px-1 py-0.5 bg-emerald-500/10 text-emerald-600 text-[8px] font-black rounded-none uppercase">
-                      פעיל
-                    </span>
-                  )}
                 </div>
                 <p className="text-[10px] font-semibold text-muted-foreground">
                   {modelName} • {presetLabel}
@@ -76,7 +68,15 @@ export function AiProviderStrip({
                 size="sm"
                 variant="ghost"
                 className="h-8 w-8 p-0 rounded-none text-muted-foreground/60 hover:text-rose-600 hover:bg-rose-500/5"
-                onClick={() => deleteAiProvider.mutate({ provider })}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `האם אתה בטוח שברצונך להסיר את ספק ${provider.toUpperCase()}?`,
+                    )
+                  ) {
+                    deleteAiProvider.mutate({ provider });
+                  }
+                }}
               >
                 <Trash className="h-4 w-4" weight="bold" />
               </Button>

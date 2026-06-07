@@ -12,7 +12,6 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useScrapersList, type ScraperErrorCode } from '@/hooks/useScrapers';
-import { useSyncAccounts } from '@/hooks/useAccounts';
 import { getScraperSocket } from '@/lib/scraper-socket';
 import { BankIcon } from './BankIcon';
 import { PremiumInput } from '@/components/ui/premium-input';
@@ -38,7 +37,6 @@ export function AddBankAccountDialog({
   onSuccess,
 }: AddBankAccountDialogProps) {
   const queryClient = useQueryClient();
-  const syncMutation = useSyncAccounts();
   const [selectedBank, setSelectedBank] = useState<any | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [isConnecting, setIsConnecting] = useState(false);
@@ -129,7 +127,6 @@ export function AddBankAccountDialog({
       setIsConnected(true);
       toast.success('החשבון סונכרן בהצלחה!');
       void queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
-      syncMutation.mutate({ silent: true });
       void onSuccess?.();
     };
 
@@ -242,7 +239,7 @@ export function AddBankAccountDialog({
                 type="button"
                 className={`flex-1 pb-3 text-xs font-black transition-all border-b-2 cursor-pointer ${
                   activeTab === 'credit_card'
-                    ? 'border-primary text-foreground'
+                    ? 'border-border text-foreground'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setActiveTab('credit_card')}
@@ -253,7 +250,7 @@ export function AddBankAccountDialog({
                 type="button"
                 className={`flex-1 pb-3 text-xs font-black transition-all border-b-2 cursor-pointer ${
                   activeTab === 'bank'
-                    ? 'border-primary text-foreground'
+                    ? 'border-border text-foreground'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setActiveTab('bank')}

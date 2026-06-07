@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { TrendDown, TrendUp, ArrowsDownUp, Wallet } from '@phosphor-icons/react';
 import { DashboardMetricCard } from './DashboardMetricCard';
 import type { SpendingScansResponse } from '@/hooks/useAi';
 import type { BankAccount } from '@/hooks/useAccounts';
@@ -61,7 +60,9 @@ export function DashboardMetricsGrid({
               accountLabel,
               amount,
               date: txn.date,
-              description: String(txn.description || txn.memo || 'הכנסה').trim(),
+              description: String(
+                txn.description || txn.memo || 'הכנסה',
+              ).trim(),
               isDuplicate: txn.isDuplicate,
             };
           })
@@ -83,104 +84,87 @@ export function DashboardMetricsGrid({
   );
   const netSpending = dashboardTotalIncome - adjustedTotalExpenses;
 
+  const bankAccountIds = useMemo(() => {
+    const ids = accounts
+      .filter((account) => !['max', 'isracard', 'cal'].includes(account.bankId))
+      .map((a) => a.bankId);
+    return [...new Set(ids)];
+  }, [accounts]);
+
+  const creditAccountIds = useMemo(() => {
+    const ids = accounts
+      .filter((account) => ['max', 'isracard', 'cal'].includes(account.bankId))
+      .map((a) => a.bankId);
+    return [...new Set(ids)];
+  }, [accounts]);
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 select-none">
       <DashboardMetricCard
+        variant="cell"
+        title="יתרה כוללת זמינה"
+        value={formatMoney(
+          hasBankAccounts ? currentBankBalance : (scans?.totalBalance ?? 0),
+        )}
+        caption="סיכום עו״ש בלבד"
+        tone="zinc"
+        isLoading={isBalanceLoading || isSyncing}
+        isLocked={!hasBankAccounts}
+        lockedLabel="נדרש חיבור לחשבון בנק"
+        sourceBankIds={bankAccountIds}
+      />
+
+      <DashboardMetricCard
+        variant="cell"
         title="סך הוצאות"
         value={`-${formatMoney(adjustedTotalExpenses)}`}
-        caption="אשראי בלבד, לפי טווח התאריכים"
-        icon={<TrendDown className="h-5 w-5" weight="duotone" />}
         tone="rose"
         isLoading={isCreditExpensesLoading || isSyncing}
         isLocked={!hasCreditAccounts}
-        lockedLabel="נדרש חיבור לחברת אשראי"
+        lockedLabel="נדרש חיבור לכרטיס אשראי"
+        sourceBankIds={creditAccountIds}
         footer={
-          <p className="text-[11px] font-bold text-muted-foreground">
-            {hasCreditAccounts
-              ? `${scans?.categories.length ?? 0} קטגוריות פעילות`
-              : 'חבר חברת אשראי כדי לראות הוצאות'}
-            {excludedExpenseAmount > 0
-              ? ` • הוחרגו ${formatMoney(excludedExpenseAmount)}`
-              : ''}
-          </p>
+          hasCreditAccounts ? (
+            <span>{scans?.categories.length ?? 0} קטגוריות פעילות</span>
+          ) : null
         }
       />
+
       <DashboardMetricCard
+        variant="cell"
         title="סך הכנסות"
-        value={
-          <span className="block translate-y-4">
-            {formatMoney(dashboardTotalIncome)}
-          </span>
-        }
-        caption="העברות, משכורות והפקדות"
-        icon={<TrendUp className="h-5 w-5" weight="duotone" />}
+        value={formatMoney(dashboardTotalIncome)}
         tone="emerald"
         isLoading={isIncomeLoading || isSyncing}
         isLocked={!hasBankAccounts}
         lockedLabel="נדרש חיבור לחשבון בנק"
+        sourceBankIds={bankAccountIds}
         footer={
-          <div className="flex flex-row justify-between items-end gap-2">
-            <p className="text-[11px] font-bold text-muted-foreground">
-              {hasBankAccounts
-                ? `${recentIncomeTransactions.length.toLocaleString('he-IL')} תנועות בטווח`
-                : 'יש לחבר חשבון בנק כדי לראות תנועות.'}
-            </p>
-            {hasBankAccounts ? (
-              <button
-                type="button"
-                onClick={onShowIncomeClick}
-                className="h-8 border border-emerald-500/20 bg-emerald-500/5 px-3 text-[11px] font-black text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-emerald-400"
-              >
-                הצג הכנסות
-              </button>
-            ) : null}
-          </div>
+          hasBankAccounts ? (
+            <button
+              type="button"
+              onClick={onShowIncomeClick}
+              className="hover:text-primary transition-colors underline underline-offset-2 cursor-pointer"
+            >
+              פירוט הכנסות ←
+            </button>
+          ) : null
         }
       />
+
       <DashboardMetricCard
-        title="סך תזרים"
+        variant="cell"
+        title="תזרים נטו"
         value={formatMoney(netSpending)}
-        caption="הכנסות פחות הוצאות בטווח הנבחר"
-        icon={<ArrowsDownUp className="h-5 w-5" weight="duotone" />}
         tone={netSpending < 0 ? 'rose' : 'emerald'}
         isLoading={isNetSpendingLoading || isSyncing}
-        lockedLabel="נדרש חיבור לחשבון בנק"
-        isLocked={!hasBankAccounts}
-        footer={
-          <p className="text-[11px] font-bold text-muted-foreground">
-            {hasBankAccounts ? (
-              <span>
-                {netSpending < 0 ? 'הוצאה נטו' : 'יתרה חיובית בטווח'}
-              </span>
-            ) : (
-              <span className="text-[11px] font-bold text-muted-foreground">
-                יש לחבר חשבון בנק כדי לראות תזרים כולל.
-              </span>
-            )}
-          </p>
-        }
-      />
-      <DashboardMetricCard
-        title="יתרה כוללת"
-        value={formatMoney(
-          hasBankAccounts ? currentBankBalance : (scans?.totalBalance ?? 0),
-        )}
-        caption="יתרה עדכנית מחשבונות בנק בלבד"
-        icon={<Wallet className="h-5 w-5" weight="duotone" />}
-        tone="sky"
-        isLoading={isBalanceLoading || isSyncing}
         isLocked={!hasBankAccounts}
         lockedLabel="נדרש חיבור לחשבון בנק"
+        sourceBankIds={[...new Set([...bankAccountIds, ...creditAccountIds])]}
         footer={
-          <p className="text-[11px] font-bold text-muted-foreground">
-            {hasBankAccounts ? (
-              <span>לא מסונן לפי תאריך</span>
-            ) : (
-              <span className="text-[11px] font-bold text-muted-foreground">
-                יש לחבר חשבון בנק כדי לראות יתרה עדכנית.
-              </span>
-            )}
-          </p>
+          hasBankAccounts ? (
+            <span>{netSpending < 0 ? 'גרעון בטווח' : 'עודף בטווח'}</span>
+          ) : null
         }
       />
     </div>

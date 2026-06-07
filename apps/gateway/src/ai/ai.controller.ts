@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   MessageEvent,
+  Param,
   Post,
   Query,
   Req,
@@ -13,15 +15,92 @@ import { ClientProxy } from '@nestjs/microservices';
 import { Request } from 'express';
 import { firstValueFrom, Observable } from 'rxjs';
 import { map, timeout } from 'rxjs/operators';
-import { UserAiConfig } from '../types/gateway.types';
-import { verifyJwtToken } from '../utils/auth.utils';
+import { requireSessionUserId } from '../utils/auth.utils';
+import { GatewayAiService } from './ai.service';
 
 @Controller('ai')
 export class AiController {
   constructor(
-    @Inject('AI_SERVICE') private readonly aiServiceClient: ClientProxy,
     @Inject('USERS_SERVICE') private readonly usersServiceClient: ClientProxy,
+    @Inject('AI_SERVICE') private readonly aiServiceClient: ClientProxy,
+    private readonly aiService: GatewayAiService,
   ) {}
+
+  @Get('conversations')
+  async getConversations(@Req() request: Request) {
+    const userId = requireSessionUserId(request);
+    return firstValueFrom(
+      this.usersServiceClient
+        .send('user_get_conversations', userId)
+        .pipe(timeout(5000)),
+    );
+  }
+
+  @Post('conversations')
+  async createConversation(
+    @Req() request: Request,
+    @Body() payload: { title: string },
+  ) {
+    const userId = requireSessionUserId(request);
+    return firstValueFrom(
+      this.usersServiceClient
+        .send('user_create_conversation', { userId, title: payload.title })
+        .pipe(timeout(5000)),
+    );
+  }
+
+  @Get('conversations/:id')
+  async getConversation(
+    @Req() request: Request,
+    @Param('id') conversationId: string,
+  ) {
+    const userId = requireSessionUserId(request);
+    return firstValueFrom(
+      this.usersServiceClient
+        .send('user_get_conversation', { userId, conversationId })
+        .pipe(timeout(5000)),
+    );
+  }
+
+  @Post('conversations/:id/messages')
+  async addMessage(
+    @Req() request: Request,
+    @Param('id') conversationId: string,
+    @Body()
+    payload: {
+      role: 'user' | 'assistant' | 'system' | 'tool';
+      content: string;
+      tool_calls?: any[];
+      tool_call_id?: string;
+    },
+  ) {
+    const userId = requireSessionUserId(request);
+    return firstValueFrom(
+      this.usersServiceClient
+        .send('user_add_message', {
+          userId,
+          conversationId,
+          role: payload.role,
+          content: payload.content,
+          tool_calls: payload.tool_calls,
+          tool_call_id: payload.tool_call_id,
+        })
+        .pipe(timeout(5000)),
+    );
+  }
+
+  @Delete('conversations/:id')
+  async deleteConversation(
+    @Req() request: Request,
+    @Param('id') conversationId: string,
+  ) {
+    const userId = requireSessionUserId(request);
+    return firstValueFrom(
+      this.usersServiceClient
+        .send('user_delete_conversation', { userId, conversationId })
+        .pipe(timeout(5000)),
+    );
+  }
 
   @Get()
   async getAiGreeting(): Promise<string> {
@@ -32,7 +111,7 @@ export class AiController {
   async verifyAiConnection(
     @Body()
     payload: {
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
       apiKey: string;
     },
   ) {
@@ -45,11 +124,11 @@ export class AiController {
 
   @Get('models')
   async listAiModels(
-    @Query('provider') provider: 'openai' | 'claude' | 'gemini',
+    @Query('provider') provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
     @Query('apiKey') apiKey?: string,
     @Req() request?: Request,
   ) {
-    const resolved = await this.resolveAiModelsPayload(
+    const resolved = await this.aiService.resolveAiModelsPayload(
       { provider, apiKey },
       request,
     );
@@ -63,10 +142,10 @@ export class AiController {
   @Post('models')
   async listAiModelsPost(
     @Body()
-    payload: { provider: 'openai' | 'claude' | 'gemini'; apiKey?: string },
+    payload: { provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter'; apiKey?: string },
     @Req() request?: Request,
   ) {
-    const resolved = await this.resolveAiModelsPayload(payload, request);
+    const resolved = await this.aiService.resolveAiModelsPayload(payload, request);
     return firstValueFrom(
       this.aiServiceClient
         .send('ai_list_models', resolved)
@@ -79,174 +158,52 @@ export class AiController {
     @Req() request: Request,
     @Body()
     payload: {
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
       model: string;
-      prompt: string;
+      messages: any[];
+      conversationId?: string;
       apiKey?: string;
       temperature?: number;
       maxTokens?: number;
+      forceMarkdown?: boolean;
     },
   ) {
-    const resolved = await this.resolveAiPayload(payload, request);
-    return firstValueFrom(
-      this.aiServiceClient.send('ai_prompt', resolved).pipe(timeout(180000)),
-    );
+    const userId = requireSessionUserId(request);
+    const resolved = await this.aiService.resolveAiPayload(payload, request);
+    return this.aiService.promptNonStream(userId, resolved, payload.conversationId);
   }
 
-  @Sse('prompt/stream')
+  @Post('prompt/stream')
+  @Sse()
   aiPromptStream(
-    @Query('provider') provider: 'openai' | 'claude' | 'gemini',
-    @Query('model') model: string,
-    @Query('prompt') prompt: string,
-    @Query('apiKey') apiKey?: string,
-    @Query('temperature') temperature?: string,
-    @Query('maxTokens') maxTokens?: string,
-    @Req() request?: Request,
+    @Req() request: Request,
+    @Body()
+    payload: {
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      model: string;
+      messages: any[];
+      conversationId?: string;
+      apiKey?: string;
+      temperature?: number;
+      maxTokens?: number;
+      forceMarkdown?: boolean;
+    },
   ): Observable<MessageEvent> {
-    const stream$ = new Observable<string>((subscriber) => {
+    return new Observable<any>((subscriber) => {
       (async () => {
         try {
-          const parsedTemperature = this.parseOptionalNumber(temperature);
-          const parsedMaxTokens = this.parseOptionalNumber(maxTokens);
-          const payload = await this.resolveAiPayload(
-            {
-              provider,
-              model,
-              prompt,
-              apiKey,
-              temperature: parsedTemperature,
-              maxTokens: parsedMaxTokens,
-            },
-            request,
+          const userId = requireSessionUserId(request);
+          const resolved = await this.aiService.resolveAiPayload(payload, request);
+          await this.aiService.runStreamLoop(
+            subscriber,
+            userId,
+            resolved,
+            payload.conversationId,
           );
-          this.aiServiceClient
-            .send<string>('ai_prompt_stream', payload)
-            .subscribe({
-              next: (v) => subscriber.next(v),
-              error: (e) => subscriber.error(e),
-              complete: () => subscriber.complete(),
-            });
         } catch (err) {
           subscriber.error(err);
         }
       })();
-    });
-
-    return stream$.pipe(map((chunk) => ({ data: chunk })));
-  }
-
-  private async resolveAiPayload(
-    payload: {
-      provider: 'openai' | 'claude' | 'gemini';
-      model: string;
-      prompt: string;
-      apiKey?: string;
-      temperature?: number;
-      maxTokens?: number;
-      stream?: boolean;
-    },
-    request?: Request,
-  ): Promise<{
-    provider: 'openai' | 'claude' | 'gemini';
-    model: string;
-    prompt: string;
-    apiKey?: string;
-    temperature?: number;
-    maxTokens?: number;
-    stream?: boolean;
-  }> {
-    if (payload.apiKey && typeof payload.stream !== 'undefined') {
-      return payload;
-    }
-    if (!request) {
-      return payload;
-    }
-
-    const sessionToken = request.cookies?.moneyup_session;
-    if (!sessionToken) {
-      return payload;
-    }
-    const session = verifyJwtToken(sessionToken);
-
-    const cfg = await firstValueFrom(
-      this.usersServiceClient
-        .send<UserAiConfig>('user_get_ai_config', session.userId)
-        .pipe(timeout(30000)),
-    );
-
-    const userConfig =
-      (cfg.aiProviderConfigs && cfg.aiProviderConfigs[payload.provider]) || {};
-
-    const resolvedPayload = { ...payload };
-
-    if (cfg.decryptedApiKey && cfg.activeAiProvider === payload.provider) {
-      resolvedPayload.apiKey = cfg.decryptedApiKey;
-    }
-
-    if (
-      typeof payload.temperature === 'undefined' &&
-      typeof userConfig.temperature !== 'undefined'
-    ) {
-      resolvedPayload.temperature = userConfig.temperature;
-    }
-    if (
-      typeof payload.maxTokens === 'undefined' &&
-      typeof userConfig.maxTokens !== 'undefined'
-    ) {
-      resolvedPayload.maxTokens = userConfig.maxTokens;
-    }
-    if (
-      typeof payload.stream === 'undefined' &&
-      typeof userConfig.stream !== 'undefined'
-    ) {
-      resolvedPayload.stream = userConfig.stream;
-    }
-
-    return resolvedPayload;
-  }
-
-  private async resolveAiModelsPayload(
-    payload: {
-      provider: 'openai' | 'claude' | 'gemini';
-      apiKey?: string;
-    },
-    request?: Request,
-  ): Promise<{
-    provider: 'openai' | 'claude' | 'gemini';
-    apiKey?: string;
-  }> {
-    if (payload.apiKey) {
-      return payload;
-    }
-    if (!request) {
-      return payload;
-    }
-
-    const sessionToken = request.cookies?.moneyup_session;
-    if (!sessionToken) {
-      return payload;
-    }
-
-    const session = verifyJwtToken(sessionToken);
-    const cfg = await firstValueFrom(
-      this.usersServiceClient
-        .send<UserAiConfig>('user_get_ai_config', session.userId)
-        .pipe(timeout(30000)),
-    );
-
-    if (cfg.decryptedApiKey && cfg.activeAiProvider === payload.provider) {
-      return {
-        ...payload,
-        apiKey: cfg.decryptedApiKey,
-      };
-    }
-
-    return payload;
-  }
-
-  private parseOptionalNumber(value?: string): number | undefined {
-    if (typeof value === 'undefined') return undefined;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
+    }).pipe(map((obj) => ({ data: obj }) as MessageEvent));
   }
 }

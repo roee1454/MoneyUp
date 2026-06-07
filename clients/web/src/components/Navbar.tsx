@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react';
-import {
-  CircleNotch,
-  List,
-  SignOut,
-  ArrowsClockwise,
-} from '@phosphor-icons/react';
+import { List, CaretDown } from '@phosphor-icons/react';
 import { Link, useRouterState } from '@tanstack/react-router';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -21,20 +16,24 @@ import { useAppStore } from '@/store';
 import { useLogout } from '@/hooks/useAuth';
 import { BrandLogo } from '@/components/BrandLogo';
 import { useSyncAccounts } from '@/hooks/useAccounts';
-import { AiGlobalSwitcher } from '@/features/ai/components/AiGlobalSwitcher';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserProfileCard } from '@/components/UserProfileCard';
+import { SyncStatusCard } from '@/components/SyncStatusCard';
 
 const NAV_ITEMS = [
   { label: 'בית', to: '/dashboard' },
   { label: 'ייעוץ עם סוכן', to: '/ai-studio' },
   { label: 'ייצוא נתונים', to: '/export' },
-  { label: 'הגדרות', to: '/settings' },
+];
+
+const SETTINGS_SUB_ITEMS = [
+  { label: 'חיבורי בנקים ואשראי', to: '/settings' },
+  { label: 'הגדרות בינה מלאכותית', to: '/settings/ai' },
+  { label: 'הגדרות סורקים', to: '/settings/scrapers' },
 ];
 
 type SidebarContentProps = {
   pathname: string;
   username?: string;
-  isDashboard: boolean;
   isSyncing: boolean;
   isSyncPending: boolean;
   onSync: () => void;
@@ -44,29 +43,24 @@ type SidebarContentProps = {
 function SidebarContent({
   pathname,
   username,
-  isDashboard,
   isSyncing,
   isSyncPending,
   onSync,
   onLogout,
 }: SidebarContentProps) {
   const isSyncBusy = isSyncing || isSyncPending;
-  const initials = String(username ?? 'U')
-    .slice(0, 1)
-    .toUpperCase();
+  const isInSettings = pathname.startsWith('/settings');
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(isInSettings);
 
   return (
     <div className="flex h-full flex-col" dir="rtl">
-      <div className="space-y-5">
-        <div className="flex w-full justify-center py-1">
+      <div className="flex-1 overflow-y-auto space-y-5 px-1 custom-scrollbar">
+        <div className="flex w-full justify-center py-1 mt-4">
           <BrandLogo
             variant="nav"
             to="/dashboard"
             className="text-2xl md:text-3xl"
           />
-        </div>
-        <div className="px-1">
-          <AiGlobalSwitcher />
         </div>
         <Separator className="bg-border" />
 
@@ -81,7 +75,7 @@ function SidebarContent({
                     className={cn(
                       'flex h-10 items-center justify-between border px-3 text-sm font-bold transition-colors',
                       active
-                        ? 'border-primary bg-primary text-primary-foreground'
+                        ? 'border-border bg-primary text-primary-foreground'
                         : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground',
                     )}
                   >
@@ -93,56 +87,72 @@ function SidebarContent({
                 </li>
               );
             })}
+
+            <li>
+              <button
+                onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
+                className={cn(
+                  'flex h-10 w-full items-center justify-between border px-3 text-sm font-bold transition-colors outline-none cursor-pointer',
+                  isInSettings && !isSettingsExpanded
+                    ? 'border-border bg-primary text-primary-foreground'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground',
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span>הגדרות</span>
+                </div>
+                <CaretDown
+                  className={cn(
+                    'h-3 w-3 transition-transform duration-200',
+                    isSettingsExpanded && 'rotate-180',
+                  )}
+                />
+              </button>
+
+              {isSettingsExpanded && (
+                <ul className="mt-1 space-y-1 pr-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                  {SETTINGS_SUB_ITEMS.map((subItem) => {
+                    const active = pathname === subItem.to;
+                    return (
+                      <li key={subItem.to}>
+                        <Link
+                          to={subItem.to}
+                          className={cn(
+                            'flex h-9 items-center border px-3 text-[11px] font-black transition-all',
+                            active
+                              ? 'border-border/30 bg-primary/5 text-primary'
+                              : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground',
+                          )}
+                        >
+                          <span>{subItem.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
           </ul>
         </nav>
-
-        {isDashboard ? (
-          <div className="space-y-2">
-            <Separator className="bg-border" />
-            <Button
-              variant="outline"
-              className="h-10 w-full rounded-none border-border text-sm font-black text-foreground/80 hover:bg-accent hover:text-foreground"
-              disabled={isSyncBusy}
-              onClick={onSync}
-            >
-              {isSyncBusy ? (
-                <CircleNotch className="h-4 w-4 animate-spin" weight="bold" />
-              ) : (
-                <ArrowsClockwise className="h-4 w-4" weight="bold" />
-              )}
-              <span>{isSyncBusy ? 'מסנכרן...' : 'סנכרן דשבורד'}</span>
-            </Button>
-          </div>
-        ) : null}
       </div>
 
-      <div className="mt-auto space-y-4">
-        <Separator className="bg-border" />
-        <div className="flex items-center gap-3 border border-border bg-muted/50 p-3">
-          <Avatar className="h-9 w-9 border border-border">
-            <AvatarFallback className="bg-background text-xs font-black text-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1 text-right">
-            <p className="truncate text-xs font-semibold text-muted-foreground">
-              פרופיל מחובר
-            </p>
-            <p className="truncate text-sm font-black text-foreground">
-              {username ?? 'משתמש'}
-            </p>
-          </div>
+      <div className="mt-auto px-1 pb-2 pt-4 space-y-3 bg-background/50 border-t border-border/50">
+        <div className="px-2">
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">
+            מערכת
+          </p>
         </div>
-        <div className="flex gap-2">
-          <ThemeToggle />
-          <Button
-            variant="outline"
-            className="h-10 flex-1 rounded-none border-border text-sm font-bold text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-            onClick={onLogout}
-          >
-            <span>התנתקות</span>
-            <SignOut className="h-4 w-4" weight="duotone" />
-          </Button>
+        <div className="space-y-2">
+          <SyncStatusCard
+            onSync={onSync}
+            isSyncing={isSyncBusy}
+            className="bg-muted/30"
+          />
+          <UserProfileCard
+            username={username}
+            onLogout={onLogout}
+            className="bg-muted/30"
+          />
         </div>
       </div>
     </div>
@@ -158,7 +168,6 @@ export function Navbar() {
   const dashboardRange = useAppStore((s) => s.dashboardRange);
   const logoutMutation = useLogout();
   const syncMutation = useSyncAccounts();
-  const isDashboard = pathname === '/dashboard';
   const isSyncing = sync.status === 'running' || sync.status === 'reconnecting';
 
   useEffect(() => {
@@ -186,7 +195,6 @@ export function Navbar() {
     <SidebarContent
       pathname={pathname}
       username={session.username}
-      isDashboard={isDashboard}
       isSyncing={isSyncing}
       isSyncPending={syncMutation.isPending}
       onSync={() => void syncDashboardRange()}

@@ -1,13 +1,35 @@
 import * as React from 'react';
 import { Eye, EyeSlash } from '@phosphor-icons/react';
+import { cva, type VariantProps } from 'class-variance-authority';
+
 import { cn } from '@/lib/utils';
 
-export interface PremiumInputProps extends React.ComponentProps<'input'> {
+const premiumInputVariants = cva(
+  'flex w-full h-12 bg-muted/30 hover:bg-muted/50 border border-border rounded-none focus:bg-card focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-border focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all duration-300 shadow-sm disabled:cursor-not-allowed disabled:opacity-50 text-foreground placeholder:text-muted-foreground',
+  {
+    variants: {
+      variant: {
+        default: '',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+    },
+  },
+);
+
+export interface PremiumInputProps
+  extends
+    React.ComponentProps<'input'>,
+    VariantProps<typeof premiumInputVariants> {
   isPassword?: boolean;
 }
 
 const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps>(
-  ({ className, type = 'text', isPassword = false, ...props }, ref) => {
+  (
+    { className, type = 'text', isPassword = false, variant, ...props },
+    ref,
+  ) => {
     const [showPassword, setShowPassword] = React.useState(false);
     const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
@@ -16,7 +38,7 @@ const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps>(
         <input
           type={inputType}
           className={cn(
-            'flex w-full h-12 bg-muted/30 hover:bg-muted/50 border border-border rounded-none focus:bg-card focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-primary focus:ring-4 focus:ring-primary/5 font-semibold text-sm transition-all duration-300 shadow-sm disabled:cursor-not-allowed disabled:opacity-50 text-foreground placeholder:text-muted-foreground',
+            premiumInputVariants({ variant }),
             isPassword ? 'pl-12 pr-4' : 'px-4',
             className,
           )}
@@ -42,4 +64,4 @@ const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps>(
 );
 PremiumInput.displayName = 'PremiumInput';
 
-export { PremiumInput };
+export { PremiumInput, premiumInputVariants };

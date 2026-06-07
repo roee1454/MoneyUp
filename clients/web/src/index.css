@@ -166,6 +166,62 @@ body {
   font-size: 0.8em;
 }
 
+.markdown-content table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85em;
+  border: 1px solid hsl(var(--border));
+  direction: rtl;
+}
+
+/* Ensure markdown tables use the custom scrollbar */
+.markdown-content table::-webkit-scrollbar {
+  height: 4px;
+}
+
+.markdown-content table::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.markdown-content table::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 10px;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.65rem 0.75rem;
+  text-align: right;
+}
+
+.markdown-content th {
+  background-color: hsl(var(--muted) / 0.5);
+  font-weight: 800;
+}
+
+.markdown-content tr:nth-child(even) {
+  background-color: hsl(var(--muted) / 0.2);
+}
+
+/* Math / Katex */
+.markdown-content .katex-display {
+  margin: 1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  direction: ltr;
+}
+
+.markdown-content .katex {
+  direction: ltr;
+  display: inline-block;
+}
+
 @keyframes soft-shimmer {
   0% {
     transform: translateX(-120%);
@@ -205,4 +261,23 @@ body {
     rgba(255, 255, 255, 0.2) 45%,
     transparent 100%
   );
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
 }

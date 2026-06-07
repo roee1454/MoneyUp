@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { ScrapedCacheEntity } from '../entities/cache.entity';
 import { TransactionEntity } from '../entities/transaction.entity';
+import { VaultEntity } from '../entities/vault.entity';
 import { getTodayUtcDateString } from '../utils/date.utils';
 import * as crypto from 'crypto';
 
@@ -13,10 +14,22 @@ export class CacheService {
     private readonly cacheRepository: Repository<ScrapedCacheEntity>,
     @InjectRepository(TransactionEntity)
     private readonly transactionRepository: Repository<TransactionEntity>,
+    @InjectRepository(VaultEntity)
+    private readonly vaultRepository: Repository<VaultEntity>,
   ) {}
 
   async getCachedAccounts(userId: string): Promise<any[]> {
     return this.getCachedAccountsForRange(userId);
+  }
+
+  async getAllCacheEntries(userId: string): Promise<ScrapedCacheEntity[]> {
+    return this.cacheRepository.find({ where: { userId } });
+  }
+
+  /** Returns the total number of transactions stored in the DB for a given bank,
+   *  across all date ranges. Used to detect "covered but empty" accounts. */
+  async countTransactionsForAccount(userId: string, bankId: string): Promise<number> {
+    return this.transactionRepository.count({ where: { userId, bankId } });
   }
 
   async getCachedAccountsForRange(
@@ -25,6 +38,10 @@ export class CacheService {
     endDate?: string,
   ): Promise<any[]> {
     const cacheEntries = await this.cacheRepository.find({ where: { userId } });
+    const vaultEntries = await this.vaultRepository.find({ where: { userId } });
+    const vaultMap = new Map(
+      vaultEntries.map((v) => [v.bankId, v.lastScrapedAt]),
+    );
     const results: any[] = [];
 
     let startIso = startDate;
@@ -67,6 +84,7 @@ export class CacheService {
             bankId: entry.bankId,
             accountNumber: acc.accountNumber,
             balance: acc.balance,
+            lastScrapedAt: vaultMap.get(entry.bankId) ?? null,
             transactions: txns,
           });
         }
@@ -82,6 +100,12 @@ export class CacheService {
     bankId: string,
     accounts: any[],
   ): Promise<void> {
+    if (!accounts || accounts.length === 0) {
+      console.log(
+        `[CacheService] setCachedAccounts: Received empty/null accounts list for ${bankId}, preserving previous cache.`,
+      );
+      return;
+    }
     let cacheEntry = await this.cacheRepository.findOne({
       where: { userId, bankId },
     });
@@ -165,6 +189,11 @@ export class CacheService {
       { userId, bankId, accountNumber, id },
       { isDuplicate },
     );
+  }
+
+  async removeCachedAccounts(userId: string, bankId: string): Promise<void> {
+    await this.cacheRepository.delete({ userId, bankId });
+    await this.transactionRepository.delete({ userId, bankId });
   }
 
   generateStableTxnId(bankId: string, accountNumber: string, txn: any): string {

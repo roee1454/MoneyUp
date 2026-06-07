@@ -1,6 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { UsersService } from './users.service';
+import { MessageRole } from './entities/message.entity';
 
 @Controller()
 export class UsersController {
@@ -70,16 +71,17 @@ export class UsersController {
     @Payload()
     payload: {
       id: string;
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
       apiKey: string;
       preferredModel: string;
-      activeProvider?: 'openai' | 'claude' | 'gemini';
+      activeProvider?: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
       config?: {
         model: string;
         preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
         temperature?: number;
         maxTokens?: number;
         stream?: boolean;
+        forceMarkdown?: boolean;
       };
     },
   ) {
@@ -91,12 +93,20 @@ export class UsersController {
     return this.usersService.getAiConfig(id);
   }
 
+  @MessagePattern('user_update_ai_settings')
+  updateAiSettings(@Payload() payload: { id: string; forceMarkdown: boolean }) {
+    return this.usersService.updateAiSettings(
+      payload.id,
+      payload.forceMarkdown,
+    );
+  }
+
   @MessagePattern('user_delete_ai_provider')
   deleteAiProvider(
     @Payload()
     payload: {
       id: string;
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
     },
   ) {
     return this.usersService.deleteAiProvider(payload.id, payload.provider);
@@ -116,6 +126,58 @@ export class UsersController {
     },
   ) {
     return this.usersService.saveScraperSettings(payload.id, payload);
+  }
+
+  @MessagePattern('user_get_conversations')
+  getConversations(@Payload() userId: string) {
+    return this.usersService.getConversations(userId);
+  }
+
+  @MessagePattern('user_get_conversation')
+  getConversation(
+    @Payload() payload: { userId: string; conversationId: string },
+  ) {
+    return this.usersService.getConversation(
+      payload.userId,
+      payload.conversationId,
+    );
+  }
+
+  @MessagePattern('user_create_conversation')
+  createConversation(@Payload() payload: { userId: string; title: string }) {
+    return this.usersService.createConversation(payload.userId, payload.title);
+  }
+
+  @MessagePattern('user_add_message')
+  addMessage(
+    @Payload()
+    payload: {
+      userId: string;
+      conversationId: string;
+      role: MessageRole;
+      content: string;
+      tool_calls?: any[];
+      tool_call_id?: string;
+    },
+  ) {
+    return this.usersService.addMessage(
+      payload.userId,
+      payload.conversationId,
+      payload.role,
+      payload.content,
+      payload.tool_calls,
+      payload.tool_call_id,
+    );
+  }
+
+  @MessagePattern('user_delete_conversation')
+  deleteConversation(
+    @Payload() payload: { userId: string; conversationId: string },
+  ) {
+    return this.usersService.deleteConversation(
+      payload.userId,
+      payload.conversationId,
+    );
   }
 
   @MessagePattern('ping')

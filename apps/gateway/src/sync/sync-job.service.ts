@@ -29,6 +29,7 @@ export type SyncJobSnapshot = {
   error?: string;
   cooldownBlockedUntil?: string;
   cooldownRemainingMs?: number;
+  currentlySyncing?: string | null;
 };
 
 type SyncListener = (event: string, snapshot: SyncJobSnapshot) => void;
@@ -60,6 +61,7 @@ export class SyncJobService {
       source,
       startedAt: now,
       updatedAt: now,
+      currentlySyncing: null,
     };
   }
 
@@ -245,6 +247,7 @@ export class SyncJobService {
       endDate,
       startedAt: now,
       updatedAt: now,
+      currentlySyncing: null,
     };
     this.publishSyncEvent(userId, 'job_update', fresh);
     const promise = this.runSyncJob(userId);
@@ -278,7 +281,7 @@ export class SyncJobService {
     }
   }
 
-  private patchSyncJob(
+  patchSyncJob(
     userId: string,
     patch: Partial<SyncJobSnapshot>,
     event = 'job_update',
@@ -346,6 +349,7 @@ export class SyncJobService {
             phase: null,
             progress: 100,
             message: 'לא נמצאו חשבונות לסנכרון',
+            currentlySyncing: null,
           },
           'job_done',
         );
@@ -442,6 +446,7 @@ export class SyncJobService {
           phase: null,
           progress: 100,
           message: 'הסנכרון הושלם בהצלחה',
+          currentlySyncing: null,
         },
         'job_done',
       );
@@ -471,6 +476,7 @@ export class SyncJobService {
           progress: 100,
           message: 'הסנכרון נכשל',
           error: error?.message ?? 'unknown_error',
+          currentlySyncing: null,
         },
         'job_failed',
       );
