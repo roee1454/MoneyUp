@@ -20,12 +20,8 @@ COPY . .
 # Install dependencies once securely inside the image
 RUN pnpm install --no-frozen-lockfile
 
-# Build all NestJS apps
-RUN npx nest build ai-service && \
-    npx nest build auth-service && \
-    npx nest build scraper-service && \
-    npx nest build users-service && \
-    npx nest build gateway
+# Build the NestJS server monolith
+RUN npx nest build server
 
 # =========================================================
 # Stage 2: Runtime Production/Development Image

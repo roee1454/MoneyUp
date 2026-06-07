@@ -1,7 +1,6 @@
 packages:
   - apps/*
   - libs/*
-  - clients/*
   - packages/*
 
 ignoredBuiltDependencies:
