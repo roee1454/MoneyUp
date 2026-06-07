@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AllExceptionsFilter, LoggingInterceptor } from '@money-up/common/backend';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
