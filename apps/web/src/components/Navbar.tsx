@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { List, CaretDown } from '@phosphor-icons/react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { ThemeToggle } from './ThemeToggle';
@@ -165,7 +166,6 @@ export function Navbar() {
   const pathname = routerState.location.pathname;
   const session = useAppStore((s) => s.session);
   const sync = useAppStore((s) => s.sync);
-  const dashboardRange = useAppStore((s) => s.dashboardRange);
   const logoutMutation = useLogout();
   const syncMutation = useSyncAccounts();
   const isSyncing = sync.status === 'running' || sync.status === 'reconnecting';
@@ -178,14 +178,11 @@ export function Navbar() {
     await logoutMutation.mutateAsync();
   }
 
-  async function syncDashboardRange() {
+  async function syncToday() {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     await syncMutation.mutateAsync({
-      startDate:
-        dashboardRange.committedStartDate ??
-        dashboardRange.startDate ??
-        undefined,
-      endDate:
-        dashboardRange.committedEndDate ?? dashboardRange.endDate ?? undefined,
+      startDate: todayStr,
+      endDate: todayStr,
     });
   }
 
@@ -197,7 +194,7 @@ export function Navbar() {
       username={session.username}
       isSyncing={isSyncing}
       isSyncPending={syncMutation.isPending}
-      onSync={() => void syncDashboardRange()}
+      onSync={() => void syncToday()}
       onLogout={() => void logout()}
     />
   );
