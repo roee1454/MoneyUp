@@ -30,6 +30,7 @@ interface AiInputPanelProps {
   agentModel: string;
   setAgentModel: (model: string) => void;
   modelsByProvider: Record<string, string[]>;
+  configuredProviders?: string[];
 }
 
 export function AiInputPanel({
@@ -46,6 +47,7 @@ export function AiInputPanel({
   agentModel,
   setAgentModel,
   modelsByProvider,
+  configuredProviders,
 }: AiInputPanelProps) {
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
@@ -338,6 +340,7 @@ export function AiInputPanel({
                 setSelectedModel={setAgentModel}
                 modelsByProvider={modelsByProvider}
                 isLoading={isLoading}
+                configuredProviders={configuredProviders}
               />
             </div>
           )}

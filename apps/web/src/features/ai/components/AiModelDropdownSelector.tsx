@@ -17,6 +17,7 @@ interface AiModelDropdownSelectorProps {
   modelsByProvider: Record<string, string[]>;
   providers?: AiProvider[];
   isLoading?: boolean;
+  configuredProviders?: string[];
 }
 
 const PROVIDER_LABELS: Record<AiProvider, string> = {
@@ -35,6 +36,7 @@ export function AiModelDropdownSelector({
   modelsByProvider,
   providers = ['gemini', 'openai', 'claude', 'ollama', 'openrouter'],
   isLoading = false,
+  configuredProviders,
 }: AiModelDropdownSelectorProps) {
   const models = modelsByProvider[selectedProvider] || [];
 
@@ -53,47 +55,58 @@ export function AiModelDropdownSelector({
           type="button"
           disabled={isLoading}
           className={cn(
-            'flex items-center gap-2 h-7.5 rounded-none border border-border/60 bg-background text-[10px] font-black uppercase tracking-tight shadow-xs px-3 hover:border-border/100 hover:bg-muted/10 transition-colors cursor-pointer select-none',
+            'flex items-center gap-2.5 h-9.5 rounded-none border border-border/60 bg-background text-xs font-black uppercase tracking-tight shadow-xs px-4 hover:border-border/100 hover:bg-muted/10 transition-colors cursor-pointer select-none',
             isLoading && 'pointer-events-none opacity-60'
           )}
           dir="rtl"
         >
-          <AiIcon provider={selectedProvider} size="xs" />
-          <span className="truncate max-w-[130px] font-black">
+          <AiIcon provider={selectedProvider} size="sm" />
+          <span className="truncate max-w-[160px] font-black text-foreground">
             {getFriendlyModelName(selectedModel)}
           </span>
-          <CaretUp className="h-3 w-3 text-muted-foreground/80 mr-1 shrink-0" weight="bold" />
+          <CaretUp className="h-4 w-4 text-muted-foreground/80 mr-1.5 shrink-0" weight="bold" />
         </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
         side="top"
         align="start"
-        className="w-[340px] p-3 rounded-none border border-border bg-card/98 backdrop-blur-md text-right flex flex-col gap-3 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
+        className="w-[380px] p-4 rounded-none border border-border bg-card/98 backdrop-blur-md text-right flex flex-col gap-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
       >
-        <div dir="rtl" className="flex flex-col gap-3">
+        <div dir="rtl" className="flex flex-col gap-4">
           {/* Providers Section */}
           <div>
-            <div className="text-[9px] font-black text-muted-foreground uppercase tracking-wider mb-2">
-              ספק בינה מלאכותית (AI Provider)
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2">
+              ספק בינה מלאכותית
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               {providers.map((p) => {
                 const isSelected = selectedProvider === p;
+                const isConfigured =
+                  !configuredProviders ||
+                  configuredProviders.length === 0 ||
+                  configuredProviders.includes(p);
                 return (
                   <button
                     key={p}
                     type="button"
+                    disabled={!isConfigured}
                     onClick={() => handleProviderSelect(p)}
                     className={cn(
-                      'flex flex-col items-center justify-center gap-1.5 p-2.5 border text-center transition-all cursor-pointer rounded-none outline-none select-none',
+                      'flex flex-col items-center justify-center gap-2 p-3 border text-center transition-all cursor-pointer rounded-none outline-none select-none',
                       isSelected
                         ? 'border-primary bg-primary/5 text-primary shadow-xs'
-                        : 'border-border/50 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground'
+                        : 'border-border/50 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground',
+                      !isConfigured &&
+                        'opacity-30 cursor-not-allowed hover:bg-transparent hover:border-border/50 text-muted-foreground/40'
                     )}
                   >
-                    <AiIcon provider={p} size="xs" className="border-none shadow-none" />
-                    <span className="text-[9px] font-black uppercase tracking-tight">
+                    <AiIcon
+                      provider={p}
+                      size="sm"
+                      className={cn('border-none shadow-none', !isConfigured && 'grayscale')}
+                    />
+                    <span className="text-[10px] font-black uppercase tracking-tight">
                       {PROVIDER_LABELS[p] || p}
                     </span>
                   </button>
@@ -107,10 +120,10 @@ export function AiModelDropdownSelector({
 
           {/* Models Section */}
           <div>
-            <div className="text-[9px] font-black text-muted-foreground uppercase tracking-wider mb-2">
-              בחר מודל (Model)
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2">
+              בחר מודל
             </div>
-            <div className="grid grid-cols-3 gap-1.5 max-h-[180px] overflow-y-auto pr-0.5">
+            <div className="grid grid-cols-3 gap-2 max-h-[200px] overflow-y-auto pr-0.5">
               {models.map((m) => {
                 const isSelected = selectedModel === m;
                 return (
@@ -119,22 +132,22 @@ export function AiModelDropdownSelector({
                     type="button"
                     onClick={() => setSelectedModel(m)}
                     className={cn(
-                      'flex flex-col items-center justify-between p-2 border text-center transition-all cursor-pointer rounded-none outline-none select-none h-[54px]',
+                      'flex flex-col items-center justify-between p-2.5 border text-center transition-all cursor-pointer rounded-none outline-none select-none h-[62px]',
                       isSelected
                         ? 'border-primary bg-primary/5 text-primary shadow-xs'
                         : 'border-border/50 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground'
                     )}
                     title={getFriendlyModelName(m)}
                   >
-                    <span className="text-[9px] font-black leading-tight truncate w-full">
+                    <span className="text-[10px] font-black leading-tight truncate w-full">
                       {getFriendlyModelName(m)}
                     </span>
                     {MODEL_TAGS[m] ? (
-                      <span className="px-1 py-0.5 text-[7px] font-black uppercase bg-primary/10 text-primary rounded-xs tracking-wider shrink-0 mt-1">
+                      <span className="px-1.5 py-0.5 text-[8px] font-black uppercase bg-primary/10 text-primary rounded-xs tracking-wider shrink-0 mt-1">
                         {MODEL_TAGS[m]}
                       </span>
                     ) : (
-                      <span className="text-[7px] text-muted-foreground font-bold leading-none shrink-0 mt-1">
+                      <span className="text-[8px] text-muted-foreground font-bold leading-none shrink-0 mt-1">
                         סטנדרטי
                       </span>
                     )}

@@ -269,6 +269,7 @@ export function AiConversation({
           agentModel={agentModel}
           setAgentModel={handleAgentModelChange}
           modelsByProvider={MODELS_BY_PROVIDER}
+          configuredProviders={userProfile?.configuredProviders ?? undefined}
         />
       </div>
 
