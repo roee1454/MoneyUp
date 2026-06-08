@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CircleNotch } from '@phosphor-icons/react';
+import { CircleNotch, Warning } from '@phosphor-icons/react';
 import {
   useFetchAiModels,
   useConversation,
@@ -10,7 +10,7 @@ import { useAiStream } from './AiConversation/useAiStream';
 import { AiMessageList } from './AiConversation/AiMessageList';
 import { AiInputPanel } from './AiConversation/AiInputPanel';
 import { AiSettingsDialog } from './AiConversation/AiSettingsDialog';
-import { OPENAI_MODELS } from '@money-up/common';
+import { OPENAI_MODELS, GEMINI_MODELS } from '@money-up/common';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
 
@@ -31,12 +31,7 @@ const MODELS_BY_PROVIDER: Record<string, string[]> = {
     'claude-3-5-haiku-20241022',
     'claude-3-opus-20240229',
   ],
-  gemini: [
-    'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-  ],
+  gemini: GEMINI_MODELS,
   ollama: [
     'qwen2.5:14b-instruct',
     'llama3.1:8b',
@@ -80,7 +75,7 @@ export function AiConversation({
   const [agentModel, setAgentModel] = useState<string>(() => {
     const saved = localStorage.getItem('moneyup_studio_model');
     if (saved) return saved;
-    return configs[currentProvider]?.model || MODELS_BY_PROVIDER[currentProvider]?.[0] || 'gemini-1.5-flash';
+    return configs[currentProvider]?.model || MODELS_BY_PROVIDER[currentProvider]?.[0] || 'gemini-2.5-flash';
   });
 
   const { data: conversationDetail, isLoading: isLoadingHistory } =
@@ -95,7 +90,7 @@ export function AiConversation({
       setAgentModel(
         configs[prov]?.model ||
         MODELS_BY_PROVIDER[prov]?.[0] ||
-        'gemini-1.5-flash'
+        'gemini-2.5-flash'
       );
     }
   }, [configuredProviders]);
@@ -250,9 +245,12 @@ export function AiConversation({
 
       {error ? (
         <div className="max-w-3xl mx-auto w-full px-3 md:px-5 shrink-0">
-          <p className="text-xs font-bold text-destructive bg-destructive/10 px-4 py-2.5 rounded-none border border-destructive/20 text-right uppercase">
-            {error}
-          </p>
+          <div className="flex items-start gap-3 bg-destructive/5 text-destructive border border-destructive/15 px-4 py-3.5 rounded-2xl text-right dir-rtl font-sans">
+            <Warning className="h-5 w-5 shrink-0 text-destructive/80 mt-0.5" />
+            <p className="text-sm font-medium leading-relaxed">
+              {error}
+            </p>
+          </div>
         </div>
       ) : null}
 

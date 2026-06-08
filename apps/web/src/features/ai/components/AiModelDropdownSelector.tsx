@@ -1,0 +1,150 @@
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { AiIcon, type AiProvider } from './AiIcon';
+import { getFriendlyModelName } from '@/lib/ai-models';
+import { MODEL_TAGS } from '@money-up/common';
+import { cn } from '@/lib/utils';
+import { CaretUp } from '@phosphor-icons/react';
+
+interface AiModelDropdownSelectorProps {
+  selectedProvider: AiProvider;
+  setSelectedProvider: (provider: AiProvider) => void;
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
+  modelsByProvider: Record<string, string[]>;
+  providers?: AiProvider[];
+  isLoading?: boolean;
+}
+
+const PROVIDER_LABELS: Record<AiProvider, string> = {
+  openai: 'OpenAI',
+  claude: 'Claude',
+  gemini: 'Gemini',
+  ollama: 'Ollama',
+  openrouter: 'OpenRouter',
+};
+
+export function AiModelDropdownSelector({
+  selectedProvider,
+  setSelectedProvider,
+  selectedModel,
+  setSelectedModel,
+  modelsByProvider,
+  providers = ['gemini', 'openai', 'claude', 'ollama', 'openrouter'],
+  isLoading = false,
+}: AiModelDropdownSelectorProps) {
+  const models = modelsByProvider[selectedProvider] || [];
+
+  const handleProviderSelect = (p: AiProvider) => {
+    if (p === selectedProvider) return;
+    setSelectedProvider(p);
+    // Auto-select the first model of the new provider
+    const firstModel = modelsByProvider[p]?.[0] || '';
+    setSelectedModel(firstModel);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={isLoading}
+          className={cn(
+            'flex items-center gap-2 h-7.5 rounded-none border border-border/60 bg-background text-[10px] font-black uppercase tracking-tight shadow-xs px-3 hover:border-border/100 hover:bg-muted/10 transition-colors cursor-pointer select-none',
+            isLoading && 'pointer-events-none opacity-60'
+          )}
+          dir="rtl"
+        >
+          <AiIcon provider={selectedProvider} size="xs" />
+          <span className="truncate max-w-[130px] font-black">
+            {getFriendlyModelName(selectedModel)}
+          </span>
+          <CaretUp className="h-3 w-3 text-muted-foreground/80 mr-1 shrink-0" weight="bold" />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        className="w-[340px] p-3 rounded-none border border-border bg-card/98 backdrop-blur-md text-right flex flex-col gap-3 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
+      >
+        <div dir="rtl" className="flex flex-col gap-3">
+          {/* Providers Section */}
+          <div>
+            <div className="text-[9px] font-black text-muted-foreground uppercase tracking-wider mb-2">
+              ספק בינה מלאכותית (AI Provider)
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {providers.map((p) => {
+                const isSelected = selectedProvider === p;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handleProviderSelect(p)}
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-1.5 p-2.5 border text-center transition-all cursor-pointer rounded-none outline-none select-none',
+                      isSelected
+                        ? 'border-primary bg-primary/5 text-primary shadow-xs'
+                        : 'border-border/50 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <AiIcon provider={p} size="xs" className="border-none shadow-none" />
+                    <span className="text-[9px] font-black uppercase tracking-tight">
+                      {PROVIDER_LABELS[p] || p}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Separator */}
+          <div className="h-px bg-border/50 w-full" />
+
+          {/* Models Section */}
+          <div>
+            <div className="text-[9px] font-black text-muted-foreground uppercase tracking-wider mb-2">
+              בחר מודל (Model)
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 max-h-[180px] overflow-y-auto pr-0.5">
+              {models.map((m) => {
+                const isSelected = selectedModel === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setSelectedModel(m)}
+                    className={cn(
+                      'flex flex-col items-center justify-between p-2 border text-center transition-all cursor-pointer rounded-none outline-none select-none h-[54px]',
+                      isSelected
+                        ? 'border-primary bg-primary/5 text-primary shadow-xs'
+                        : 'border-border/50 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground'
+                    )}
+                    title={getFriendlyModelName(m)}
+                  >
+                    <span className="text-[9px] font-black leading-tight truncate w-full">
+                      {getFriendlyModelName(m)}
+                    </span>
+                    {MODEL_TAGS[m] ? (
+                      <span className="px-1 py-0.5 text-[7px] font-black uppercase bg-primary/10 text-primary rounded-xs tracking-wider shrink-0 mt-1">
+                        {MODEL_TAGS[m]}
+                      </span>
+                    ) : (
+                      <span className="text-[7px] text-muted-foreground font-bold leading-none shrink-0 mt-1">
+                        סטנדרטי
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

@@ -5,9 +5,23 @@ export const OPENAI_MODELS = [
   'gpt-5.4',
 ];
 
+export const GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3.1-pro-preview',
+  'gemini-3.5-flash',
+];
+
 export const MODEL_TAGS: Record<string, string> = {
   'gpt-4o-mini': 'token efficient',
   'gpt-4o': 'token efficient',
   'gpt-5.4-mini': 'critical thinking',
   'gpt-5.4': 'critical thinking',
+  'gemini-2.5-flash': 'balanced',
+  'gemini-2.5-flash-lite': 'lightweight',
+  'gemini-3.1-flash-lite': 'lightweight',
+  'gemini-3.1-pro-preview': 'reasoning',
+  'gemini-3.5-flash': 'balanced',
 };
+

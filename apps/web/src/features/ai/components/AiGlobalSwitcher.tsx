@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { CircleNotch, Sparkle, CaretDown, Gear } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
-import { OPENAI_MODELS, MODEL_TAGS } from '@money-up/common';
+import { OPENAI_MODELS, GEMINI_MODELS, MODEL_TAGS } from '@money-up/common';
 import { getFriendlyModelName } from '@/lib/ai-models';
 import { Button } from '@/components/ui/button';
 
@@ -26,12 +26,7 @@ const MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
     'claude-3-5-haiku-20241022',
     'claude-3-opus-20240229',
   ],
-  gemini: [
-    'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-  ],
+  gemini: GEMINI_MODELS,
   ollama: [
     'qwen2.5:14b-instruct',
     'llama3.1:8b',

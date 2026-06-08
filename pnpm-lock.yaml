@@ -4592,7 +4592,7 @@ packages:
     engines: {node: '>=20'}
 
   israeli-bank-scrapers@file:libs/israeli-bank-scrapers-patched.tgz:
-    resolution: {integrity: sha512-TRRehBz90ZB2mRRmghc9pEMqpyVG5AJStIk4mQbJJwUQInxAfBHh51Q2+1ycymEf2JseaLjrQzWMEBD6tTg2lA==, tarball: file:libs/israeli-bank-scrapers-patched.tgz}
+    resolution: {integrity: sha512-DwoN5ZQRRaVlQB2mIQMZk8r3juAloIHDzep0M80YY7vEis7QjmcympMxGVuFLvAPTLldwfRowYfTwP4Le61RsQ==, tarball: file:libs/israeli-bank-scrapers-patched.tgz}
     version: 1.0.4
     engines: {node: '>= 22.13.0'}
 

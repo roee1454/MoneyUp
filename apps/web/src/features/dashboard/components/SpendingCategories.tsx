@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CircleNotch, CreditCard, Sparkle, Info } from '@phosphor-icons/react';
 import { getBankName } from '@/lib/bank-branding';
-import { getFriendlyModelName } from '@/lib/ai-models';
-import { Select, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import type { SpendingScansResponse } from '@/hooks/useAi';
-import { AiIcon } from '@/features/ai/components/AiIcon';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
+import { AiModelDropdownSelector } from '@/features/ai/components/AiModelDropdownSelector';
 import { PremiumButton } from '@/components/ui/premium-button';
 import type { SpendingCategoryItem, SpendingTransactionItem } from '../types';
 import { SpendingCategoryList } from './SpendingCategoryList';
@@ -58,7 +56,7 @@ function getTransactionKey(
   return `${effectiveCategory}::${txn.id ?? `${txn.merchant}|${txn.rawDate}|${txn.amount}`}`;
 }
 
-import { OPENAI_MODELS, MODEL_TAGS } from '@money-up/common';
+import { OPENAI_MODELS, GEMINI_MODELS } from '@money-up/common';
 
 function getDisplayReason(reason?: string): string | null {
   if (!reason) return null;
@@ -76,11 +74,7 @@ const MODELS_BY_PROVIDER = {
     'claude-3-5-sonnet-20241022',
     'claude-3-5-haiku-20241022',
   ],
-  gemini: [
-    'gemini-1.5-flash',
-    'gemini-2.5-flash',
-    'gemini-1.5-pro',
-  ],
+  gemini: GEMINI_MODELS,
 };
 
 export function SpendingCategories({
@@ -115,14 +109,14 @@ export function SpendingCategories({
     const provider = (configuredProviders[0] as any) || 'gemini';
     if (provider === 'openai') return 'gpt-4o-mini';
     if (provider === 'claude') return 'claude-3-5-haiku-20241022';
-    return 'gemini-1.5-flash';
+    return 'gemini-2.5-flash';
   });
 
   useEffect(() => {
     if (configuredProviders.length > 0 && !configuredProviders.includes(classProvider)) {
       const fallbackProvider = configuredProviders[0] as 'openai' | 'claude' | 'gemini';
       setClassProvider(fallbackProvider);
-      let defaultModel = 'gemini-1.5-flash';
+      let defaultModel = 'gemini-2.5-flash';
       if (fallbackProvider === 'openai') defaultModel = 'gpt-4o-mini';
       else if (fallbackProvider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
       setClassModel(defaultModel);
@@ -142,7 +136,7 @@ export function SpendingCategories({
 
     setClassProvider(provider);
     localStorage.setItem('moneyup_classification_provider', provider);
-    let defaultModel = 'gemini-1.5-flash';
+    let defaultModel = 'gemini-2.5-flash';
     if (provider === 'openai') defaultModel = 'gpt-4o-mini';
     else if (provider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
     
@@ -348,61 +342,15 @@ export function SpendingCategories({
             </Tooltip>
           </TooltipProvider>
 
-          <Select
-            value={classProvider}
-            onValueChange={(val) => handleProviderChange(val as any)}
-            className="h-8.5 rounded-none border border-border/60 bg-background text-xs font-bold uppercase tracking-tight shadow-xs min-w-[125px] px-3 hover:border-border transition-colors"
-          >
-            <SelectItem value="gemini">
-              <div className="flex items-center gap-1.5">
-                <AiIcon provider="gemini" size="xs" />
-                <span>Gemini</span>
-              </div>
-            </SelectItem>
-            <SelectItem value="openai">
-              <div className="flex items-center gap-1.5">
-                <AiIcon provider="openai" size="xs" />
-                <span>OpenAI</span>
-              </div>
-            </SelectItem>
-            <SelectItem value="claude">
-              <div className="flex items-center gap-1.5">
-                <AiIcon provider="claude" size="xs" />
-                <span>Claude</span>
-              </div>
-            </SelectItem>
-          </Select>
-
-          <Select
-            value={classModel}
-            onValueChange={(val) => handleModelChange(val)}
-            className="h-8.5 rounded-none border border-border/60 bg-background text-xs font-bold uppercase tracking-tight shadow-xs min-w-[190px] px-3 hover:border-border transition-colors"
-          >
-            {(MODELS_BY_PROVIDER[classProvider] || []).map((m) => (
-              <SelectItem
-                key={m}
-                value={m}
-                displayValue={
-                  <div className="flex items-center gap-1.5 truncate">
-                    <AiIcon provider={classProvider} size="xs" />
-                    <span className="truncate">{getFriendlyModelName(m)}</span>
-                  </div>
-                }
-              >
-                <div className="flex items-center justify-between w-full gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <AiIcon provider={classProvider} size="xs" />
-                    <span>{getFriendlyModelName(m)}</span>
-                  </div>
-                  {MODEL_TAGS[m] && (
-                    <span className="px-1.5 py-0.5 text-[8px] font-black uppercase bg-primary/10 text-primary rounded-xs tracking-wider shrink-0">
-                      {MODEL_TAGS[m]}
-                    </span>
-                  )}
-                </div>
-              </SelectItem>
-            ))}
-          </Select>
+          <AiModelDropdownSelector
+            selectedProvider={classProvider}
+            setSelectedProvider={(p) => handleProviderChange(p as any)}
+            selectedModel={classModel}
+            setSelectedModel={handleModelChange}
+            modelsByProvider={MODELS_BY_PROVIDER}
+            providers={['gemini', 'openai', 'claude']}
+            isLoading={isAnnotatingWithAi || isWidgetBusy}
+          />
 
           <PremiumButton
             type="button"

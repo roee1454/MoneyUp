@@ -12,6 +12,72 @@ export type LocalMessage = {
   tool_call_id?: string;
 };
 
+export function getFriendlyErrorMessage(errorInput: any): string {
+  if (!errorInput) return '';
+
+  let errStr = '';
+  if (typeof errorInput === 'string') {
+    errStr = errorInput;
+  } else if (errorInput instanceof Error) {
+    errStr = errorInput.message;
+  } else if (typeof errorInput === 'object') {
+    errStr = errorInput.message || JSON.stringify(errorInput);
+  }
+
+  // 1. Quota / Rate limit (RESOURCE_EXHAUSTED / 429)
+  if (
+    errStr.includes('429') ||
+    errStr.includes('RESOURCE_EXHAUSTED') ||
+    errStr.includes('quota') ||
+    errStr.includes('Quota exceeded')
+  ) {
+    return 'נראה שחרגת ממכסת השימוש במודל זה. אנא נסו שוב מאוחר יותר או בחרו מודל אחר (שגיאה 429 / RESOURCE_EXHAUSTED).';
+  }
+
+  // 2. Service Unavailable (UNAVAILABLE / 503)
+  if (
+    errStr.includes('503') ||
+    errStr.includes('UNAVAILABLE') ||
+    errStr.includes('experiencing high demand') ||
+    errStr.includes('temporary')
+  ) {
+    return 'המודל עמוס כרגע ולא זמין. אנא נסו שוב בעוד מספר רגעים (שגיאה 503 / UNAVAILABLE).';
+  }
+
+  // 3. Invalid API Key
+  if (
+    errStr.includes('API key not valid') ||
+    errStr.includes('INVALID_KEY') ||
+    errStr.includes('API_KEY_INVALID')
+  ) {
+    return 'מפתח ה-API שהוזן אינו תקין. אנא בדקו את ההגדרות.';
+  }
+
+  // Clean up error message if it wraps a NestJS error or similar JSON
+  let cleanMsg = errStr;
+  const jsonMatch = errStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.error?.message) {
+        cleanMsg = parsed.error.message;
+      } else if (parsed.message) {
+        cleanMsg = parsed.message;
+      }
+    } catch {
+      // ignore parsing failure
+    }
+  }
+
+  // Clean up standard prefixes
+  cleanMsg = cleanMsg
+    .replace(/^Error:\s*/i, '')
+    .replace(/^Streaming failed:\s*/i, '')
+    .replace(/^Request failed:\s*/i, '');
+
+  return cleanMsg || 'אירעה שגיאה בתקשורת עם השרת.';
+}
+
 interface UseAiStreamProps {
   provider: AiProvider;
   selectedModel: string;
@@ -171,7 +237,8 @@ export function useAiStream({
         });
 
         if (!res.ok) {
-          throw new Error(`Streaming failed: ${res.status}`);
+          const errorText = await res.text().catch(() => '');
+          throw new Error(errorText || `Streaming failed: ${res.status}`);
         }
         if (!res.body) throw new Error('Response body is empty');
 
@@ -242,11 +309,20 @@ export function useAiStream({
               }
             } catch (e) {
               console.error('Failed to parse stream chunk', e, combinedData);
+              if (
+                combinedData.includes('error') ||
+                combinedData.includes('Gemini request failed') ||
+                combinedData.includes('statusCode') ||
+                combinedData.includes('UNAVAILABLE') ||
+                combinedData.includes('RESOURCE_EXHAUSTED')
+              ) {
+                throw new Error(combinedData);
+              }
             }
           }
         }
       } catch (streamError: any) {
-        setError(streamError.message || 'Stream connection failed');
+        setError(getFriendlyErrorMessage(streamError));
       }
 
       setIsLoading(false);
@@ -285,11 +361,7 @@ export function useAiStream({
         ),
       );
     } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : 'שליחת ההודעה נכשלה',
-      );
+      setError(getFriendlyErrorMessage(submitError));
       setMessages((prev) =>
         prev.map((message) =>
           message.id === assistantId
