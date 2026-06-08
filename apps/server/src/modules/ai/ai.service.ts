@@ -5,7 +5,7 @@ import { Observable, Subscriber } from 'rxjs';
 import { UserAiConfig } from '../../types/gateway.types';
 import { verifyJwtToken } from '../../utils/auth.utils';
 import { ToolRegistry } from './tools/tool-registry';
-import { AI_TOOLS } from '@money-up/common';
+import { AI_TOOLS, MERCHANT_CATEGORIZATION_RULES } from '@money-up/common';
 import { UsersService } from '../users/users.service';
 
 import { AIProvider } from './providers/ai-provider';
@@ -96,7 +96,7 @@ export class AiService {
         }
 
         for (const tc of response.tool_calls) {
-          const result = await this.toolRegistry.run(tc.name, userId, tc.arguments);
+          const result = await this.toolRegistry.run(tc.name, userId, tc.arguments, { provider: resolved.provider, model: resolved.model });
           const toolResultMsg = {
             role: 'tool' as const,
             tool_call_id: tc.id,
@@ -189,7 +189,7 @@ export class AiService {
 
             for (const tc of toolCalls) {
               subscriber.next({ type: 'tool_call', name: tc.name });
-              const result = await this.toolRegistry.run(tc.name, userId, tc.arguments);
+              const result = await this.toolRegistry.run(tc.name, userId, tc.arguments, { provider: resolvedPayload.provider, model: resolvedPayload.model });
               const toolResultMsg = {
                 role: 'tool' as const,
                 tool_call_id: tc.id,
@@ -368,7 +368,7 @@ export class AiService {
       ? 'Always respond in high-quality Markdown format. Keep responses short, concise, and on point. Avoid long markdown responses with many lines. Summarize information, transactions, and metrics in markdown tables as much as possible rather than using long lists or text explanations. Ensure proper spacing and multiple newlines between sections, headers, and tables so they are parsed correctly.'
       : '';
 
-    const combinedSystemPrompt = [hebrewSystemPrompt, markdownSystemPrompt]
+    const combinedSystemPrompt = [hebrewSystemPrompt, markdownSystemPrompt, MERCHANT_CATEGORIZATION_RULES]
       .filter(Boolean)
       .join('\n\n');
 

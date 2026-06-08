@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 export interface ToolRunner {
   name: string;
-  execute(userId: string, args: any): Promise<any>;
+  execute(userId: string, args: any, context?: { provider: string; model: string }): Promise<any>;
 }
 
 @Injectable()
@@ -13,9 +13,9 @@ export class ToolRegistry {
     this.runners.set(runner.name, runner);
   }
 
-  async run(name: string, userId: string, args: any): Promise<any> {
+  async run(name: string, userId: string, args: any, context?: { provider: string; model: string }): Promise<any> {
     const runner = this.runners.get(name);
     if (!runner) return { error: `Tool ${name} not found.` };
-    return runner.execute(userId, args);
+    return runner.execute(userId, args, context);
   }
 }

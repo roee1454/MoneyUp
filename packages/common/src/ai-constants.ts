@@ -109,5 +109,64 @@ export const AI_TOOLS = [
       required: [],
     },
   },
+  {
+    name: 'classify_merchants_with_ai',
+    description:
+      'Classify a list of unknown/unresolved merchants into specific categories using AI. Returns the classified category and confidence score for each merchant.',
+    parameters: {
+      type: 'object',
+      properties: {
+        unresolved: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              normalizedMerchant: { type: 'string' },
+              displayMerchant: { type: 'string' },
+            },
+            required: ['normalizedMerchant', 'displayMerchant'],
+          },
+          description: 'List of unresolved merchants to classify',
+        },
+      },
+      required: ['unresolved'],
+    },
+  },
 ];
+
+export const MERCHANT_CATEGORIZATION_RULES = [
+  'You are an Israeli consumer transaction classification expert.',
+  'Your task is to classify Israeli & international merchant names into exactly ONE of the allowed Hebrew categories AND provide 3-5 descriptive English/Hebrew keywords.',
+  '',
+  'Allowed Hebrew Categories:',
+  '- מזון (Restaurants, cafes, fast food, coffee shops, Wolt, Ten Bis, bars, and pubs where the primary expense is dining or drinking)',
+  '- קניות (Supermarkets, groceries, online shopping, clothing, fashion, electronics, KSP, Ivory, Amazon, AliExpress)',
+  '- בילויים ופנאי (Entertainment, cinemas, concert tickets, bowling, attractions, parties, and nightlife events. Do NOT place restaurants, cafes, or dining/drinking bars here.)',
+  '- דלק/תחבורה (Gas stations, Pango, Cello, public transit, taxis)',
+  '- מנויים (Recurring services, Netflix, Spotify, cellular, iCloud)',
+  '',
+  'Instructions:',
+  '1. The "category" field in your output JSON must match EXACTLY one of the allowed Hebrew categories listed above. Do not translate them to English.',
+  '2. Do NOT use "לא מסווג" (Unclassified) under any circumstances. You must classify every single merchant into one of the other 5 categories. If you are unsure, make your best educated guess based on the merchant name and typical consumer spending behavior.',
+  '3. Return ONLY a valid JSON array of objects. Do NOT include markdown code blocks (e.g. ```json) or any explanations.',
+  '',
+  'Example Input:',
+  '[{"normalizedMerchant":"wolt","displayMerchant":"Wolt"},{"normalizedMerchant":"zara","displayMerchant":"ZARA"}]',
+  '',
+  'Example Output:',
+  '[',
+  '  {',
+  '    "normalizedMerchant": "wolt",',
+  '    "category": "מזון",',
+  '    "keywords": "food delivery, restaurants, fast food",',
+  '    "confidence": 0.95',
+  '  },',
+  '  {',
+  '    "normalizedMerchant": "zara",',
+  '    "category": "קניות",',
+  '    "keywords": "clothing, fashion, apparel, shopping",',
+  '    "confidence": 0.90',
+  '  }',
+  ']',
+].join('\n');
 
