@@ -9,14 +9,11 @@ import {
 import { PremiumButton } from '@/components/ui/premium-button';
 import { PremiumTextarea } from '@/components/ui/premium-textarea';
 import { DataSourceCard } from '@/features/dashboard/components/DataSourceCard';
-import { getFriendlyModelName } from '@/lib/ai-models';
-import { Select, SelectItem } from '@/components/ui/select';
-import { AiIcon } from '@/features/ai/components/AiIcon';
 import { cn } from '@/lib/utils';
 import { useAccounts } from '@/hooks/useAccounts';
 import { BankIcon } from '@/features/accounts/components/BankIcon';
 import { getBankName, normalizeBankId } from '@/lib/bank-branding';
-import { MODEL_TAGS } from '@money-up/common';
+import { AiModelDropdownSelector } from '@/features/ai/components/AiModelDropdownSelector';
 
 interface AiInputPanelProps {
   prompt: string;
@@ -333,82 +330,15 @@ export function AiInputPanel({
               label="מנתח נתונים מ"
             />
           ) : (
-            <div className="flex flex-row gap-2 shrink-0">
-              <Select
-                value={agentProvider}
-                onValueChange={(val) => setAgentProvider(val as any)}
-                position="top"
-                className={cn(
-                  'h-7 rounded-full border border-border/40 bg-muted/40 text-[9px] font-black uppercase tracking-tight shadow-none min-w-[115px] px-2.5 py-0',
-                  isLoading && 'pointer-events-none opacity-60'
-                )}
-              >
-                <SelectItem value="gemini">
-                  <div className="flex items-center gap-1.5">
-                    <AiIcon provider="gemini" size="xs" />
-                    <span>Gemini</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="openai">
-                  <div className="flex items-center gap-1.5">
-                    <AiIcon provider="openai" size="xs" />
-                    <span>OpenAI</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="claude">
-                  <div className="flex items-center gap-1.5">
-                    <AiIcon provider="claude" size="xs" />
-                    <span>Claude</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="ollama">
-                  <div className="flex items-center gap-1.5">
-                    <AiIcon provider="ollama" size="xs" />
-                    <span>Ollama</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="openrouter">
-                  <div className="flex items-center gap-1.5">
-                    <AiIcon provider="openrouter" size="xs" />
-                    <span>OpenRouter</span>
-                  </div>
-                </SelectItem>
-              </Select>
-
-              <Select
-                value={agentModel}
-                onValueChange={(val) => setAgentModel(val)}
-                position="top"
-                className={cn(
-                  'h-7 rounded-full border border-border/40 bg-muted/40 text-[9px] font-black uppercase tracking-tight shadow-none min-w-[170px] px-2.5 py-0',
-                  isLoading && 'pointer-events-none opacity-60'
-                )}
-              >
-                {(modelsByProvider[agentProvider] || []).map((m) => (
-                  <SelectItem
-                    key={m}
-                    value={m}
-                    displayValue={
-                      <div className="flex items-center gap-1.5 truncate">
-                        <AiIcon provider={agentProvider} size="xs" />
-                        <span className="truncate">{getFriendlyModelName(m)}</span>
-                      </div>
-                    }
-                  >
-                    <div className="flex items-center justify-between w-full gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <AiIcon provider={agentProvider} size="xs" />
-                        <span>{getFriendlyModelName(m)}</span>
-                      </div>
-                      {MODEL_TAGS[m] && (
-                        <span className="px-1.5 py-0.5 text-[8px] font-black uppercase bg-primary/10 text-primary rounded-xs tracking-wider shrink-0">
-                          {MODEL_TAGS[m]}
-                        </span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </Select>
+            <div className="shrink-0">
+              <AiModelDropdownSelector
+                selectedProvider={agentProvider}
+                setSelectedProvider={setAgentProvider}
+                selectedModel={agentModel}
+                setSelectedModel={setAgentModel}
+                modelsByProvider={modelsByProvider}
+                isLoading={isLoading}
+              />
             </div>
           )}
         </div>

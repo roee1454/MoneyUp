@@ -70,7 +70,7 @@ export class FindMerchantsRunner implements ToolRunner {
         if (!model && activeProvider) {
           if (activeProvider === 'openai') model = 'gpt-4o';
           else if (activeProvider === 'claude') model = 'Sonnet 4.5';
-          else if (activeProvider === 'gemini') model = 'gemini-3.1-flash-lite';
+          else if (activeProvider === 'gemini') model = 'gemini-2.5-flash';
         }
 
         if (activeProvider && apiKey && model) {

@@ -36,7 +36,7 @@ const providerLabels: Record<Provider, string> = {
 const DEFAULT_MODELS: Record<Provider, string> = {
   openai: 'gpt-4o-mini',
   claude: 'claude-3-5-haiku-20241022',
-  gemini: 'gemini-1.5-flash',
+  gemini: 'gemini-2.5-flash',
   ollama: 'qwen2.5:14b-instruct',
   openrouter: 'meta-llama/llama-3.1-8b-instruct:free',
 };

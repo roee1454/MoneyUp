@@ -214,7 +214,7 @@ export class SpendingService {
     if (!model) {
       if (activeProvider === 'openai') model = 'gpt-4o-mini';
       else if (activeProvider === 'claude') model = 'claude-3-5-haiku-20241022';
-      else if (activeProvider === 'gemini') model = 'gemini-1.5-flash';
+      else if (activeProvider === 'gemini') model = 'gemini-2.5-flash';
     }
 
     if (!model) return [];

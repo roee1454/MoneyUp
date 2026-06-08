@@ -51,7 +51,7 @@ export class GeminiProvider extends AIProvider {
   ): Promise<StructuredResponse | Observable<StructuredResponse>> {
     const stream = !!options?.stream;
     const endpoint = stream
-      ? `${this.baseUrl}/models/${modelName}:streamGenerateContent?key=${this.apiKey}`
+      ? `${this.baseUrl}/models/${modelName}:streamGenerateContent?key=${this.apiKey}&alt=sse`
       : `${this.baseUrl}/models/${modelName}:generateContent?key=${this.apiKey}`;
 
     const systemMessage = messages.find((m) => m.role === 'system');
@@ -98,13 +98,20 @@ export class GeminiProvider extends AIProvider {
           parts.push({ text: m.content });
         }
         for (const tc of m.tool_calls) {
-          parts.push({
+          const part: any = {
             functionCall: {
               name: tc.name,
               args: tc.arguments,
             },
-          });
+          };
+          const tSig = tc.thoughtSignature || tc.thought_signature;
+          if (tSig) {
+            part.thoughtSignature = tSig;
+            part.thought_signature = tSig;
+          }
+          parts.push(part);
         }
+
         return {
           role: 'model',
           parts,
@@ -181,12 +188,27 @@ export class GeminiProvider extends AIProvider {
         .join('');
       const functionCallParts = parts.filter((p) => p.functionCall);
 
+      const globalThoughtSig = parts.find(
+        (p) => (p as any).thoughtSignature || (p as any).thought_signature,
+      );
+      const thoughtSigVal = globalThoughtSig
+        ? (globalThoughtSig as any).thoughtSignature ||
+          (globalThoughtSig as any).thought_signature
+        : undefined;
+
       if (functionCallParts.length > 0) {
-        const toolCalls = functionCallParts.map((f, idx) => ({
-          id: `${f.functionCall!.name}_${Date.now()}_${idx}`,
-          name: f.functionCall!.name,
-          arguments: f.functionCall!.args || {},
-        }));
+        const toolCalls = functionCallParts.map((f, idx) => {
+          const localSig =
+            (f as any).thoughtSignature ||
+            (f as any).thought_signature ||
+            thoughtSigVal;
+          return {
+            id: `${f.functionCall!.name}_${Date.now()}_${idx}`,
+            name: f.functionCall!.name,
+            arguments: f.functionCall!.args || {},
+            ...(localSig ? { thoughtSignature: localSig } : {}),
+          };
+        });
         return {
           type: 'tool_calls',
           tool_calls: toolCalls,
@@ -217,8 +239,12 @@ export class GeminiProvider extends AIProvider {
       const decoder = new TextDecoder();
       let buffer = '';
 
-      const toolCallMap = new Map<string, { name: string; arguments: string }>();
+      const toolCallMap = new Map<
+        string,
+        { name: string; arguments: string; thoughtSignature?: string }
+      >();
       let accumulatedContent = '';
+      let lastThoughtSignature = '';
 
       const pump = async (): Promise<void> => {
         try {
@@ -243,6 +269,11 @@ export class GeminiProvider extends AIProvider {
                 const parts = candidate?.content?.parts ?? [];
 
                 for (const part of parts) {
+                  const tSig =
+                    (part as any).thoughtSignature || (part as any).thought_signature;
+                  if (tSig) {
+                    lastThoughtSignature = tSig;
+                  }
                   if (part.text) {
                     accumulatedContent += part.text;
                     subscriber.next({ type: 'text', content: part.text });
@@ -251,11 +282,14 @@ export class GeminiProvider extends AIProvider {
                     const name = part.functionCall.name;
                     let existing = toolCallMap.get(name);
                     if (!existing) {
-                      existing = { name, arguments: '' };
+                      existing = { name, arguments: '', thoughtSignature: tSig };
                       toolCallMap.set(name, existing);
                     }
                     if (part.functionCall.args) {
                       existing.arguments += JSON.stringify(part.functionCall.args);
+                    }
+                    if (tSig) {
+                      existing.thoughtSignature = tSig;
                     }
                   }
                 }
@@ -281,10 +315,12 @@ export class GeminiProvider extends AIProvider {
                     }
                   }
                 }
+                const tSig = tc.thoughtSignature || lastThoughtSignature;
                 toolCalls.push({
                   id: `${name}_${Date.now()}_${idx++}`,
                   name,
                   arguments: args,
+                  ...(tSig ? { thoughtSignature: tSig } : {}),
                 });
               } catch (e) {
                 console.error(
