@@ -22,9 +22,10 @@ export class CalScraper extends BaseScraper {
 
   protected async simulateScrape(
     _credentials: ScraperCredentials,
+    onProgress?: (step: string) => void,
   ): Promise<ScraperResponse> {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await this.runSimulatedProgress(onProgress);
 
       return {
         status: 'SUCCESS',
@@ -81,6 +82,7 @@ export class CalScraper extends BaseScraper {
       executablePath?: string;
       browser?: any;
       skipCloseBrowser?: boolean;
+      onProgress?: (step: string) => void;
     },
   ): Promise<ScraperResponse> {
     try {
@@ -110,6 +112,8 @@ export class CalScraper extends BaseScraper {
           ? { skipCloseBrowser: options.skipCloseBrowser }
           : {}),
       });
+
+      this.registerProgressListener(scraper, options?.onProgress);
 
       const scrapeResult = await scraper.scrape(credentials);
 

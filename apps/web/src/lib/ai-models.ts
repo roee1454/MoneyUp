@@ -1,6 +1,7 @@
 export function getFriendlyModelName(modelId: string): string {
   const modelNameMap: Record<string, string> = {
     // OpenAI
+    'gpt-4o-mini': "GPT-4o Mini",
     'gpt-4o': 'GPT-4o',
     'gpt-5': 'GPT-5',
     'gpt-5-mini': 'GPT-5 Mini',

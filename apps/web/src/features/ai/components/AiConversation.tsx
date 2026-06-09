@@ -22,6 +22,7 @@ interface AiConversationProps {
   } | null;
   conversationId: string | null;
   onConversationCreated: (id: string) => void;
+  onConnectClick?: () => void;
 }
 
 const MODELS_BY_PROVIDER: Record<string, string[]> = {
@@ -52,6 +53,7 @@ export function AiConversation({
   userProfile,
   conversationId,
   onConversationCreated,
+  onConnectClick,
 }: AiConversationProps) {
   const [prompt, setPrompt] = useState('');
   const navigate = useNavigate();
@@ -208,7 +210,7 @@ export function AiConversation({
   });
 
   const defaultPrompts = [
-    'כמה בזבזתי על קניות ומזון בחודש האחרון?',
+    'כמה בזבזתי על קניות בסופר ואוכל/מסעדות בחודש האחרון?',
     'האם יש מנויים או חיובים מחזוריים שאתה מזהה בחשבון שלי?',
     'מה תזרים המזומנים שלי החודש לעומת חודש שעבר?',
     'תראה לי את התנועות הכי גדולות שלי בכרטיס אשראי',
@@ -241,10 +243,12 @@ export function AiConversation({
         defaultPrompts={defaultPrompts}
         selectedModel={selectedModel}
         onPromptClick={handlePromptClick}
+        hasAiProvider={configuredProviders.length > 0}
+        onConnectClick={onConnectClick}
       />
 
       {error ? (
-        <div className="max-w-3xl mx-auto w-full px-3 md:px-5 shrink-0">
+        <div className="max-w-5xl mx-auto w-full px-3 md:px-5 shrink-0">
           <div className="flex items-start gap-3 bg-destructive/5 text-destructive border border-destructive/15 px-4 py-3.5 rounded-2xl text-right dir-rtl font-sans">
             <Warning className="h-5 w-5 shrink-0 text-destructive/80 mt-0.5" />
             <p className="text-sm font-medium leading-relaxed">
@@ -254,13 +258,13 @@ export function AiConversation({
         </div>
       ) : null}
 
-      <div className="max-w-3xl mx-auto w-full px-3 md:px-5 pb-2 shrink-0">
+      <div className="max-w-5xl mx-auto w-full px-3 md:px-5 pb-2 shrink-0">
         <AiInputPanel
           prompt={prompt}
           setPrompt={setPrompt}
           onSubmit={handleSubmitPrompt}
           isLoading={isLoading}
-          selectedModel={selectedModel}
+          selectedModel={configuredProviders.length > 0 ? selectedModel : ''}
           debugEnabled={debugEnabled}
           activeSources={activeSources}
           onShowDebug={() => setShowDebug(true)}

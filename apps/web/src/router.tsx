@@ -23,6 +23,7 @@ import { useSession } from '@/hooks/useAuth';
 import { useGlobalSyncManager } from '@/hooks/useGlobalSync';
 import { GlobalSyncBubble } from '@/features/accounts/components/GlobalSyncBubble';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { cn } from '@/lib/utils';
 
 const privatePaths = [
   '/dashboard',
@@ -126,8 +127,15 @@ function AppLayout() {
       )}
       {showNavbar && <Navbar />}
       {showNavbar ? (
-        <div className="min-h-0 flex-1 overflow-y-auto md:pr-72">
-          <div className="mx-auto max-w-7xl px-10 py-8">
+        <div className="min-h-0 flex-1 overflow-y-auto md:pr-72 flex flex-col">
+          <div
+            className={cn(
+              'mx-auto w-full flex-1 flex flex-col',
+              routerState.location.pathname === '/ai-studio'
+                ? 'max-w-none px-0 py-0'
+                : 'max-w-7xl px-10 py-8',
+            )}
+          >
             <Outlet />
           </div>
         </div>

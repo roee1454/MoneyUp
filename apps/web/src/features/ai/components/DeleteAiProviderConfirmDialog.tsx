@@ -1,0 +1,67 @@
+import { CircleNotch } from '@phosphor-icons/react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import type { AiProvider } from './AiIcon';
+
+interface DeleteAiProviderConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  provider: AiProvider | null;
+  isPending: boolean;
+  onConfirm: () => void;
+}
+
+export function DeleteAiProviderConfirmDialog({
+  open,
+  onOpenChange,
+  provider,
+  isPending,
+  onConfirm,
+}: DeleteAiProviderConfirmDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        dir="rtl"
+        showCloseButton={false}
+      >
+        <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
+          <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
+            הסרת ספק בינה מלאכותית
+          </DialogTitle>
+          <DialogDescription className="text-xs font-semibold text-muted-foreground leading-relaxed">
+            האם אתה בטוח שברצונך להסיר את ספק {provider?.toUpperCase()}? מפתחות ה-API והגדרות הפרופיל המשויכים אליו יימחקו מהמערכת.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="pt-4 flex flex-row justify-end gap-3">
+          <Button
+            variant="outline"
+            className="rounded-none font-bold text-xs h-10 border-border cursor-pointer uppercase tracking-widest"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
+            ביטול
+          </Button>
+          <Button
+            className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer uppercase tracking-widest px-6 shadow-lg shadow-destructive/10"
+            disabled={isPending}
+            onClick={onConfirm}
+          >
+            {isPending ? (
+              <CircleNotch className="h-4 w-4 animate-spin" />
+            ) : (
+              'הסר ספק'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

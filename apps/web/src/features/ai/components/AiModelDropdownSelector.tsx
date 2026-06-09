@@ -48,22 +48,37 @@ export function AiModelDropdownSelector({
     setSelectedModel(firstModel);
   };
 
+  const hasProviders = configuredProviders && configuredProviders.length > 0;
+  const isTriggerDisabled = isLoading || !hasProviders;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          disabled={isLoading}
+          disabled={isTriggerDisabled}
           className={cn(
-            'flex items-center gap-2.5 h-9.5 rounded-none border border-border/60 bg-background text-xs font-black uppercase tracking-tight shadow-xs px-4 hover:border-border/100 hover:bg-muted/10 transition-colors cursor-pointer select-none',
-            isLoading && 'pointer-events-none opacity-60'
+            'flex items-center justify-between w-48 h-[38px] rounded-none border border-border/60 bg-background text-xs font-bold tracking-tight shadow-xs px-3 hover:border-border/100 hover:bg-muted/10 transition-colors cursor-pointer select-none shrink-0',
+            isTriggerDisabled && 'pointer-events-none opacity-60'
           )}
           dir="rtl"
         >
-          <AiIcon provider={selectedProvider} size="sm" />
-          <span className="truncate max-w-[160px] font-black text-foreground">
-            {getFriendlyModelName(selectedModel)}
-          </span>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <AiIcon
+              provider={selectedProvider}
+              size="sm"
+              className={cn('shrink-0', !hasProviders && 'grayscale opacity-50')}
+            />
+            <span className="truncate font-bold text-foreground text-[11px] block text-right">
+              {hasProviders ? (
+                getFriendlyModelName(selectedModel).length > 16
+                  ? getFriendlyModelName(selectedModel).substring(0, 14) + '...'
+                  : getFriendlyModelName(selectedModel)
+              ) : (
+                'לא מחובר ספק'
+              )}
+            </span>
+          </div>
           <CaretUp className="h-4 w-4 text-muted-foreground/80 mr-1.5 shrink-0" weight="bold" />
         </button>
       </DropdownMenuTrigger>
@@ -106,7 +121,7 @@ export function AiModelDropdownSelector({
                       size="sm"
                       className={cn('border-none shadow-none', !isConfigured && 'grayscale')}
                     />
-                    <span className="text-[10px] font-black uppercase tracking-tight">
+                    <span className="text-[10px] font-bold tracking-tight">
                       {PROVIDER_LABELS[p] || p}
                     </span>
                   </button>
@@ -139,7 +154,7 @@ export function AiModelDropdownSelector({
                     )}
                     title={getFriendlyModelName(m)}
                   >
-                    <span className="text-[10px] font-black leading-tight truncate w-full">
+                    <span className="text-[10px] font-bold leading-tight truncate w-full">
                       {getFriendlyModelName(m)}
                     </span>
                     {MODEL_TAGS[m] ? (

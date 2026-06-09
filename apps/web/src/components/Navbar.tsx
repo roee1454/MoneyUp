@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { List, CaretDown } from '@phosphor-icons/react';
+import { List, CaretDown, Plus, Trash, ChatCircle } from '@phosphor-icons/react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
+import { useConversations, useDeleteConversation } from '@/hooks/useAi';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { he } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
@@ -52,6 +56,28 @@ function SidebarContent({
   const isSyncBusy = isSyncing || isSyncPending;
   const isInSettings = pathname.startsWith('/settings');
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(isInSettings);
+
+  const activeConversationId = useAppStore((s) => s.activeConversationId);
+  const setActiveConversationId = useAppStore((s) => s.setActiveConversationId);
+  const { data: conversations = [] } = useConversations();
+  const deleteMutation = useDeleteConversation();
+  const queryClient = useQueryClient();
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm('האם אתה בטוח שברצונך למחוק שיחה זו?')) {
+      try {
+        await deleteMutation.mutateAsync(id);
+        toast.success('השיחה נמחקה בהצלחה');
+        await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
+        if (activeConversationId === id) {
+          setActiveConversationId(null);
+        }
+      } catch (err) {
+        toast.error('מחיקת השיחה נכשלה');
+      }
+    }
+  };
 
   return (
     <div className="flex h-full flex-col" dir="rtl">
@@ -135,6 +161,86 @@ function SidebarContent({
             </li>
           </ul>
         </nav>
+
+        {pathname === '/ai-studio' && (
+          <>
+            <Separator className="bg-border" />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                  שיחות אחרונות
+                </span>
+                <Button
+                  onClick={() => setActiveConversationId(null)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded-none text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer"
+                  title="שיחה חדשה"
+                >
+                  <Plus className="h-3.5 w-3.5" weight="bold" />
+                </Button>
+              </div>
+
+              <div className="space-y-1 max-h-[350px] overflow-y-auto custom-scrollbar px-1">
+                {conversations.length === 0 ? (
+                  <div className="py-6 text-center px-3">
+                    <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-relaxed">
+                      אין שיחות קודמות.
+                    </p>
+                  </div>
+                ) : (
+                  conversations.map((conv) => {
+                    const isActive = activeConversationId === conv.id;
+                    return (
+                      <div
+                        key={conv.id}
+                        onClick={() => setActiveConversationId(conv.id)}
+                        className={cn(
+                          'w-full text-right px-2.5 py-2 flex items-center justify-between group transition-all cursor-pointer border text-xs font-bold',
+                          isActive
+                            ? 'bg-muted/50 border-border text-foreground'
+                            : 'bg-transparent border-transparent text-muted-foreground hover:bg-muted/20 hover:border-border/50 hover:text-foreground',
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <ChatCircle
+                            className={cn(
+                              'h-3.5 w-3.5 shrink-0',
+                              isActive ? 'text-primary' : 'text-muted-foreground/60',
+                            )}
+                            weight="duotone"
+                          />
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate text-[11px] font-bold leading-tight">
+                              {conv.title}
+                            </span>
+                            <span className="truncate text-[9px] font-medium opacity-60">
+                              {format(new Date(conv.updatedAt), 'dd MMM yyyy, HH:mm', {
+                                locale: he,
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            void handleDelete(conv.id, e);
+                          }}
+                          className={cn(
+                            'shrink-0 h-5 w-5 flex items-center justify-center rounded-none text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors outline-none cursor-pointer',
+                            isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                          )}
+                          title="מחק שיחה"
+                        >
+                          <Trash className="h-3 w-3" weight="bold" />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-auto px-1 pb-2 pt-4 space-y-3 bg-background/50 border-t border-border/50">

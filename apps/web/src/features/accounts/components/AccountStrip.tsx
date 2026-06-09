@@ -17,6 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { DisconnectConfirmDialog } from './DisconnectConfirmDialog';
 
 interface AccountStripProps {
   accounts: BankAccount[];
@@ -75,23 +76,18 @@ export function AccountStrip({
 }: AccountStripProps) {
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
   const disconnectAccount = useDisconnectAccount();
   const queryClient = useQueryClient();
 
   const handleDisconnect = async () => {
     if (!selectedBankId) return;
-    if (
-      !window.confirm(
-        `האם אתה בטוח שברצונך לנתק את החיבור ל-${getBankName(selectedBankId)}? כל הנתונים השמורים יימחקו.`,
-      )
-    ) {
-      return;
-    }
 
     setIsDisconnecting(true);
     try {
       await disconnectAccount.mutateAsync(selectedBankId);
       void queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
+      setShowConfirmDisconnect(false);
       setSelectedBankId(null);
     } finally {
       setIsDisconnecting(false);
@@ -104,7 +100,7 @@ export function AccountStrip({
         {Array.from({ length: 3 }).map((_, idx) => (
           <div
             key={idx}
-            className="h-16 w-full border border-border bg-card px-3 py-2 rounded-none flex items-center justify-between"
+            className="h-16 w-full border border-border bg-card px-5 py-2 rounded-none flex items-center justify-between"
           >
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-muted animate-soft-shimmer" />
@@ -191,7 +187,7 @@ export function AccountStrip({
           <button
             key={bankId}
             onClick={() => setSelectedBankId(bankId)}
-            className="h-16 w-full border border-border bg-card hover:bg-accent px-3 py-2 rounded-none flex items-center justify-between transition-all cursor-pointer text-right group select-none"
+            className="h-16 w-full border border-border bg-card hover:bg-accent px-5 py-2 rounded-none flex items-center justify-between transition-all cursor-pointer text-right group select-none"
           >
             <div className="flex items-center gap-2">
               <BankIcon bankId={bankId} size="sm" />
@@ -318,7 +314,7 @@ export function AccountStrip({
               <Button
                 variant="outline"
                 className="w-full h-10 border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 font-bold transition-all flex items-center justify-center gap-2"
-                onClick={handleDisconnect}
+                onClick={() => setShowConfirmDisconnect(true)}
                 disabled={isDisconnecting}
               >
                 {isDisconnecting ? (
@@ -332,6 +328,15 @@ export function AccountStrip({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Confirmation Disconnect Dialog */}
+      <DisconnectConfirmDialog
+        open={showConfirmDisconnect}
+        onOpenChange={setShowConfirmDisconnect}
+        bankId={selectedBankId}
+        isDisconnecting={isDisconnecting}
+        onConfirm={handleDisconnect}
+      />
     </div>
   );
 }

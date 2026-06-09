@@ -305,8 +305,8 @@ export function AiInputPanel({
         onChange={handleChangeText}
         onSelect={handleSelect}
         onKeyDown={handleKeyDown}
-        placeholder="הקלד כאן שאלה... (השתמש ב-@ כדי לתייג חשבון)"
-        className="w-full min-h-[100px] max-h-60 rounded-none border-none bg-transparent hover:bg-transparent focus:bg-transparent shadow-none py-4 px-4 resize-none text-right text-foreground relative z-10 leading-relaxed placeholder:text-muted-foreground"
+        placeholder={selectedModel ? "הקלד כאן שאלה... (השתמש ב-@ כדי לתייג חשבון)" : "יש לחבר ספק AI על מנת לשלוח הודעות"}
+        className="w-full min-h-[100px] max-h-60 rounded-none border-none bg-transparent hover:bg-transparent focus:bg-transparent shadow-none py-4 px-4 resize-none text-right text-foreground relative z-10 leading-relaxed placeholder:text-muted-foreground text-[17px]"
         disabled={isLoading || !selectedModel}
         rows={3}
       />
