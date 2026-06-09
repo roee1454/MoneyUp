@@ -48,7 +48,7 @@ export function AiMessageBubble({
   if (isUser) {
     return (
       <div className="flex w-full justify-start">
-        <div className="max-w-[75%] rounded-[24px] px-5 py-3 text-sm font-semibold shadow-xs border border-border/30 bg-secondary text-foreground text-right">
+        <div className="max-w-[75%] rounded-[24px] px-5 py-3 text-[17px] font-semibold shadow-xs border border-border/30 bg-secondary text-foreground text-right">
           <div className="markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
@@ -104,7 +104,7 @@ export function AiMessageBubble({
             <div className="h-3 bg-muted rounded-full w-[60%] animate-soft-shimmer" />
           </div>
         ) : (
-          <div className="markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right text-foreground">
+          <div className="markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right text-foreground text-[17px]">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}

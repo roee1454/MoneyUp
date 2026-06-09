@@ -22,9 +22,10 @@ export class LeumiScraper extends BaseScraper {
 
   protected async simulateScrape(
     _credentials: ScraperCredentials,
+    onProgress?: (step: string) => void,
   ): Promise<ScraperResponse> {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await this.runSimulatedProgress(onProgress);
 
       return {
         status: 'SUCCESS',
@@ -66,6 +67,9 @@ export class LeumiScraper extends BaseScraper {
       loginTimeoutSeconds?: number;
       defaultTimeoutSeconds?: number;
       executablePath?: string;
+      browser?: any;
+      skipCloseBrowser?: boolean;
+      onProgress?: (step: string) => void;
     },
   ): Promise<ScraperResponse> {
     try {
@@ -93,6 +97,8 @@ export class LeumiScraper extends BaseScraper {
         additionalTransactionInformation: false,
         includeRawTransaction: true,
       });
+      
+      this.registerProgressListener(scraper, options?.onProgress);
 
       const scrapeResult = await scraper.scrape(credentials);
 

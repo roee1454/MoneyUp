@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
+import { UsersService } from '../users/users.service';
 
 describe('AiController', () => {
   let controller: AiController;
@@ -16,13 +17,17 @@ describe('AiController', () => {
           provide: AiService,
           useValue: service,
         },
+        {
+          provide: UsersService,
+          useValue: {},
+        },
       ],
     }).compile();
 
     controller = app.get<AiController>(AiController);
   });
 
-  it('returns pong on ping', () => {
-    expect(controller.ping()).toBe('pong');
+  it('returns greeting message', async () => {
+    expect(await controller.getAiGreeting()).toBe('AI gateway endpoint is ready');
   });
 });

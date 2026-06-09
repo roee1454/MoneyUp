@@ -40,9 +40,8 @@ interface SpendingCategoriesProps {
 }
 
 const categoryEmojis: Record<string, string> = {
-  מזון: '🍔',
-  קניות: '🛒',
-  'בילויים ופנאי': '🎉',
+  מותרות: '🎉',
+  'קניות בסופר': '🛒',
   'דלק/תחבורה': '⛽',
   מנויים: '📱',
   'לא מסווג': '📦',

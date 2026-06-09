@@ -40,6 +40,8 @@ type AppState = {
     committedStartDate: string | null;
     committedEndDate: string | null;
   };
+  activeConversationId: string | null;
+  setActiveConversationId: (id: string | null) => void;
   setSync: (patch: Partial<AppState['sync']>) => void;
   setDashboardRange: (range: Partial<AppState['dashboardRange']>) => void;
   resetSync: () => void;
@@ -74,6 +76,8 @@ export const useAppStore = create<AppState>()(
       committedStartDate: null,
       committedEndDate: null,
     },
+    activeConversationId: null,
+    setActiveConversationId: (id) => set({ activeConversationId: id }),
     setSync: (patch) =>
       set((state) => ({
         sync: {

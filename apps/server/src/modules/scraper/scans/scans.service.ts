@@ -11,15 +11,7 @@ import {
   UnifiedTransaction,
 } from '@money-up/types';
 import { isWithinRange } from '../utils/date.utils';
-
-const EXPENSE_CATEGORIES = [
-  'מזון',
-  'קניות',
-  'בילויים ופנאי',
-  'דלק/תחבורה',
-  'מנויים',
-  'לא מסווג',
-] as const;
+import { EXPENSE_CATEGORIES } from '@money-up/common';
 
 @Injectable()
 export class ScansService {
@@ -497,7 +489,7 @@ export class ScansService {
       desc.includes('פאב') ||
       desc.includes('בר ')
     )
-      return 'מזון';
+      return 'מותרות';
 
     // Grouping: super, clothing, electronics, online shopping -> קניות
     if (
@@ -539,7 +531,7 @@ export class ScansService {
       desc.includes('online') ||
       desc.includes('אונליין')
     )
-      return 'קניות';
+      return 'קניות בסופר';
 
     // Grouping: entertainment, going out -> בילויים ופנאי
     if (
@@ -558,7 +550,7 @@ export class ScansService {
       desc.includes('מועדון') ||
       desc.includes('ליין')
     )
-      return 'בילויים ופנאי';
+      return 'מותרות';
 
     if (
       desc.includes('דלק') ||

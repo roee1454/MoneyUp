@@ -65,6 +65,10 @@ export class ScraperService {
     loginTimeoutSeconds?: number;
     defaultTimeoutSeconds?: number;
     executablePath?: string;
+    /** Called immediately when a live scraper emits a progress step, before the
+     *  polling interval picks it up. Allows the gateway to push real-time updates
+     *  to the socket client without waiting for the 2-second poll cycle. */
+    onStepUpdate?: (sessionId: string, step: string) => void;
   }): Promise<any> {
     const { userId, bankId, startDate } = data;
     try {
@@ -119,6 +123,7 @@ export class ScraperService {
           loginTimeoutSeconds: data.loginTimeoutSeconds,
           defaultTimeoutSeconds: data.defaultTimeoutSeconds,
           executablePath: data.executablePath,
+          onStepUpdate: data.onStepUpdate,
         },
       );
 
@@ -148,6 +153,7 @@ export class ScraperService {
       loginTimeoutSeconds?: number;
       defaultTimeoutSeconds?: number;
       executablePath?: string;
+      onStepUpdate?: (sessionId: string, step: string) => void;
     },
   ) {
     try {
@@ -198,7 +204,16 @@ export class ScraperService {
       const response = await scraper.scrape(
         credentialsWithOtp,
         parsedDate,
-        options,
+        {
+          ...options,
+          onProgress: (step: string) => {
+            // Update persisted session state (picked up by the 2s poll as a fallback)
+            this.sessionService.updateSession(sessionId, { step });
+            // Immediately push to socket if a direct callback was provided,
+            // bypassing the polling delay entirely for real-time UX.
+            options?.onStepUpdate?.(sessionId, step);
+          },
+        },
       );
 
       if (response.status === 'SUCCESS') {
@@ -276,6 +291,7 @@ export class ScraperService {
       internalErrorRaw: session.internalErrorRaw,
       resultData: session.resultData,
       currentlySyncing: session.currentlySyncing ?? null,
+      step: session.step ?? null,
     };
   }
 

@@ -19,6 +19,7 @@ import { getScraperSocket } from '@/lib/scraper-socket';
 import { PremiumInput } from '@/components/ui/premium-input';
 import { Button } from '@/components/ui/button';
 import { BankIcon } from './BankIcon';
+import { getFriendlyScraperError } from '@/lib/error-formatter';
 
 function getPhaseLabel(phase: string | null): string {
   if (phase === 'initializing') return 'אתחול';
@@ -80,11 +81,12 @@ export function GlobalSyncBubble() {
   const isFailed = status === 'failed';
   const isChallenged = !!challenge;
   const title = isFailed ? 'סנכרון נכשל' : isChallenged ? 'נדרש אימות' : 'סנכרון נתונים';
-  const displayMessage =
-    message ||
-    (isFailed ? 'אירעה שגיאה במהלך הסנכרון' : 'מעדכן נתונים ברקע...');
-  const errorMessage =
-    error || (isFailed ? 'אירעה שגיאה במהלך הסנכרון' : '');
+  const displayMessage = isFailed
+    ? (error ? getFriendlyScraperError(error) : (message || 'אירעה שגיאה במהלך הסנכרון'))
+    : (message || 'מעדכן נתונים ברקע...');
+  const errorMessage = error
+    ? getFriendlyScraperError(error)
+    : (isFailed ? 'אירעה שגיאה במהלך הסנכרון' : '');
 
   const progressValue =
     status === 'running' && Number.isFinite(displayProgress)

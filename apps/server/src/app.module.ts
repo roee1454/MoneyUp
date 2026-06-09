@@ -28,7 +28,7 @@ import { SpendingModule } from './modules/spending/spending.module';
     }),
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
-      database: 'data/users.db',
+      database: 'data/app.db',
       entities: [
         User,
         ConversationEntity,

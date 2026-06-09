@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api, API_BASE } from '@/lib/api';
 import { useCreateConversation, useAddMessage } from '@/hooks/useAi';
 import type { AiProvider } from '../AiIcon';
+import { getFriendlyErrorMessage } from '@/lib/error-formatter';
 
 export type LocalMessage = {
   id: string;
@@ -11,72 +12,6 @@ export type LocalMessage = {
   tool_calls?: any[];
   tool_call_id?: string;
 };
-
-export function getFriendlyErrorMessage(errorInput: any): string {
-  if (!errorInput) return '';
-
-  let errStr = '';
-  if (typeof errorInput === 'string') {
-    errStr = errorInput;
-  } else if (errorInput instanceof Error) {
-    errStr = errorInput.message;
-  } else if (typeof errorInput === 'object') {
-    errStr = errorInput.message || JSON.stringify(errorInput);
-  }
-
-  // 1. Quota / Rate limit (RESOURCE_EXHAUSTED / 429)
-  if (
-    errStr.includes('429') ||
-    errStr.includes('RESOURCE_EXHAUSTED') ||
-    errStr.includes('quota') ||
-    errStr.includes('Quota exceeded')
-  ) {
-    return 'נראה שחרגת ממכסת השימוש במודל זה. אנא נסו שוב מאוחר יותר או בחרו מודל אחר (שגיאה 429 / RESOURCE_EXHAUSTED).';
-  }
-
-  // 2. Service Unavailable (UNAVAILABLE / 503)
-  if (
-    errStr.includes('503') ||
-    errStr.includes('UNAVAILABLE') ||
-    errStr.includes('experiencing high demand') ||
-    errStr.includes('temporary')
-  ) {
-    return 'המודל עמוס כרגע ולא זמין. אנא נסו שוב בעוד מספר רגעים (שגיאה 503 / UNAVAILABLE).';
-  }
-
-  // 3. Invalid API Key
-  if (
-    errStr.includes('API key not valid') ||
-    errStr.includes('INVALID_KEY') ||
-    errStr.includes('API_KEY_INVALID')
-  ) {
-    return 'מפתח ה-API שהוזן אינו תקין. אנא בדקו את ההגדרות.';
-  }
-
-  // Clean up error message if it wraps a NestJS error or similar JSON
-  let cleanMsg = errStr;
-  const jsonMatch = errStr.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.error?.message) {
-        cleanMsg = parsed.error.message;
-      } else if (parsed.message) {
-        cleanMsg = parsed.message;
-      }
-    } catch {
-      // ignore parsing failure
-    }
-  }
-
-  // Clean up standard prefixes
-  cleanMsg = cleanMsg
-    .replace(/^Error:\s*/i, '')
-    .replace(/^Streaming failed:\s*/i, '')
-    .replace(/^Request failed:\s*/i, '');
-
-  return cleanMsg || 'אירעה שגיאה בתקשורת עם השרת.';
-}
 
 interface UseAiStreamProps {
   provider: AiProvider;

@@ -17,8 +17,8 @@ exports.GEMINI_MODELS = [
 exports.MODEL_TAGS = {
     'gpt-4o-mini': 'token efficient',
     'gpt-4o': 'token efficient',
-    'gpt-5.4-mini': 'critical thinking',
-    'gpt-5.4': 'critical thinking',
+    'gpt-5.4-mini': 'thinking',
+    'gpt-5.4': 'thinking',
     'gemini-2.5-flash': 'balanced',
     'gemini-2.5-flash-lite': 'lightweight',
     'gemini-3.1-flash-lite': 'lightweight',

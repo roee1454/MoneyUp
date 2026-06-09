@@ -5,7 +5,7 @@ import { Observable, Subscriber } from 'rxjs';
 import { UserAiConfig } from '../../types/gateway.types';
 import { verifyJwtToken } from '../../utils/auth.utils';
 import { ToolRegistry } from './tools/tool-registry';
-import { AI_TOOLS, MERCHANT_CATEGORIZATION_RULES } from '@money-up/common';
+import { AI_TOOLS, MERCHANT_CATEGORIZATION_RULES, EXPENSE_CATEGORIES } from '@money-up/common';
 import { UsersService } from '../users/users.service';
 
 import { AIProvider } from './providers/ai-provider';
@@ -169,87 +169,92 @@ export class AiService {
         },
         error: reject,
         complete: async () => {
-          if (toolCalls.length > 0) {
-            const assistantMsg = {
-              role: 'assistant' as const,
-              content: accumulatedAssistantText,
-              tool_calls: toolCalls,
-            };
-            resolvedPayload.messages.push(assistantMsg);
-
-            if (conversationId) {
-              await this.usersService.addMessage(
-                userId,
-                conversationId,
-                assistantMsg.role,
-                assistantMsg.content,
-                assistantMsg.tool_calls,
-              ).catch((e) => console.error('Failed to persist tool call', e));
-            }
-
-            for (const tc of toolCalls) {
-              subscriber.next({ type: 'tool_call', name: tc.name });
-              const result = await this.toolRegistry.run(tc.name, userId, tc.arguments, { provider: resolvedPayload.provider, model: resolvedPayload.model });
-              const toolResultMsg = {
-                role: 'tool' as const,
-                tool_call_id: tc.id,
-                content: JSON.stringify(result),
+          try {
+            if (toolCalls.length > 0) {
+              const assistantMsg = {
+                role: 'assistant' as const,
+                content: accumulatedAssistantText,
+                tool_calls: toolCalls,
               };
-              resolvedPayload.messages.push(toolResultMsg);
+              resolvedPayload.messages.push(assistantMsg);
 
               if (conversationId) {
                 await this.usersService.addMessage(
                   userId,
                   conversationId,
-                  toolResultMsg.role,
-                  toolResultMsg.content,
-                  undefined,
-                  toolResultMsg.tool_call_id,
+                  assistantMsg.role,
+                  assistantMsg.content,
+                  assistantMsg.tool_calls,
+                ).catch((e) => console.error('Failed to persist tool call', e));
+              }
+
+              for (const tc of toolCalls) {
+                subscriber.next({ type: 'tool_call', name: tc.name });
+                const result = await this.toolRegistry.run(tc.name, userId, tc.arguments, { provider: resolvedPayload.provider, model: resolvedPayload.model });
+                const toolResultMsg = {
+                  role: 'tool' as const,
+                  tool_call_id: tc.id,
+                  content: JSON.stringify(result),
+                };
+                resolvedPayload.messages.push(toolResultMsg);
+
+                if (conversationId) {
+                  await this.usersService.addMessage(
+                    userId,
+                    conversationId,
+                    toolResultMsg.role,
+                    toolResultMsg.content,
+                    undefined,
+                    toolResultMsg.tool_call_id,
+                  ).catch((e) =>
+                    console.error('Failed to persist tool result', e),
+                  );
+                }
+              }
+
+              await this.runStreamLoop(
+                subscriber,
+                userId,
+                resolvedPayload,
+                conversationId,
+                iteration + 1,
+              );
+              resolve();
+            } else if (isTextStreaming) {
+              if (conversationId && accumulatedAssistantText) {
+                await this.usersService.addMessage(
+                  userId,
+                  conversationId,
+                  'assistant',
+                  accumulatedAssistantText,
                 ).catch((e) =>
-                  console.error('Failed to persist tool result', e),
+                  console.error('Failed to persist final assistant message', e),
                 );
               }
+              subscriber.complete();
+              resolve();
+            } else {
+              const fallback = 'מצטער, לא הצלחתי למצוא מידע רלוונטי לבקשה שלך.';
+              subscriber.next({ type: 'text', content: fallback });
+              if (conversationId) {
+                await this.usersService.addMessage(
+                  userId,
+                  conversationId,
+                  'assistant',
+                  fallback,
+                ).catch((e) =>
+                  console.error(
+                    'Failed to persist fallback assistant message',
+                    e,
+                  ),
+                );
+              }
+              subscriber.complete();
+              resolve();
             }
-
-            await this.runStreamLoop(
-              subscriber,
-              userId,
-              resolvedPayload,
-              conversationId,
-              iteration + 1,
-            );
-            resolve();
-          } else if (isTextStreaming) {
-            if (conversationId && accumulatedAssistantText) {
-              await this.usersService.addMessage(
-                userId,
-                conversationId,
-                'assistant',
-                accumulatedAssistantText,
-              ).catch((e) =>
-                console.error('Failed to persist final assistant message', e),
-              );
-            }
-            subscriber.complete();
-            resolve();
-          } else {
-            const fallback = 'מצטער, לא הצלחתי למצוא מידע רלוונטי לבקשה שלך.';
-            subscriber.next({ type: 'text', content: fallback });
-            if (conversationId) {
-              await this.usersService.addMessage(
-                userId,
-                conversationId,
-                'assistant',
-                fallback,
-              ).catch((e) =>
-                console.error(
-                  'Failed to persist fallback assistant message',
-                  e,
-                ),
-              );
-            }
-            subscriber.complete();
-            resolve();
+          } catch (err) {
+            subscriber.error(err);
+            reject(err);
           }
         },
       });
@@ -360,7 +365,7 @@ export class AiService {
     - If you don't know the account number, format it as \`bankid:bankId\` (e.g., \`bankid:max\`).
     - This renders as a visual chip with the bank logo and the account identifier (if provided) in the UI. When the user copies the chip, it will copy the account details (identifier) instead of just the bankId. Never write raw bankId strings without this format.
 
-    Available Expense Categories: מזון, קניות, בילויים ופנאי, דלק/תחבורה, מנויים, לא מסווג.`;
+    Available Expense Categories: ${EXPENSE_CATEGORIES.join(', ')}.`;
 
     const forceMarkdown = true;
 

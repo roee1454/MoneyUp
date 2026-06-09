@@ -1,5 +1,5 @@
 import { Outlet, Link, useRouterState } from '@tanstack/react-router';
-import { CircleNotch, CaretLeft } from '@phosphor-icons/react';
+import { CircleNotch } from '@phosphor-icons/react';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
 import { cn } from '@/lib/utils';
@@ -35,43 +35,21 @@ export default function Settings() {
 
   return (
     <div
-      className="max-w-6xl mx-auto space-y-8 text-right animate-in fade-in-50 duration-500"
+      className="max-w-4xl mx-auto space-y-8 text-right animate-in fade-in-50 duration-500"
       dir="rtl"
     >
-      {/* Mini Breadcrumb Navbar */}
-      <nav className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 border-b border-border pb-4">
-        <Link
-          to="/settings"
-          className="hover:text-foreground transition-colors"
-        >
-          הגדרות
-        </Link>
-        <CaretLeft className="h-2.5 w-2.5" />
-        {BREADCRUMBS.map((crumb) => {
-          const active = pathname === crumb.to;
-          if (!active && pathname !== '/settings' && crumb.to === '/settings')
-            return null; // Only show 'חשבונות' if active or on main settings
-          if (active) {
-            return (
-              <span key={crumb.to} className="text-foreground">
-                {crumb.label}
-              </span>
-            );
-          }
-          return null;
-        })}
-
-        {/* Horizontal Tab-like Navigation for settings */}
-        <div className="mr-auto flex items-center gap-4">
+      {/* Tab-like Navigation for settings */}
+      <nav className="flex items-center text-[10px] font-black uppercase tracking-widest border-b border-border pb-4">
+        <div className="flex items-center gap-6">
           {BREADCRUMBS.map((item) => (
             <Link
               key={item.to}
               to={item.to}
               className={cn(
-                'transition-colors hover:text-foreground',
+                'transition-colors text-muted-foreground/60 hover:text-foreground py-2 border-b-2 -mb-[18px]',
                 pathname === item.to
-                  ? 'text-primary underline underline-offset-8 decoration-2'
-                  : '',
+                  ? 'text-primary border-primary'
+                  : 'border-transparent',
               )}
             >
               {item.label}
