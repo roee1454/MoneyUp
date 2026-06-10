@@ -31,31 +31,46 @@ fn find_open_port(start_port: u16) -> u16 {
     }
 }
 
+fn get_configured_port() -> Option<u16> {
+    // 1. Check command line arguments: --port, -p, or --gateway-port
+    let args: Vec<String> = std::env::args().collect();
+    for i in 0..args.len() {
+        if (args[i] == "--port" || args[i] == "-p" || args[i] == "--gateway-port") && i + 1 < args.len() {
+            if let Ok(p) = args[i + 1].parse::<u16>() {
+                return Some(p);
+            }
+        }
+    }
+
+    // 2. Check environment variable GATEWAY_PORT
+    if let Ok(val) = std::env::var("GATEWAY_PORT") {
+        if let Ok(p) = val.parse::<u16>() {
+            return Some(p);
+        }
+    }
+
+    None
+}
+
 #[tauri::command]
 fn get_server_port(_state: tauri::State<'_, ServerState>) -> u16 {
-    #[cfg(debug_assertions)]
-    {
-        // In debug/dev mode, always point to the external NestJS dev server.
-        // Inherit GATEWAY_PORT if specified, otherwise default to 3000.
-        std::env::var("GATEWAY_PORT")
-            .ok()
-            .and_then(|val| val.parse::<u16>().ok())
-            .unwrap_or(3000)
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        // In release/production mode, return the dynamically allocated port.
-        _state.port
-    }
+    _state.port
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Only run port discovery in release mode to save resources in dev
-    #[cfg(not(debug_assertions))]
-    let server_port = find_open_port(3000);
-    #[cfg(debug_assertions)]
-    let server_port = 3000;
+    let server_port = if let Some(custom_port) = get_configured_port() {
+        custom_port
+    } else {
+        #[cfg(not(debug_assertions))]
+        {
+            find_open_port(3000)
+        }
+        #[cfg(debug_assertions)]
+        {
+            3000
+        }
+    };
 
     println!("[Tauri] Active server port: {}", server_port);
 

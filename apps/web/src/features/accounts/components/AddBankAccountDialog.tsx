@@ -185,7 +185,7 @@ export function AddBankAccountDialog({
         credentials: formValues,
       });
     } catch (err: any) {
-      setErrorMsg(err.message || 'ההתחברות נכשלה. נסה שוב.');
+      setErrorMsg(err.message || 'לא ניתן לפתוח חיבור בזמן אמת עכשיו, נא לפתוח את האפליקציה מחדש!');
       setIsConnecting(false);
     }
   }
