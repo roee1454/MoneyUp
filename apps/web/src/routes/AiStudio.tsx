@@ -1,18 +1,17 @@
-import { Plus, Trash, Sparkle, ChatCircle } from '@phosphor-icons/react';
+import { Trash, Plus, ChatCircle } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
 import { AiConversation } from '@/features/ai/components/AiConversation';
-import { PremiumCard } from '@/components/ui/premium-card';
 import { Button } from '@/components/ui/button';
 import { AddAiProviderDialog } from '@/features/ai/components/AddAiProviderDialog';
 import { useConversations, useDeleteConversation } from '@/hooks/useAi';
 import { Select, SelectItem } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { he } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { he } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 import {
   Dialog,
@@ -28,9 +27,8 @@ import {
 export default function AiStudio() {
   const session = useAppStore((s) => s.session);
   const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
-  const [activeConversationId, setActiveConversationId] = useState<
-    string | null
-  >(null);
+  const activeConversationId = useAppStore((s) => s.activeConversationId);
+  const setActiveConversationId = useAppStore((s) => s.setActiveConversationId);
   const [conversationToDelete, setConversationToDelete] = useState<
     string | null
   >(null);
@@ -47,8 +45,6 @@ export default function AiStudio() {
     useConversations();
   const deleteMutation = useDeleteConversation();
 
-  const configuredProviders = (userProfile?.configuredProviders ?? []) as string[];
-
   // Decoupled activeProvider. We now use configuredProviders list.
 
   if (isProfileLoading || isConversationsLoading) {
@@ -63,8 +59,6 @@ export default function AiStudio() {
       </div>
     );
   }
-
-  const hasAiProvider = configuredProviders.length > 0;
 
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -88,53 +82,24 @@ export default function AiStudio() {
     }
   };
 
+  const hasAiProvider = (userProfile?.configuredProviders?.length ?? 0) > 0;
+
   return (
     <div
-      className="text-right animate-in fade-in-50 duration-300 h-[calc(100vh-7.5rem)] flex flex-col gap-4 overflow-hidden"
+      className="text-right animate-in fade-in-50 duration-300 w-full h-full flex flex-col overflow-hidden"
       dir="rtl"
     >
-      <div className="space-y-1 shrink-0">
-        <h1 className="text-2xl md:text-3xl font-black text-foreground leading-tight">
-          ייעוץ עם סוכן
-        </h1>
-        <p className="text-sm font-semibold text-muted-foreground">
-          שאל שאלות פיננסיות, קבל ניתוח הוצאות חכם, ותכנן את העתיד הכלכלי שלך
-          בעזרת סוכן AI חכם.
-        </p>
-      </div>
-
-      {!hasAiProvider ? (
-        <div className="flex items-center justify-start min-h-0">
-          <PremiumCard className="border border-dashed border-border bg-muted/20 p-6 md:p-8 text-right space-y-3 animate-in fade-in-50 duration-300 max-w-xl w-full">
-            <p className="text-lg font-black text-foreground">
-              🤖 נצל את כוחה של הבינה המלאכותית
-            </p>
-            <p className="text-sm font-semibold text-muted-foreground leading-relaxed">
-              חבר את מפתח הAPI של ספק הבינה המלאכותית האהוב עלייך וקבל ייעוץ
-              פיננסי מסוכן חכם.
-            </p>
-            <div className="pt-2">
-              <Button
-                onClick={() => setIsAiDialogOpen(true)}
-                className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <Sparkle className="h-4 w-4" weight="duotone" />
-                <span>הוסף ספק</span>
-              </Button>
-            </div>
-          </PremiumCard>
-        </div>
-      ) : (
-        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
-          {/* Sidebar: Conversation History */}
-          <div className="w-64 hidden md:flex flex-col border border-border bg-card shadow-sm shrink-0">
-            <div className="p-3 border-b border-border bg-muted/20">
+      <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+        {/* Sidebar: Conversation History (Desktop Only) */}
+        {hasAiProvider && (
+          <div className="w-64 hidden md:flex flex-col border-l border-border bg-card/45 backdrop-blur-md shrink-0">
+            <div className="p-4 border-b border-border">
               <Button
                 onClick={() => setActiveConversationId(null)}
-                className="w-full h-10 rounded-none font-black text-xs uppercase tracking-widest bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm flex items-center gap-2"
+                className="w-full h-10 rounded-none font-black text-xs uppercase tracking-widest bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Plus className="h-4 w-4" weight="bold" />
-                שיחה חדשה
+                <span>שיחה חדשה</span>
               </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -153,12 +118,6 @@ export default function AiStudio() {
                       role="button"
                       tabIndex={0}
                       onClick={() => setActiveConversationId(conv.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setActiveConversationId(conv.id);
-                        }
-                      }}
                       className={cn(
                         'w-full text-right px-3 py-3 flex items-center justify-between group transition-all cursor-pointer border outline-none',
                         isActive
@@ -207,64 +166,71 @@ export default function AiStudio() {
               )}
             </div>
           </div>
+        )}
 
-          {/* Main Chat Area */}
-          <div className="flex-1 min-w-0 flex flex-col bg-card border border-border shadow-sm p-4 relative">
-            {/* Unified Chat Header */}
-            <div className="flex items-center justify-between border-b border-border pb-3 mb-3 gap-2 shrink-0 select-none">
-              {/* Right: Title on Desktop / Conversation Select on Mobile */}
-              <div className="flex-1 min-w-0">
-                <div className="hidden md:block">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-foreground/80">
-                    {activeConversationId ? conversations.find(c => c.id === activeConversationId)?.title || 'שיחת ייעוץ' : 'שיחה חדשה'}
-                  </h3>
-                </div>
-                <div className="md:hidden">
-                  {conversations.length > 0 ? (
-                    <Select
-                      value={activeConversationId || 'new'}
-                      onValueChange={(val) => {
-                        setActiveConversationId(val === 'new' ? null : val);
-                      }}
-                      className="w-full h-8 bg-muted/50 border border-border rounded-none text-xs font-black"
-                    >
-                      <SelectItem value="new">➕ שיחה חדשה...</SelectItem>
-                      {conversations.map((conv) => (
-                        <SelectItem key={conv.id} value={conv.id}>
-                          💬 {conv.title}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  ) : (
-                    <span className="text-xs font-black text-muted-foreground uppercase">שיחה חדשה</span>
-                  )}
-                </div>
+        {/* Main Chat Area */}
+        <div className="flex-1 min-w-0 flex flex-col bg-background relative">
+          {/* Unified Chat Header */}
+          <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-card/45 backdrop-blur-md gap-2 shrink-0 select-none">
+            {/* Right: Title on Desktop / Conversation Select on Mobile */}
+            <div className="flex-1 min-w-0">
+              <div className="hidden md:block">
+                <h3 className="text-sm font-black text-foreground">
+                  {activeConversationId
+                    ? conversations.find((c) => c.id === activeConversationId)
+                        ?.title || 'שיחת ייעוץ'
+                    : 'שיחה חדשה'}
+                </h3>
               </div>
-
-              {/* Left: Extra Actions (e.g. Delete conversation) */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                {activeConversationId && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={(e) => handleDeleteClick(e as any, activeConversationId)}
-                    className="h-8.5 w-8.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-none border-border"
-                    title="מחק שיחה"
+              <div className="md:hidden">
+                {conversations.length > 0 ? (
+                  <Select
+                    value={activeConversationId || 'new'}
+                    onValueChange={(val) => {
+                      setActiveConversationId(val === 'new' ? null : val);
+                    }}
                   >
-                    <Trash className="h-4 w-4" />
-                  </Button>
+                    <SelectItem value="new">➕ שיחה חדשה...</SelectItem>
+                    {conversations.map((conv) => (
+                      <SelectItem key={conv.id} value={conv.id}>
+                        💬 {conv.title}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                ) : (
+                  <span className="text-xs font-black text-muted-foreground uppercase">
+                    שיחה חדשה
+                  </span>
                 )}
               </div>
             </div>
 
-            <AiConversation
-              userProfile={userProfile}
-              conversationId={activeConversationId}
-              onConversationCreated={(newId) => setActiveConversationId(newId)}
-            />
+            {/* Left: Extra Actions (e.g. Delete conversation) */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {activeConversationId && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={(e) =>
+                    handleDeleteClick(e as any, activeConversationId)
+                  }
+                  className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-none border-border"
+                  title="מחק שיחה"
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
+
+          <AiConversation
+            userProfile={userProfile}
+            conversationId={activeConversationId}
+            onConversationCreated={(newId) => setActiveConversationId(newId)}
+            onConnectClick={() => setIsAiDialogOpen(true)}
+          />
         </div>
-      )}
+      </div>
 
       <AddAiProviderDialog
         open={isAiDialogOpen}

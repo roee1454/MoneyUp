@@ -334,7 +334,7 @@ export function IncomeTransactionsDetailsCard({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-1 text-right">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-right">
                     <button
                       onClick={() => handleToggleDuplicate(txn)}
                       disabled={toggleDuplicate.isPending}

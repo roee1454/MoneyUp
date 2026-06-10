@@ -10,6 +10,7 @@ import {
   UnifiedTransaction,
   ScraperResponse,
 } from '@money-up/types';
+import { ScraperProgressTypes } from 'israeli-bank-scrapers/lib/definitions';
 
 export abstract class BaseScraper {
   abstract readonly companyId: CompanyTypes;
@@ -28,18 +29,35 @@ export abstract class BaseScraper {
       executablePath?: string;
       browser?: any;
       skipCloseBrowser?: boolean;
+      onProgress?: (step: string) => void;
     },
   ): Promise<ScraperResponse> {
     const isSimulation =
       this.configService.get<string>('SCRAPER_MODE') === 'simulation';
     return isSimulation
-      ? this.simulateScrape(credentials)
+      ? this.simulateScrape(credentials, options?.onProgress)
       : this.liveScrape(credentials, startDate, options);
   }
 
   protected abstract simulateScrape(
     credentials: ScraperCredentials,
+    onProgress?: (step: string) => void,
   ): Promise<ScraperResponse>;
+
+  protected async runSimulatedProgress(onProgress?: (step: string) => void): Promise<void> {
+    if (!onProgress) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return;
+    }
+    onProgress('logging_in');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    onProgress('logged_in');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    onProgress('scanning_transactions');
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    onProgress('finalizing');
+    await new Promise((resolve) => setTimeout(resolve, 800));
+  }
   protected abstract liveScrape(
     credentials: ScraperCredentials,
     startDate: Date,
@@ -48,8 +66,34 @@ export abstract class BaseScraper {
       loginTimeoutSeconds?: number;
       defaultTimeoutSeconds?: number;
       executablePath?: string;
+      browser?: any;
+      skipCloseBrowser?: boolean;
+      onProgress?: (step: string) => void;
     },
   ): Promise<ScraperResponse>;
+
+  protected registerProgressListener(
+    scraper: any,
+    onProgress?: (step: string) => void,
+  ): void {
+    if (!onProgress) return;
+    try {
+      scraper.onProgress((_: any, payload: any) => {
+        if (payload?.type === ScraperProgressTypes.LoggingIn) {
+          onProgress('logging_in');
+        } else if (payload?.type === ScraperProgressTypes.LoginSuccess) {
+          onProgress('logged_in');
+          // Brief delay so the frontend can render the 'logged_in' checkmark
+          // before we advance to the next step in the same event handler.
+          setTimeout(() => onProgress('scanning_transactions'), 400);
+        } else if (payload?.type === ScraperProgressTypes.EndScraping) {
+          onProgress('finalizing');
+        }
+      });
+    } catch (err) {
+      console.warn(`[BaseScraper] Failed to register progress listener:`, err);
+    }
+  }
 
   protected getCommonScraperOptions(options?: {
     showBrowser?: boolean;

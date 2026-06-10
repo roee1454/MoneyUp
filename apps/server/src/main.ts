@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { AllExceptionsFilter, LoggingInterceptor } from '@money-up/common/backend';
+import { AllExceptionsFilter, LoggingInterceptor } from '@money-up/common/dist/backend';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
@@ -15,11 +15,15 @@ async function bootstrap() {
     );
   }, 60000);
 
+  const clientUrls = process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
+    : [];
+
   app.enableCors({
     origin: [
       'http://localhost:5173',
       'http://127.0.0.1:5173',
-      process.env.CLIENT_URL,
+      ...clientUrls,
     ].filter(Boolean) as string[],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,

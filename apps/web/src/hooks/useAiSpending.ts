@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAppStore } from '@/store';
+import { toast } from 'sonner';
+import { getFriendlyErrorMessage } from '@/lib/error-formatter';
 
 export interface AiScanCategory {
   name: string;
@@ -154,6 +156,9 @@ export function useAnnotateSpendingScans() {
       await queryClient.invalidateQueries({
         queryKey: ['spending-scans-debug'],
       });
+    },
+    onError: (err: any) => {
+      toast.error(getFriendlyErrorMessage(err));
     },
   });
 }

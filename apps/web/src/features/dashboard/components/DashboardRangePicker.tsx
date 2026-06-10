@@ -45,18 +45,18 @@ export function DashboardRangePicker({
   return (
     <div
       className={cn(
-        'flex items-center gap-2',
+        'flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto',
         isLocked && 'opacity-50 grayscale pointer-events-none',
       )}
     >
-      <div className="flex items-center gap-2 text-muted-foreground ml-2">
+      <div className="flex items-center gap-2 text-muted-foreground ml-2 sm:ml-0 lg:ml-2">
         <Calendar className="h-4.5 w-4.5 text-foreground/75" weight="bold" />
         <span className="text-[10px] font-black uppercase tracking-widest leading-none">
           טווח:
         </span>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 w-full sm:w-auto justify-between">
         <DatePicker
           date={start}
           onDateChange={handleStartChange}

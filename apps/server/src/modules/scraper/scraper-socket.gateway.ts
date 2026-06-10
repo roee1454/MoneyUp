@@ -115,6 +115,15 @@ export class ScraperSocketGateway
       loginTimeoutSeconds: profile?.scraperLoginTimeoutSeconds,
       defaultTimeoutSeconds: profile?.scraperDefaultTimeoutSeconds,
       executablePath: profile?.scraperChromiumPath ?? undefined,
+      // Immediately push step updates to the socket without waiting for the
+      // 2-second polling interval, giving the frontend real-time progress.
+      onStepUpdate: (sessionId: string, step: string) => {
+        client.emit('scraper:status', {
+          sessionId,
+          status: 'PROCESSING',
+          step,
+        });
+      },
     });
 
     if (response?.status === 'PROCESSING' && response.sessionId) {

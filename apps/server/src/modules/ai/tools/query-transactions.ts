@@ -68,12 +68,19 @@ export class QueryTransactionsRunner implements ToolRunner {
         debug: false,
       });
 
+      const isCreditCard = (bankId: string) => {
+        const id = String(bankId ?? '').toLowerCase();
+        return id === 'max' || id === 'isracard' || id === 'cal';
+      };
+
       const allTxns: any[] = [];
       for (const catName in spendingData.categoryTransactions || {}) {
-        const txns = (spendingData.categoryTransactions[catName] || []).map((t: any) => ({
-          ...t,
-          type: 'expense',
-        }));
+        const txns = (spendingData.categoryTransactions[catName] || [])
+          .filter((t: any) => isCreditCard(t.bankId))
+          .map((t: any) => ({
+            ...t,
+            type: 'expense',
+          }));
         allTxns.push(...txns);
       }
 

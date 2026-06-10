@@ -7,7 +7,10 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import type { LocalMessage } from './useAiStream';
 import { BankChip } from './BankChip';
-import { InvestmentSimulator, InvestmentSimulatorSkeleton } from './InvestmentSimulator';
+import {
+  InvestmentSimulator,
+  InvestmentSimulatorSkeleton,
+} from './InvestmentSimulator';
 
 interface AiMessageBubbleProps {
   message: LocalMessage;
@@ -20,19 +23,20 @@ interface AiMessageBubbleProps {
 
 /** Custom renderer for inline `code` nodes.
  *  If the content starts with "bankid:" we render a BankChip instead of <code>. */
-function InlineCode({ children, isUser: _isUser }: { children?: React.ReactNode; isUser?: boolean }) {
+function InlineCode({
+  children,
+  isUser: _isUser,
+}: {
+  children?: React.ReactNode;
+  isUser?: boolean;
+}) {
   const raw = String(children ?? '');
   if (raw.startsWith('bankid:')) {
     const content = raw.slice('bankid:'.length).trim();
     const parts = content.split(':');
     const bankId = parts[0];
     const accountIdentifier = parts.slice(1).join(':') || undefined;
-    return (
-      <BankChip
-        bankId={bankId}
-        accountIdentifier={accountIdentifier}
-      />
-    );
+    return <BankChip bankId={bankId} accountIdentifier={accountIdentifier} />;
   }
   return (
     <code className="rounded px-1 py-0.5 bg-muted text-[0.8em] font-mono">
@@ -75,7 +79,11 @@ export function AiMessageBubble({
               </button>
               <button
                 onClick={() => {
-                  if (editText.trim() && editText !== message.text && onEditSubmit) {
+                  if (
+                    editText.trim() &&
+                    editText !== message.text &&
+                    onEditSubmit
+                  ) {
                     onEditSubmit(message.id, editText);
                   }
                   setIsEditing(false);
@@ -92,8 +100,8 @@ export function AiMessageBubble({
 
     return (
       <div className="flex w-full justify-start group relative">
-        <div className="max-w-[75%] rounded-[24px] px-5 py-3 text-sm font-semibold shadow-xs border border-border/30 bg-secondary text-foreground text-right">
-          <div className="markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right">
+        <div className="max-w-[75%] rounded-[24px] px-5 py-3 text-[17px] font-semibold shadow-xs border border-border/30 bg-secondary text-foreground text-right">
+          <div className="markdown-content max-w-none break-words space-y-2 leading-7 text-right">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
@@ -107,7 +115,11 @@ export function AiMessageBubble({
                       </code>
                     );
                   }
-                  return <InlineCode isUser={true} {...props}>{children}</InlineCode>;
+                  return (
+                    <InlineCode isUser={true} {...props}>
+                      {children}
+                    </InlineCode>
+                  );
                 },
               }}
             >
@@ -136,7 +148,11 @@ export function AiMessageBubble({
       {/* Sparkle Icon Avatar */}
       <div className="shrink-0 mt-1">
         <div className="h-8 w-8 rounded-full border border-border bg-card flex items-center justify-center text-primary shadow-xs">
-          <Sparkle className="h-4.5 w-4.5 text-primary animate-pulse" style={{ animationDuration: '3s' }} weight="fill" />
+          <Sparkle
+            className="h-4.5 w-4.5 text-primary animate-pulse"
+            style={{ animationDuration: '3s' }}
+            weight="fill"
+          />
         </div>
       </div>
 
@@ -157,20 +173,31 @@ export function AiMessageBubble({
             <div className="h-3 bg-muted rounded-full w-[60%] animate-soft-shimmer" />
           </div>
         ) : (
-          <div className="markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right text-foreground">
+          <div className="markdown-content max-w-none break-words space-y-2 leading-7 text-right text-foreground text-[17px]">
             {/* Generative UI: Render Investment Simulator if requested */}
             {message.tool_calls?.map((tc: any, idx: number) => {
               const name = tc.name || tc.function?.name;
               if (name === 'render_investment_simulator') {
                 try {
-                  const args = typeof tc.arguments === 'string' 
-                    ? JSON.parse(tc.arguments) 
-                    : (tc.arguments || (tc.function?.arguments ? JSON.parse(tc.function.arguments) : {}));
-                    
-                  if (tc.isStreamingPlaceholder || args?.isStreamingPlaceholder) {
-                    return <InvestmentSimulatorSkeleton key={`sim-skeleton-${idx}`} />;
+                  const args =
+                    typeof tc.arguments === 'string'
+                      ? JSON.parse(tc.arguments)
+                      : tc.arguments ||
+                        (tc.function?.arguments
+                          ? JSON.parse(tc.function.arguments)
+                          : {});
+
+                  if (
+                    tc.isStreamingPlaceholder ||
+                    args?.isStreamingPlaceholder
+                  ) {
+                    return (
+                      <InvestmentSimulatorSkeleton
+                        key={`sim-skeleton-${idx}`}
+                      />
+                    );
                   }
-                  
+
                   return (
                     <InvestmentSimulator
                       key={`sim-${idx}`}
@@ -191,7 +218,6 @@ export function AiMessageBubble({
               }
               return null;
             })}
-
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
@@ -205,7 +231,11 @@ export function AiMessageBubble({
                       </code>
                     );
                   }
-                  return <InlineCode isUser={false} {...props}>{children}</InlineCode>;
+                  return (
+                    <InlineCode isUser={false} {...props}>
+                      {children}
+                    </InlineCode>
+                  );
                 },
               }}
             >
@@ -226,4 +256,3 @@ export function AiMessageBubble({
     </div>
   );
 }
-

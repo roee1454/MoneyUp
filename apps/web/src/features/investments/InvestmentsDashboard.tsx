@@ -4,17 +4,37 @@ import { api } from '@/lib/api';
 import { PortfolioSummary } from './components/PortfolioSummary';
 import { PositionsTable } from './components/PositionsTable';
 
-import { Card } from '@/components/ui/card';
 import { CircleNotch } from '@phosphor-icons/react';
 
+interface Position {
+  ticker: string;
+  shares: number;
+  avgPrice: number;
+  currentPrice: number;
+  dailyChange: number;
+}
+
+interface Portfolio {
+  balance: number;
+  currency: string;
+  dailyPnL: number;
+  totalProfit: number;
+  totalReturn: number;
+  positions: Position[];
+}
+
 const fetchPortfolio = async () => {
-  const data = await api.get<any>('/market-data/portfolio');
+  const data = await api.get<Portfolio>('/market-data/portfolio');
   return data;
 };
 
 export const InvestmentsDashboard: React.FC = () => {
   const [selectedTicker, setSelectedTicker] = useState<string>('AAPL');
-  const { data: portfolio, isLoading, error } = useQuery({
+  const {
+    data: portfolio,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['portfolio'],
     queryFn: fetchPortfolio,
   });
@@ -39,13 +59,11 @@ export const InvestmentsDashboard: React.FC = () => {
   return (
     <div className="flex flex-col gap-6 w-full animate-in fade-in duration-500">
       <PortfolioSummary portfolio={portfolio} />
-      
 
-
-      <PositionsTable 
-        positions={portfolio.positions} 
+      <PositionsTable
+        positions={portfolio.positions}
         selectedTicker={selectedTicker}
-        onSelectTicker={setSelectedTicker} 
+        onSelectTicker={setSelectedTicker}
       />
     </div>
   );

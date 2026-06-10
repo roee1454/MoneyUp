@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import {
   CircleNotch,
-  ChatText,
   PaperPlaneRight,
   Sliders,
   X,
@@ -16,7 +15,7 @@ import { BankIcon } from '@/features/accounts/components/BankIcon';
 import { getBankName, normalizeBankId } from '@/lib/bank-branding';
 import { AiModelDropdownSelector } from '@/features/ai/components/AiModelDropdownSelector';
 
-type TaggedItem = 
+type TaggedItem =
   | { type: 'account'; bankId: string; accountNumber: string; name?: string }
   | { type: 'investment'; ticker: string; name: string };
 
@@ -31,10 +30,13 @@ interface AiInputPanelProps {
   onShowDebug: () => void;
 
   agentProvider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
-  setAgentProvider: (provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter') => void;
+  setAgentProvider: (
+    provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
+  ) => void;
   agentModel: string;
   setAgentModel: (model: string) => void;
   modelsByProvider: Record<string, string[]>;
+  configuredProviders?: string[];
 }
 
 const MOCK_INVESTMENTS: TaggedItem[] = [
@@ -57,6 +59,7 @@ export function AiInputPanel({
   agentModel,
   setAgentModel,
   modelsByProvider,
+  configuredProviders,
 }: AiInputPanelProps) {
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
@@ -69,8 +72,13 @@ export function AiInputPanel({
 
   const filteredItems = useMemo(() => {
     const allItems: TaggedItem[] = [
-      ...accounts.map(a => ({ type: 'account' as const, bankId: a.bankId, accountNumber: a.accountNumber, name: getBankName(a.bankId) })),
-      ...MOCK_INVESTMENTS
+      ...accounts.map((a) => ({
+        type: 'account' as const,
+        bankId: a.bankId,
+        accountNumber: a.accountNumber,
+        name: getBankName(a.bankId),
+      })),
+      ...MOCK_INVESTMENTS,
     ];
     if (!mentionSearch) return allItems;
     const searchLower = mentionSearch.toLowerCase();
@@ -79,9 +87,16 @@ export function AiInputPanel({
         const bankName = (item.name || '').toLowerCase();
         const bankId = item.bankId.toLowerCase();
         const accNum = item.accountNumber.toLowerCase();
-        return bankName.includes(searchLower) || bankId.includes(searchLower) || accNum.includes(searchLower);
+        return (
+          bankName.includes(searchLower) ||
+          bankId.includes(searchLower) ||
+          accNum.includes(searchLower)
+        );
       } else {
-        return item.ticker.toLowerCase().includes(searchLower) || item.name.toLowerCase().includes(searchLower);
+        return (
+          item.ticker.toLowerCase().includes(searchLower) ||
+          item.name.toLowerCase().includes(searchLower)
+        );
       }
     });
   }, [accounts, mentionSearch]);
@@ -109,7 +124,10 @@ export function AiInputPanel({
   };
 
   const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    evaluateMentions(e.currentTarget.value, e.currentTarget.selectionStart ?? 0);
+    evaluateMentions(
+      e.currentTarget.value,
+      e.currentTarget.selectionStart ?? 0,
+    );
   };
 
   const insertMention = (item: TaggedItem) => {
@@ -121,7 +139,9 @@ export function AiInputPanel({
 
     const isAlreadyTagged = taggedItems.some((a) => {
       if (a.type === 'account' && item.type === 'account') {
-        return a.bankId === item.bankId && a.accountNumber === item.accountNumber;
+        return (
+          a.bankId === item.bankId && a.accountNumber === item.accountNumber
+        );
       }
       if (a.type === 'investment' && item.type === 'investment') {
         return a.ticker === item.ticker;
@@ -147,13 +167,15 @@ export function AiInputPanel({
     setTaggedItems((prev) =>
       prev.filter((a) => {
         if (a.type === 'account' && item.type === 'account') {
-          return !(a.bankId === item.bankId && a.accountNumber === item.accountNumber);
+          return !(
+            a.bankId === item.bankId && a.accountNumber === item.accountNumber
+          );
         }
         if (a.type === 'investment' && item.type === 'investment') {
           return a.ticker !== item.ticker;
         }
         return true;
-      })
+      }),
     );
   };
 
@@ -166,7 +188,9 @@ export function AiInputPanel({
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedAccountIndex((prev) => (prev - 1 + filteredItems.length) % filteredItems.length);
+        setSelectedAccountIndex(
+          (prev) => (prev - 1 + filteredItems.length) % filteredItems.length,
+        );
         return;
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
@@ -197,26 +221,30 @@ export function AiInputPanel({
 
     let finalPrompt = prompt;
     if (taggedItems.length > 0) {
-      const tags = taggedItems.map((item) => {
-        if (item.type === 'investment') {
-          return ` \`portfolio:${item.ticker}\` `;
-        }
-        
-        const isCard = ['max', 'isracard', 'cal'].includes(normalizeBankId(item.bankId));
-        let identifier = item.accountNumber;
-        if (isCard) {
-          identifier = item.accountNumber.slice(-4);
-        } else {
-          const normalizedBankId = normalizeBankId(item.bankId);
-          if (normalizedBankId === 'hapoalim') {
-            const parts = item.accountNumber.split('-');
-            if (parts.length >= 3) {
-              identifier = parts.slice(2).join('-');
+      const tags = taggedItems
+        .map((item) => {
+          if (item.type === 'investment') {
+            return ` \`portfolio:${item.ticker}\` `;
+          }
+
+          const isCard = ['max', 'isracard', 'cal'].includes(
+            normalizeBankId(item.bankId),
+          );
+          let identifier = item.accountNumber;
+          if (isCard) {
+            identifier = item.accountNumber.slice(-4);
+          } else {
+            const normalizedBankId = normalizeBankId(item.bankId);
+            if (normalizedBankId === 'hapoalim') {
+              const parts = item.accountNumber.split('-');
+              if (parts.length >= 3) {
+                identifier = parts.slice(2).join('-');
+              }
             }
           }
-        }
-        return ` \`bankid:${item.bankId}:${identifier}\` `;
-      }).join('');
+          return ` \`bankid:${item.bankId}:${identifier}\` `;
+        })
+        .join('');
 
       finalPrompt = `${prompt}\n\n${tags}`;
     }
@@ -242,13 +270,16 @@ export function AiInputPanel({
             className="fixed inset-0 z-40 bg-transparent"
             onClick={() => setShowMentionDropdown(false)}
           />
-          <div className="absolute bottom-full mb-1.5 left-4 right-4 z-50 border border-border bg-card shadow-2xl p-1 max-h-56 overflow-y-auto rounded-none text-right flex flex-col gap-0.5" dir="rtl">
+          <div
+            className="absolute bottom-full mb-1.5 left-4 right-4 z-50 border border-border bg-card shadow-2xl p-1 max-h-56 overflow-y-auto rounded-none text-right flex flex-col gap-0.5"
+            dir="rtl"
+          >
             <div className="px-3 py-1.5 text-[10px] font-black text-muted-foreground border-b border-border/50 uppercase tracking-widest mb-1 select-none">
               בחר חשבון, כרטיס או נכס לקישור
             </div>
             {filteredItems.map((item, index) => {
               const active = index === selectedAccountIndex;
-              
+
               if (item.type === 'investment') {
                 return (
                   <button
@@ -257,8 +288,10 @@ export function AiInputPanel({
                     onClick={() => insertMention(item)}
                     onMouseEnter={() => setSelectedAccountIndex(index)}
                     className={cn(
-                      "w-full px-3 py-2 flex items-center justify-between transition-colors text-right cursor-pointer rounded-none",
-                      active ? "bg-primary text-primary-foreground" : "hover:bg-muted/50 text-foreground"
+                      'w-full px-3 py-2 flex items-center justify-between transition-colors text-right cursor-pointer rounded-none',
+                      active
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted/50 text-foreground',
                     )}
                   >
                     <div className="flex items-center gap-2">
@@ -266,22 +299,45 @@ export function AiInputPanel({
                         <ChartLineUp className="h-4 w-4" weight="bold" />
                       </div>
                       <div className="text-right leading-tight">
-                        <div className={cn("text-xs font-black", active ? "text-primary-foreground" : "text-foreground")}>
+                        <div
+                          className={cn(
+                            'text-xs font-black',
+                            active
+                              ? 'text-primary-foreground'
+                              : 'text-foreground',
+                          )}
+                        >
                           {item.name}
                         </div>
-                        <div className={cn("text-[9px] font-semibold", active ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                        <div
+                          className={cn(
+                            'text-[9px] font-semibold',
+                            active
+                              ? 'text-primary-foreground/75'
+                              : 'text-muted-foreground',
+                          )}
+                        >
                           תיק השקעות
                         </div>
                       </div>
                     </div>
-                    <div className={cn("text-[10px] font-mono font-bold", active ? "text-primary-foreground/80" : "text-muted-foreground/85")}>
+                    <div
+                      className={cn(
+                        'text-[10px] font-mono font-bold',
+                        active
+                          ? 'text-primary-foreground/80'
+                          : 'text-muted-foreground/85',
+                      )}
+                    >
                       {item.ticker}
                     </div>
                   </button>
                 );
               }
 
-              const isCard = ['max', 'isracard', 'cal'].includes(normalizeBankId(item.bankId));
+              const isCard = ['max', 'isracard', 'cal'].includes(
+                normalizeBankId(item.bankId),
+              );
               let identifier = item.accountNumber;
               if (isCard) {
                 identifier = item.accountNumber.slice(-4);
@@ -301,22 +357,49 @@ export function AiInputPanel({
                   onClick={() => insertMention(item)}
                   onMouseEnter={() => setSelectedAccountIndex(index)}
                   className={cn(
-                    "w-full px-3 py-2 flex items-center justify-between transition-colors text-right cursor-pointer rounded-none",
-                    active ? "bg-primary text-primary-foreground" : "hover:bg-muted/50 text-foreground"
+                    'w-full px-3 py-2 flex items-center justify-between transition-colors text-right cursor-pointer rounded-none',
+                    active
+                      ? 'bg-primary text-primary-foreground'
+                      : 'hover:bg-muted/50 text-foreground',
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <BankIcon bankId={item.bankId} size="sm" className="!h-6 !w-6" />
+                    <BankIcon
+                      bankId={item.bankId}
+                      size="sm"
+                      className="!h-6 !w-6"
+                    />
                     <div className="text-right leading-tight">
-                      <div className={cn("text-xs font-black", active ? "text-primary-foreground" : "text-foreground")}>
+                      <div
+                        className={cn(
+                          'text-xs font-black',
+                          active
+                            ? 'text-primary-foreground'
+                            : 'text-foreground',
+                        )}
+                      >
                         {getBankName(item.bankId)}
                       </div>
-                      <div className={cn("text-[9px] font-semibold", active ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                      <div
+                        className={cn(
+                          'text-[9px] font-semibold',
+                          active
+                            ? 'text-primary-foreground/75'
+                            : 'text-muted-foreground',
+                        )}
+                      >
                         {isCard ? 'כרטיס אשראי' : 'חשבון בנק'}
                       </div>
                     </div>
                   </div>
-                  <div className={cn("text-[10px] font-mono font-bold", active ? "text-primary-foreground/80" : "text-muted-foreground/85")}>
+                  <div
+                    className={cn(
+                      'text-[10px] font-mono font-bold',
+                      active
+                        ? 'text-primary-foreground/80'
+                        : 'text-muted-foreground/85',
+                    )}
+                  >
                     {identifier}
                   </div>
                 </button>
@@ -327,7 +410,10 @@ export function AiInputPanel({
       )}
 
       {taggedItems.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-4 pt-3 pb-1 border-b border-border/50 bg-muted/5 text-right" dir="rtl">
+        <div
+          className="flex flex-wrap gap-1.5 px-4 pt-3 pb-1 border-b border-border/50 bg-muted/5 text-right"
+          dir="rtl"
+        >
           {taggedItems.map((item) => {
             if (item.type === 'investment') {
               return (
@@ -348,7 +434,9 @@ export function AiInputPanel({
               );
             }
 
-            const isCard = ['max', 'isracard', 'cal'].includes(normalizeBankId(item.bankId));
+            const isCard = ['max', 'isracard', 'cal'].includes(
+              normalizeBankId(item.bankId),
+            );
             let identifier = item.accountNumber;
             if (isCard) {
               identifier = item.accountNumber.slice(-4);
@@ -366,8 +454,14 @@ export function AiInputPanel({
                 key={`${item.bankId}:${item.accountNumber}`}
                 className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-muted border border-border text-xs font-semibold text-foreground select-none align-middle rounded-full animate-in fade-in zoom-in-95 duration-150"
               >
-                <BankIcon bankId={item.bankId} size="sm" className="!h-4 !w-4 border-none" />
-                <span>{getBankName(item.bankId)} • {identifier}</span>
+                <BankIcon
+                  bankId={item.bankId}
+                  size="sm"
+                  className="!h-4 !w-4 border-none"
+                />
+                <span>
+                  {getBankName(item.bankId)} • {identifier}
+                </span>
                 <button
                   type="button"
                   onClick={() => removeTaggedItem(item)}
@@ -387,8 +481,12 @@ export function AiInputPanel({
         onChange={handleChangeText}
         onSelect={handleSelect}
         onKeyDown={handleKeyDown}
-        placeholder="הקלד כאן שאלה... (השתמש ב-@ כדי לתייג חשבון או השקעה)"
-        className="w-full min-h-[100px] max-h-60 rounded-none border-none bg-transparent hover:bg-transparent focus:bg-transparent shadow-none py-4 px-4 resize-none text-right text-foreground relative z-10 leading-relaxed placeholder:text-muted-foreground"
+        placeholder={
+          selectedModel
+            ? 'הקלד כאן שאלה... (השתמש ב-@ כדי לתייג חשבון או השקעה)'
+            : 'יש לחבר ספק AI על מנת לשלוח הודעות'
+        }
+        className="w-full min-h-[100px] max-h-60 rounded-none border-none bg-transparent hover:bg-transparent focus:bg-transparent shadow-none py-4 px-4 resize-none text-right text-foreground relative z-10 leading-relaxed placeholder:text-muted-foreground text-[17px]"
         disabled={isLoading || !selectedModel}
         rows={3}
       />
@@ -422,6 +520,7 @@ export function AiInputPanel({
                 setSelectedModel={setAgentModel}
                 modelsByProvider={modelsByProvider}
                 isLoading={isLoading}
+                configuredProviders={configuredProviders}
               />
             </div>
           )}
@@ -429,7 +528,11 @@ export function AiInputPanel({
 
         <PremiumButton
           type="submit"
-          disabled={(!prompt.trim() && taggedItems.length === 0) || isLoading || !selectedModel}
+          disabled={
+            (!prompt.trim() && taggedItems.length === 0) ||
+            isLoading ||
+            !selectedModel
+          }
           className="h-10 px-5"
         >
           {isLoading ? (
@@ -439,9 +542,6 @@ export function AiInputPanel({
           )}
           <span className="hidden sm:inline mr-2">
             {isLoading ? 'שולח...' : 'שלח הודעה'}
-          </span>
-          <span className="sm:hidden">
-            <ChatText className="h-4 w-4" weight="bold" />
           </span>
         </PremiumButton>
       </div>

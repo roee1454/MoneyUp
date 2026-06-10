@@ -22,11 +22,14 @@ export class HapoalimScraper extends BaseScraper {
 
   protected async simulateScrape(
     credentials: ScraperCredentials,
+    onProgress?: (step: string) => void,
   ): Promise<ScraperResponse> {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      onProgress?.('logging_in');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       if ('otpCodeRetriever' in credentials && credentials.otpCodeRetriever) {
+        onProgress?.('awaiting_otp');
         try {
           const code = await credentials.otpCodeRetriever();
           if (code !== '123456') {
@@ -39,6 +42,13 @@ export class HapoalimScraper extends BaseScraper {
           };
         }
       }
+
+      onProgress?.('logged_in');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      onProgress?.('scanning_transactions');
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      onProgress?.('finalizing');
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       return {
         status: 'SUCCESS',
@@ -95,6 +105,7 @@ export class HapoalimScraper extends BaseScraper {
       executablePath?: string;
       browser?: any;
       skipCloseBrowser?: boolean;
+      onProgress?: (step: string) => void;
     },
   ): Promise<ScraperResponse> {
     try {
@@ -111,7 +122,7 @@ export class HapoalimScraper extends BaseScraper {
               this.configService.get<string>('SCRAPER_DEFAULT_TIMEOUT_MS') ||
                 timeoutMs,
             );
-
+ 
       const scraper = createScraper({
         ...this.getCommonScraperOptions(options),
         companyId: this.companyId,
@@ -126,6 +137,8 @@ export class HapoalimScraper extends BaseScraper {
           ? { skipCloseBrowser: options.skipCloseBrowser }
           : {}),
       });
+
+      this.registerProgressListener(scraper, options?.onProgress);
 
       // Patch the scraper instance to handle Hapoalim redirect to transactions page
       // Some versions of Hapoalim redirect directly to /transactions instead of /homepage

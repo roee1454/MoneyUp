@@ -30,7 +30,7 @@ import { MarketDataModule } from './modules/market-data/market-data.module';
     }),
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
-      database: 'data/users.db',
+      database: 'data/app.db',
       entities: [
         User,
         ConversationEntity,

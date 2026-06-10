@@ -1,4 +1,21 @@
-export const API_BASE = 'http://localhost:3000';
+import { invoke } from '@tauri-apps/api/core';
+
+export let API_BASE = 'http://localhost:3000';
+
+export async function initApiBase() {
+  const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  if (isTauri) {
+    try {
+      const port = await invoke<number>('get_server_port');
+      API_BASE = `http://localhost:${port}`;
+      console.log(`[Tauri] API Base initialized to: ${API_BASE}`);
+    } catch (e) {
+      console.error('[Tauri] Failed to fetch server port from Rust, falling back to 3000:', e);
+    }
+  } else if (import.meta.env.VITE_API_URL) {
+    API_BASE = import.meta.env.VITE_API_URL;
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check } from '@phosphor-icons/react';
+import { Check, CircleNotch } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,6 +17,9 @@ import { BankIcon } from './BankIcon';
 import { PremiumInput } from '@/components/ui/premium-input';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { PremiumGridButton } from '@/components/ui/premium-grid-button';
+import { getFriendlyScraperError } from '@/lib/error-formatter';
+import { cn } from '@/lib/utils';
+import { Confetti } from './Confetti';
 
 interface AddBankAccountDialogProps {
   open: boolean;
@@ -51,6 +54,7 @@ export function AddBankAccountDialog({
   const [activeTab, setActiveTab] = useState<'bank' | 'credit_card'>(
     'credit_card',
   );
+  const [syncStep, setSyncStep] = useState<string | null>(null);
 
   const { data: scrapers = [], isLoading: isLoadingScrapers } =
     useScrapersList(open);
@@ -81,16 +85,7 @@ export function AddBankAccountDialog({
     errorCode?: ScraperErrorCode,
     fallback?: string,
   ) => {
-    switch (errorCode) {
-      case 'INVALID_CREDENTIALS':
-        return 'שם משתמש או סיסמה אינם נכונים';
-      case 'CHALLENGE_FAILED':
-        return 'קוד האימות שגוי';
-      case 'BANK_UNAVAILABLE':
-        return 'שירות חברת האשראי או הבנק לא זמין כרגע. נסה שוב בעוד כמה דקות.';
-      default:
-        return fallback || 'ההתחברות נכשלה. נסה שוב.';
-    }
+    return getFriendlyScraperError(fallback, errorCode);
   };
 
   useEffect(() => {
@@ -100,8 +95,9 @@ export function AddBankAccountDialog({
 
     const socket = getScraperSocket();
 
-    const handleStatus = (data: { sessionId?: string; status?: string }) => {
+    const handleStatus = (data: { sessionId?: string; status?: string; step?: string }) => {
       if (data.sessionId) setSessionId(data.sessionId);
+      if (data.step) setSyncStep(data.step);
     };
 
     const handleChallenge = (data: {
@@ -125,6 +121,7 @@ export function AddBankAccountDialog({
       setIsConnecting(false);
       setIsAwaiting2FA(false);
       setIsConnected(true);
+      setSyncStep(null);
       toast.success('החשבון סונכרן בהצלחה!');
       void queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
       void onSuccess?.();
@@ -135,11 +132,13 @@ export function AddBankAccountDialog({
       error?: string;
     }) => {
       setIsConnecting(false);
+      setSyncStep(null);
       setErrorMsg(getFriendlyError(data.errorCode, data.error));
     };
 
     const handleConnectError = () => {
       setIsConnecting(false);
+      setSyncStep(null);
       setErrorMsg('לא ניתן לפתוח חיבור סנכרון בזמן אמת. נסה שוב.');
     };
 
@@ -170,6 +169,7 @@ export function AddBankAccountDialog({
       setIsConnecting(false);
       setIsConnected(false);
       setActiveTab('credit_card');
+      setSyncStep(null);
     }
   }, [open]);
 
@@ -185,7 +185,7 @@ export function AddBankAccountDialog({
         credentials: formValues,
       });
     } catch (err: any) {
-      setErrorMsg(err.message || 'ההתחברות נכשלה. נסה שוב.');
+      setErrorMsg(err.message || 'לא ניתן לפתוח חיבור בזמן אמת עכשיו, נא לפתוח את האפליקציה מחדש!');
       setIsConnecting(false);
     }
   }
@@ -208,7 +208,13 @@ export function AddBankAccountDialog({
   const showSyncingScreen = !!selectedBank && isConnecting && !isAwaiting2FA;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (isConnecting) return;
+        onOpenChange(val);
+      }}
+    >
       <DialogContent
         showCloseButton={false}
         className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
@@ -221,7 +227,11 @@ export function AddBankAccountDialog({
             onClose={() => onOpenChange(false)}
           />
         ) : showSyncingScreen ? (
-          <SyncingView bankId={selectedBank.id} bankName={selectedBank.name} />
+          <SyncingView
+            bankId={selectedBank.id}
+            bankName={selectedBank.name}
+            syncStep={syncStep}
+          />
         ) : !selectedBank ? (
           <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
             <DialogHeader className="text-right space-y-1.5 pb-4 border-b border-border">
@@ -486,29 +496,78 @@ export function AddBankAccountDialog({
 function SyncingView({
   bankId,
   bankName,
+  syncStep,
 }: {
   bankId: string;
   bankName: string;
+  syncStep: string | null;
 }) {
+  const steps = [
+    { key: 'logging_in', label: 'התחברות מאובטחת למוסד הפיננסי' },
+    { key: 'logged_in', label: 'אימות והתחברות מוצלחים' },
+    { key: 'scanning_transactions', label: 'סריקת עסקאות מחצי השנה האחרונה' },
+    { key: 'finalizing', label: 'סיום סינכרון' },
+  ];
+
+  const getStepStatus = (stepKey: string) => {
+    const keys = ['logging_in', 'logged_in', 'scanning_transactions', 'finalizing'];
+    const currentIndex = keys.indexOf(syncStep || 'logging_in');
+    const stepIndex = keys.indexOf(stepKey);
+
+    if (stepIndex < currentIndex) return 'completed';
+    if (stepIndex === currentIndex) return 'active';
+    return 'pending';
+  };
+
   return (
-    <div className="animate-in fade-in-50 duration-300 slide-in-from-bottom-1 min-h-[320px] flex flex-col items-center justify-center text-center gap-6">
-      <div className="relative flex items-center justify-center h-44 w-44">
-        <span className="absolute h-32 w-32 rounded-full border border-border animate-ping [animation-duration:1.8s]" />
-        <span className="absolute h-24 w-24 rounded-full border border-border animate-ping [animation-duration:1.8s] [animation-delay:350ms]" />
+    <div className="animate-in fade-in-50 duration-300 slide-in-from-bottom-1 min-h-[380px] flex flex-col items-center justify-center gap-6">
+      <div className="relative flex items-center justify-center h-28 w-28 shrink-0">
+        <span className="absolute h-20 w-20 rounded-full border border-border animate-ping [animation-duration:2s]" />
         <span className="absolute h-16 w-16 rounded-full bg-muted animate-pulse" />
         <BankIcon
           bankId={bankId}
           shape="circle"
-          size="xl"
+          size="lg"
           className="relative z-10"
         />
       </div>
 
-      <div className="space-y-1.5">
-        <p className="text-sm font-black text-foreground">מנסה לבצע חיבור...</p>
+      <div className="space-y-1 text-center w-full">
+        <p className="text-base font-black text-foreground">מבצע נסיון חיבור ל{bankName}</p>
         <p className="text-xs font-semibold text-muted-foreground">
-          {bankName}
+          אנא המתן, מבצע סנכרון מאובטח..
         </p>
+      </div>
+
+      {/* Step checklist */}
+      <div className="w-full bg-muted/20 border border-border p-4 space-y-4 rounded-none">
+        {steps.map((s) => {
+          const status = getStepStatus(s.key);
+          return (
+            <div
+              key={s.key}
+              className={cn(
+                'flex items-center justify-start gap-3 transition-all duration-300',
+                status === 'completed' && 'text-emerald-600 font-bold',
+                status === 'active' && 'text-primary font-black',
+                status === 'pending' && 'text-muted-foreground/50 font-semibold'
+              )}
+            >
+              <div className="h-5 w-5 shrink-0 flex items-center justify-center">
+                {status === 'completed' ? (
+                  <div className="h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center animate-in zoom-in-50 duration-200">
+                    <Check className="h-2.5 w-2.5 text-white" weight="bold" />
+                  </div>
+                ) : status === 'active' ? (
+                  <CircleNotch className="h-4 w-4 animate-spin text-primary" weight="bold" />
+                ) : (
+                  <div className="h-1.5 w-1.5 rounded-full bg-border" />
+                )}
+              </div>
+              <span className="text-sm leading-none">{s.label}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -524,32 +583,38 @@ function ConnectedView({
   onClose: () => void;
 }) {
   return (
-    <div className="animate-in fade-in-50 duration-300 slide-in-from-bottom-1 min-h-[320px] flex flex-col items-center justify-center text-center gap-6">
-      <div className="relative flex items-center justify-center h-44 w-44">
-        <div className="absolute -top-1 h-11 w-11 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg z-20 border-4 border-card">
-          <Check className="h-6 w-6 text-white stroke-3" />
+    <>
+      <Confetti />
+
+      <div className="animate-in fade-in-50 duration-500 zoom-in-95 min-h-[340px] flex flex-col items-center justify-center text-center gap-6">
+        {/* Plain bank icon — no green effects */}
+        {/* Standalone success check */}
+        <div className="flex items-center justify-center h-12 w-12 rounded-full bg-emerald-500 animate-in zoom-in-50 duration-300 [animation-delay:150ms]">
+          <Check className="h-7 w-7 text-white" weight="bold" />
         </div>
-        <BankIcon
-          bankId={bankId}
-          shape="circle"
-          size="xl"
-          className="relative z-10"
-        />
-      </div>
 
-      <div className="space-y-1.5">
-        <p className="text-sm font-black text-foreground">החיבור הצליח</p>
-        <p className="text-xs font-semibold text-muted-foreground">
-          {bankName} מחובר כעת
-        </p>
-      </div>
+        <div className="flex items-center justify-center">
+          <BankIcon
+            bankId={bankId}
+            shape="circle"
+            size="xl"
+            className="shadow-xl"
+          />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-lg font-black text-foreground tracking-tight">החיבור הושלם בהצלחה!</h3>
+          <p className="text-xs font-semibold text-muted-foreground leading-relaxed max-w-xs">
+            חשבון <span className="font-bold text-foreground">{bankName}</span> סונכרן וחובר בהצלחה. כל העסקאות האחרונות כבר זמינות לניתוח במערכת.
+          </p>
+        </div>
 
-      <Button
-        onClick={onClose}
-        className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-8"
-      >
-        סגור
-      </Button>
-    </div>
+        <Button
+          onClick={onClose}
+          className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-10 transition-all active:scale-95 shadow-lg shadow-primary/15 mt-2 animate-in fade-in duration-300 [animation-delay:400ms]"
+        >
+          בוא נתחיל
+        </Button>
+      </div>
+    </>
   );
 }

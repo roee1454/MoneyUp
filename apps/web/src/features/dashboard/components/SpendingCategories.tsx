@@ -40,9 +40,8 @@ interface SpendingCategoriesProps {
 }
 
 const categoryEmojis: Record<string, string> = {
-  מזון: '🍔',
-  קניות: '🛒',
-  'בילויים ופנאי': '🎉',
+  מותרות: '🎉',
+  'קניות בסופר': '🛒',
   'דלק/תחבורה': '⛽',
   מנויים: '📱',
   'לא מסווג': '📦',
@@ -97,31 +96,45 @@ export function SpendingCategories({
 
   const [classProvider, setClassProvider] = useState<'openai' | 'claude' | 'gemini'>(() => {
     const saved = localStorage.getItem('moneyup_classification_provider');
-    if (saved && configuredProviders.includes(saved)) {
-      return saved as any;
+    if (saved === 'openai' || saved === 'claude' || saved === 'gemini') {
+      return saved;
     }
-    return (configuredProviders[0] as any) || 'gemini';
+    return 'gemini';
   });
 
   const [classModel, setClassModel] = useState<string>(() => {
     const saved = localStorage.getItem('moneyup_classification_model');
     if (saved) return saved;
-    const provider = (configuredProviders[0] as any) || 'gemini';
-    if (provider === 'openai') return 'gpt-4o-mini';
-    if (provider === 'claude') return 'claude-3-5-haiku-20241022';
     return 'gemini-2.5-flash';
   });
 
   useEffect(() => {
-    if (configuredProviders.length > 0 && !configuredProviders.includes(classProvider)) {
-      const fallbackProvider = configuredProviders[0] as 'openai' | 'claude' | 'gemini';
-      setClassProvider(fallbackProvider);
-      let defaultModel = 'gemini-2.5-flash';
-      if (fallbackProvider === 'openai') defaultModel = 'gpt-4o-mini';
-      else if (fallbackProvider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
-      setClassModel(defaultModel);
+    if (configuredProviders.length > 0) {
+      const savedProvider = localStorage.getItem('moneyup_classification_provider') as 'openai' | 'claude' | 'gemini' | null;
+      const savedModel = localStorage.getItem('moneyup_classification_model');
+
+      let targetProvider: 'openai' | 'claude' | 'gemini' = 'gemini';
+      if (savedProvider && configuredProviders.includes(savedProvider)) {
+        targetProvider = savedProvider;
+      } else if (configuredProviders.includes(classProvider)) {
+        targetProvider = classProvider;
+      } else {
+        targetProvider = (configuredProviders[0] as any) || 'gemini';
+      }
+
+      setClassProvider(targetProvider);
+
+      const availableModels = MODELS_BY_PROVIDER[targetProvider] || [];
+      if (savedModel && availableModels.includes(savedModel)) {
+        setClassModel(savedModel);
+      } else {
+        let defaultModel = 'gemini-2.5-flash';
+        if (targetProvider === 'openai') defaultModel = 'gpt-4o-mini';
+        else if (targetProvider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
+        setClassModel(defaultModel);
+      }
     }
-  }, [configuredProviders, classProvider]);
+  }, [configuredProviders]);
 
   const handleProviderChange = (provider: 'openai' | 'claude' | 'gemini') => {
     if (!configuredProviders.includes(provider)) {
@@ -350,6 +363,7 @@ export function SpendingCategories({
             modelsByProvider={MODELS_BY_PROVIDER}
             providers={['gemini', 'openai', 'claude']}
             isLoading={isAnnotatingWithAi || isWidgetBusy}
+            configuredProviders={configuredProviders}
           />
 
           <PremiumButton

@@ -301,13 +301,19 @@ body {
   border-radius: 50%;
   background: hsl(var(--primary));
   cursor: pointer;
-  box-shadow: 0 0 0 3px hsl(var(--background)), 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: transform 0.1s ease-in-out, box-shadow 0.1s;
+  box-shadow:
+    0 0 0 3px hsl(var(--background)),
+    0 2px 4px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.1s ease-in-out,
+    box-shadow 0.1s;
 }
 
 .custom-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  box-shadow: 0 0 0 3px hsl(var(--background)), 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 0 3px hsl(var(--background)),
+    0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .custom-slider:active::-webkit-slider-thumb {

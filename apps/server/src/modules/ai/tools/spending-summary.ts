@@ -36,9 +36,39 @@ export class GetSpendingSummaryRunner implements ToolRunner {
         debug: false,
       });
 
-      const categoriesWithTopMerchants = (spendingData.categories || []).map(
+      const isCreditCard = (bankId: string) => {
+        const id = String(bankId ?? '').toLowerCase();
+        return id === 'max' || id === 'isracard' || id === 'cal';
+      };
+
+      const filteredCategoryTransactions: Record<string, any[]> = {};
+      const filteredCategories: any[] = [];
+      let totalExpenses = 0;
+
+      for (const catName in spendingData.categoryTransactions || {}) {
+        const txns = (spendingData.categoryTransactions[catName] || []).filter((t: any) =>
+          isCreditCard(t.bankId),
+        );
+        if (txns.length > 0) {
+          const catAmount = txns.reduce((sum: number, t: any) => sum + t.amount, 0);
+          filteredCategoryTransactions[catName] = txns;
+          totalExpenses += catAmount;
+
+          const originalCat = (spendingData.categories || []).find((c: any) => c.name === catName);
+          if (originalCat) {
+            filteredCategories.push({
+              ...originalCat,
+              amount: catAmount,
+              count: txns.length,
+            });
+          }
+        }
+      }
+      filteredCategories.sort((a, b) => b.amount - a.amount);
+
+      const categoriesWithTopMerchants = filteredCategories.map(
         (cat: any) => {
-          const txns = spendingData.categoryTransactions[cat.name] || [];
+          const txns = filteredCategoryTransactions[cat.name] || [];
           const merchantTotals = txns.reduce((acc: any, t: any) => {
             acc[t.merchant] = (acc[t.merchant] || 0) + t.amount;
             return acc;
@@ -58,7 +88,7 @@ export class GetSpendingSummaryRunner implements ToolRunner {
 
       return {
         totalIncome: spendingData.totalIncome,
-        totalExpenses: spendingData.totalExpenses,
+        totalExpenses,
         totalBalance: spendingData.totalBalance,
         categories: categoriesWithTopMerchants,
       };

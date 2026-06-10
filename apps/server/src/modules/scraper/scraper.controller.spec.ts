@@ -17,33 +17,25 @@ jest.mock('./scraper-factory.service', () => ({
 }));
 
 import { ScraperController } from './scraper.controller';
-import { BrowserService } from './browser/browser.service';
-import { SessionService } from './session/session.service';
-import { CredentialsService } from './credentials/credentials.service';
-import { SyncService } from './sync/sync.service';
-import { CacheService } from './cache/cache.service';
-import { CoverageService } from './coverage/coverage.service';
-import { ScansService } from './scans/scans.service';
-import { ScraperFactory } from './scraper-factory.service';
-
+import { ScraperService } from './scraper.service';
+import { UsersService } from '../users/users.service';
+import { SyncJobService } from '../sync/sync-job.service';
 
 describe('ScraperController', () => {
   let scraperServiceController: ScraperController;
-
-  const mockService = {};
+  let mockScraperService: jest.Mocked<ScraperService>;
 
   beforeEach(async () => {
+    mockScraperService = {
+      getScrapersList: jest.fn().mockResolvedValue([]),
+    } as any;
+
     const app: TestingModule = await Test.createTestingModule({
       controllers: [ScraperController],
       providers: [
-        { provide: BrowserService, useValue: mockService },
-        { provide: SessionService, useValue: mockService },
-        { provide: CredentialsService, useValue: mockService },
-        { provide: SyncService, useValue: mockService },
-        { provide: CacheService, useValue: mockService },
-        { provide: CoverageService, useValue: mockService },
-        { provide: ScansService, useValue: mockService },
-        { provide: ScraperFactory, useValue: mockService },
+        { provide: ScraperService, useValue: mockScraperService },
+        { provide: UsersService, useValue: {} },
+        { provide: SyncJobService, useValue: {} },
       ],
     }).compile();
 
@@ -51,8 +43,8 @@ describe('ScraperController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(scraperServiceController.getHelloMessage()).toBe('Hello World!');
+    it('should return scrapers list', async () => {
+      expect(await scraperServiceController.getScrapersList()).toEqual([]);
     });
   });
 });
