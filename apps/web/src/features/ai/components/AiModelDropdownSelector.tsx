@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,7 @@ export function AiModelDropdownSelector({
   isLoading = false,
   configuredProviders,
 }: AiModelDropdownSelectorProps) {
+  const [open, setOpen] = React.useState(false);
   const models = modelsByProvider[selectedProvider] || [];
 
   const handleProviderSelect = (p: AiProvider) => {
@@ -48,18 +50,23 @@ export function AiModelDropdownSelector({
     setSelectedModel(firstModel);
   };
 
+  const handleModelSelect = (m: string) => {
+    setSelectedModel(m);
+    setOpen(false); // Close dropdown when a model is selected
+  };
+
   const hasProviders = configuredProviders && configuredProviders.length > 0;
   const isTriggerDisabled = isLoading || !hasProviders;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           disabled={isTriggerDisabled}
           className={cn(
             'flex items-center justify-between w-48 h-[38px] rounded-none border border-border/60 bg-background text-xs font-bold tracking-tight shadow-xs px-3 hover:border-border/100 hover:bg-muted/10 transition-colors cursor-pointer select-none shrink-0',
-            isTriggerDisabled && 'pointer-events-none opacity-60'
+            isTriggerDisabled && 'pointer-events-none opacity-60',
           )}
           dir="rtl"
         >
@@ -67,19 +74,23 @@ export function AiModelDropdownSelector({
             <AiIcon
               provider={selectedProvider}
               size="sm"
-              className={cn('shrink-0', !hasProviders && 'grayscale opacity-50')}
+              className={cn(
+                'shrink-0',
+                !hasProviders && 'grayscale opacity-50',
+              )}
             />
             <span className="truncate font-bold text-foreground text-[11px] block text-right">
-              {hasProviders ? (
-                getFriendlyModelName(selectedModel).length > 16
+              {hasProviders
+                ? getFriendlyModelName(selectedModel).length > 16
                   ? getFriendlyModelName(selectedModel).substring(0, 14) + '...'
                   : getFriendlyModelName(selectedModel)
-              ) : (
-                'לא מחובר ספק'
-              )}
+                : 'לא מחובר ספק'}
             </span>
           </div>
-          <CaretUp className="h-4 w-4 text-muted-foreground/80 mr-1.5 shrink-0" weight="bold" />
+          <CaretUp
+            className="h-4 w-4 text-muted-foreground/80 mr-1.5 shrink-0"
+            weight="bold"
+          />
         </button>
       </DropdownMenuTrigger>
 
@@ -113,13 +124,16 @@ export function AiModelDropdownSelector({
                         ? 'border-primary bg-primary/5 text-primary shadow-xs'
                         : 'border-border/50 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground',
                       !isConfigured &&
-                        'opacity-30 cursor-not-allowed hover:bg-transparent hover:border-border/50 text-muted-foreground/40'
+                        'opacity-30 cursor-not-allowed hover:bg-transparent hover:border-border/50 text-muted-foreground/40',
                     )}
                   >
                     <AiIcon
                       provider={p}
                       size="sm"
-                      className={cn('border-none shadow-none', !isConfigured && 'grayscale')}
+                      className={cn(
+                        'border-none shadow-none',
+                        !isConfigured && 'grayscale',
+                      )}
                     />
                     <span className="text-[10px] font-bold tracking-tight">
                       {PROVIDER_LABELS[p] || p}
@@ -145,12 +159,12 @@ export function AiModelDropdownSelector({
                   <button
                     key={m}
                     type="button"
-                    onClick={() => setSelectedModel(m)}
+                    onClick={() => handleModelSelect(m)}
                     className={cn(
                       'flex flex-col items-center justify-between p-2.5 border text-center transition-all cursor-pointer rounded-none outline-none select-none h-[62px]',
                       isSelected
                         ? 'border-primary bg-primary/5 text-primary shadow-xs'
-                        : 'border-border/50 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground'
+                        : 'border-border/50 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground',
                     )}
                     title={getFriendlyModelName(m)}
                   >

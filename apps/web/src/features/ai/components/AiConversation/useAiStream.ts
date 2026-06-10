@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, API_BASE } from '@/lib/api';
-import { useCreateConversation, useAddMessage } from '@/hooks/useAi';
+import { useCreateConversation, useAddMessage, useTruncateConversationMutation } from '@/hooks/useAi';
 import type { AiProvider } from '../AiIcon';
 import { getFriendlyErrorMessage } from '@/lib/error-formatter';
 
@@ -47,6 +47,7 @@ export function useAiStream({
 
   const createMutation = useCreateConversation();
   const addMessageMutation = useAddMessage();
+  const truncateMutation = useTruncateConversationMutation();
   const queryClient = useQueryClient();
 
   // Keep the activeConversationIdRef synchronized with the prop
@@ -83,7 +84,7 @@ export function useAiStream({
     }
   }, [conversationId, conversationDetail, isLoading]);
 
-  const processSubmit = async (textToSubmit: string) => {
+  const processSubmit = async (textToSubmit: string, overrideMessages?: LocalMessage[]) => {
     const trimmedPrompt = textToSubmit.trim();
     if (!trimmedPrompt || !selectedModel || isLoading) return;
 
@@ -119,8 +120,10 @@ export function useAiStream({
 
     const assistantId = crypto.randomUUID();
 
-    setMessages((prev) => [
-      ...prev,
+    const baseMessages = overrideMessages ?? messages;
+
+    setMessages([
+      ...baseMessages,
       userMessage,
       { id: assistantId, role: 'assistant', text: '' },
     ]);
@@ -131,7 +134,7 @@ export function useAiStream({
     setToolStatus(null);
 
     const messagesToSend = [
-      ...messages.map((m) => ({
+      ...baseMessages.map((m) => ({
         role: m.role,
         content: m.text,
         tool_calls: m.tool_calls,
@@ -224,6 +227,21 @@ export function useAiStream({
                   setToolStatus('מחפש תנועות רלוונטיות...');
                 } else if (parsed.name === 'find_merchants_by_topic') {
                   setToolStatus('ממפה בתי עסק לפי נושא...');
+                } else if (parsed.name === 'render_investment_simulator') {
+                  setToolStatus('מכין סימולטור השקעות...');
+                  setMessages((prev) =>
+                    prev.map((message) =>
+                      message.id === assistantId
+                        ? {
+                            ...message,
+                            tool_calls: [
+                              ...(message.tool_calls || []),
+                              { name: 'render_investment_simulator', isStreamingPlaceholder: true }
+                            ]
+                          }
+                        : message,
+                    ),
+                  );
                 } else {
                   setToolStatus('מפעיל כלי ניתוח...');
                 }
@@ -317,6 +335,33 @@ export function useAiStream({
     }
   };
 
+  const processEdit = async (messageId: string, newText: string) => {
+    const targetConvId = activeConversationIdRef.current;
+    if (!targetConvId || isLoading) return;
+
+    const messageIndex = messages.findIndex((m) => m.id === messageId);
+    if (messageIndex === -1) return;
+
+    const previousMessages = messages.slice(0, messageIndex);
+    setMessages(previousMessages);
+
+    setIsLoading(true);
+    try {
+      await truncateMutation.mutateAsync({
+        conversationId: targetConvId,
+        messageId,
+      });
+    } catch (e) {
+      console.error('Failed to truncate conversation', e);
+      setError('שגיאה בעריכת ההודעה');
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(false);
+
+    await processSubmit(newText, previousMessages);
+  };
+
   return {
     messages,
     setMessages,
@@ -330,5 +375,6 @@ export function useAiStream({
     setToolStatus,
     activeConversationIdRef,
     processSubmit,
+    processEdit,
   };
 }

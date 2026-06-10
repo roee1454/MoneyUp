@@ -33,12 +33,7 @@ const MODELS_BY_PROVIDER: Record<string, string[]> = {
     'claude-3-opus-20240229',
   ],
   gemini: GEMINI_MODELS,
-  ollama: [
-    'qwen2.5:14b-instruct',
-    'llama3.1:8b',
-    'mistral',
-    'gemma2',
-  ],
+  ollama: ['qwen2.5:14b-instruct', 'llama3.1:8b', 'mistral', 'gemma2'],
   openrouter: [
     'meta-llama/llama-3.1-8b-instruct:free',
     'google/gemini-2.5-flash',
@@ -68,7 +63,9 @@ export function AiConversation({
 
   const currentProvider = configuredProviders[0] || 'gemini';
 
-  const [agentProvider, setAgentProvider] = useState<'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter'>(() => {
+  const [agentProvider, setAgentProvider] = useState<
+    'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter'
+  >(() => {
     const saved = localStorage.getItem('moneyup_studio_provider');
     if (saved && configuredProviders.includes(saved)) return saved as any;
     return (currentProvider as any) || 'gemini';
@@ -77,7 +74,11 @@ export function AiConversation({
   const [agentModel, setAgentModel] = useState<string>(() => {
     const saved = localStorage.getItem('moneyup_studio_model');
     if (saved) return saved;
-    return configs[currentProvider]?.model || MODELS_BY_PROVIDER[currentProvider]?.[0] || 'gemini-2.5-flash';
+    return (
+      configs[currentProvider]?.model ||
+      MODELS_BY_PROVIDER[currentProvider]?.[0] ||
+      'gemini-2.5-flash'
+    );
   });
 
   const { data: conversationDetail, isLoading: isLoadingHistory } =
@@ -86,18 +87,28 @@ export function AiConversation({
   const saveAiConfig = useSaveAiConfig();
 
   useEffect(() => {
-    if (configuredProviders.length > 0 && !configuredProviders.includes(agentProvider)) {
-      const prov = configuredProviders[0] as 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+    if (
+      configuredProviders.length > 0 &&
+      !configuredProviders.includes(agentProvider)
+    ) {
+      const prov = configuredProviders[0] as
+        | 'openai'
+        | 'claude'
+        | 'gemini'
+        | 'ollama'
+        | 'openrouter';
       setAgentProvider(prov);
       setAgentModel(
         configs[prov]?.model ||
-        MODELS_BY_PROVIDER[prov]?.[0] ||
-        'gemini-2.5-flash'
+          MODELS_BY_PROVIDER[prov]?.[0] ||
+          'gemini-2.5-flash',
       );
     }
   }, [configuredProviders]);
 
-  const handleAgentProviderChange = (provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter') => {
+  const handleAgentProviderChange = (
+    provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
+  ) => {
     if (!configuredProviders.includes(provider)) {
       toast.error(`ספק ${provider.toUpperCase()} אינו מחובר.`, {
         action: {
@@ -197,6 +208,7 @@ export function AiConversation({
     activeSources,
     toolStatus,
     processSubmit,
+    processEdit,
   } = useAiStream({
     provider: agentProvider,
     selectedModel,
@@ -213,7 +225,7 @@ export function AiConversation({
     'כמה בזבזתי על קניות בסופר ואוכל/מסעדות בחודש האחרון?',
     'האם יש מנויים או חיובים מחזוריים שאתה מזהה בחשבון שלי?',
     'מה תזרים המזומנים שלי החודש לעומת חודש שעבר?',
-    'תראה לי את התנועות הכי גדולות שלי בכרטיס אשראי',
+    'מה מצב תיק ההשקעות שלי והאם יש לך המלצות מבוססות ניתוח טכני?',
   ];
 
   const handlePromptClick = (text: string) => {
@@ -243,6 +255,7 @@ export function AiConversation({
         defaultPrompts={defaultPrompts}
         selectedModel={selectedModel}
         onPromptClick={handlePromptClick}
+        onEditSubmit={processEdit}
         hasAiProvider={configuredProviders.length > 0}
         onConnectClick={onConnectClick}
       />
@@ -251,9 +264,7 @@ export function AiConversation({
         <div className="max-w-5xl mx-auto w-full px-3 md:px-5 shrink-0">
           <div className="flex items-start gap-3 bg-destructive/5 text-destructive border border-destructive/15 px-4 py-3.5 rounded-2xl text-right dir-rtl font-sans">
             <Warning className="h-5 w-5 shrink-0 text-destructive/80 mt-0.5" />
-            <p className="text-sm font-medium leading-relaxed">
-              {error}
-            </p>
+            <p className="text-sm font-medium leading-relaxed">{error}</p>
           </div>
         </div>
       ) : null}

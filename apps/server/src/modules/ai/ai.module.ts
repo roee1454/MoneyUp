@@ -8,12 +8,19 @@ import { QueryTransactionsRunner } from './tools/query-transactions';
 import { ListAccountsRunner } from './tools/list-accounts';
 import { BankIdMapperRunner } from './tools/bank-id-mapper';
 import { ClassifyMerchantsRunner } from './tools/classify-merchants';
+import { GetPortfolioRunner } from './tools/get-portfolio';
+import { GetTechnicalAnalysisRunner } from './tools/get-technical-analysis';
+import { SearchWebRunner } from './tools/search-web';
+import { ReadWebpageRunner } from './tools/read-webpage';
+import { RenderInvestmentSimulatorRunner } from './tools/render-investment-simulator';
 import { UsersModule } from '../users/users.module';
 import { ScraperModule } from '../scraper/scraper.module';
 import { SpendingModule } from '../spending/spending.module';
+import { BrokerModule } from '../broker/broker.module';
+import { MarketDataModule } from '../market-data/market-data.module';
 
 @Module({
-  imports: [UsersModule, ScraperModule, forwardRef(() => SpendingModule)],
+  imports: [UsersModule, ScraperModule, forwardRef(() => SpendingModule), forwardRef(() => BrokerModule), forwardRef(() => MarketDataModule)],
   controllers: [AiController],
   providers: [
     AiService,
@@ -24,6 +31,11 @@ import { SpendingModule } from '../spending/spending.module';
     ListAccountsRunner,
     BankIdMapperRunner,
     ClassifyMerchantsRunner,
+    GetPortfolioRunner,
+    GetTechnicalAnalysisRunner,
+    SearchWebRunner,
+    ReadWebpageRunner,
+    RenderInvestmentSimulatorRunner,
   ],
   exports: [AiService],
 })

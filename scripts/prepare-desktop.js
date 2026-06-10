@@ -58,9 +58,9 @@ function main() {
 
   // 1. Build workspace packages, client and server
   console.log('📦 Building packages and applications...');
-  execSync('pnpm build:packages', { cwd: rootDir, stdio: 'inherit' });
-  execSync('pnpm build:client', { cwd: rootDir, stdio: 'inherit' });
-  execSync('pnpm build:server', { cwd: rootDir, stdio: 'inherit' });
+  execSync('pnpm packages:build', { cwd: rootDir, stdio: 'inherit' });
+  execSync('pnpm client:build', { cwd: rootDir, stdio: 'inherit' });
+  execSync('pnpm server:build', { cwd: rootDir, stdio: 'inherit' });
 
   // 2. Pack workspace packages into tarballs in the root directory
   console.log('📦 Packing local dependencies to tarballs...');

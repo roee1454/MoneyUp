@@ -80,6 +80,16 @@ export class AiController {
     return this.usersService.deleteConversation(userId, conversationId);
   }
 
+  @Delete('conversations/:id/messages/:messageId/truncate')
+  async truncateConversation(
+    @Req() request: Request,
+    @Param('id') conversationId: string,
+    @Param('messageId') messageId: string,
+  ) {
+    const userId = requireSessionUserId(request);
+    return this.usersService.truncateConversationAtMessage(userId, conversationId, messageId);
+  }
+
   @Get()
   async getAiGreeting(): Promise<string> {
     return 'AI gateway endpoint is ready';

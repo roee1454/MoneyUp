@@ -26,6 +26,7 @@ import { SyncStatusCard } from '@/components/SyncStatusCard';
 
 const NAV_ITEMS = [
   { label: 'בית', to: '/dashboard' },
+  { label: 'השקעות וטיווח', to: '/investments' },
   { label: 'ייעוץ עם סוכן', to: '/ai-studio' },
   { label: 'ייצוא נתונים', to: '/export' },
 ];

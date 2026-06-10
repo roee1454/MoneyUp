@@ -86,3 +86,22 @@ export function useDeleteConversation() {
     },
   });
 }
+
+export function useTruncateConversationMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      conversationId,
+      messageId,
+    }: {
+      conversationId: string;
+      messageId: string;
+    }) => api.delete(`/ai/conversations/${conversationId}/messages/${messageId}/truncate`),
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['ai-conversation', variables.conversationId],
+      });
+    },
+  });
+}
