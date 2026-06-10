@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +37,7 @@ export function AiModelDropdownSelector({
   providers = ['gemini', 'openai', 'claude', 'ollama', 'openrouter'],
   isLoading = false,
 }: AiModelDropdownSelectorProps) {
+  const [open, setOpen] = React.useState(false);
   const models = modelsByProvider[selectedProvider] || [];
 
   const handleProviderSelect = (p: AiProvider) => {
@@ -46,8 +48,13 @@ export function AiModelDropdownSelector({
     setSelectedModel(firstModel);
   };
 
+  const handleModelSelect = (m: string) => {
+    setSelectedModel(m);
+    setOpen(false); // Close dropdown when a model is selected
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -117,7 +124,7 @@ export function AiModelDropdownSelector({
                   <button
                     key={m}
                     type="button"
-                    onClick={() => setSelectedModel(m)}
+                    onClick={() => handleModelSelect(m)}
                     className={cn(
                       'flex flex-col items-center justify-between p-2 border text-center transition-all cursor-pointer rounded-none outline-none select-none h-[54px]',
                       isSelected

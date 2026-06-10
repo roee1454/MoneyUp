@@ -281,3 +281,51 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.4);
 }
+/* Custom Range Slider */
+.custom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: hsl(var(--border));
+  border-radius: 4px;
+  outline: none;
+  transition: background 0.2s;
+}
+
+.custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  box-shadow: 0 0 0 3px hsl(var(--background)), 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s ease-in-out, box-shadow 0.1s;
+}
+
+.custom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px hsl(var(--background)), 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.custom-slider:active::-webkit-slider-thumb {
+  transform: scale(1.05);
+  background: hsl(var(--primary) / 0.9);
+}
+
+.custom-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 3px solid hsl(var(--background));
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s ease-in-out;
+}
+
+.custom-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}

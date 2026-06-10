@@ -148,9 +148,17 @@ export default function AiStudio() {
                 conversations.map((conv) => {
                   const isActive = activeConversationId === conv.id;
                   return (
-                    <button
+                    <div
                       key={conv.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setActiveConversationId(conv.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setActiveConversationId(conv.id);
+                        }
+                      }}
                       className={cn(
                         'w-full text-right px-3 py-3 flex items-center justify-between group transition-all cursor-pointer border outline-none',
                         isActive
@@ -193,7 +201,7 @@ export default function AiStudio() {
                       >
                         <Trash className="h-3.5 w-3.5" weight="bold" />
                       </button>
-                    </button>
+                    </div>
                   );
                 })
               )}

@@ -448,4 +448,34 @@ export class UsersService {
 
     return { success: true };
   }
+
+  async truncateConversationAtMessage(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+  ): Promise<{ success: boolean }> {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id: conversationId, userId },
+    });
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    const targetMessage = await this.messageRepository.findOne({
+      where: { id: messageId, conversationId },
+    });
+    if (!targetMessage) {
+      throw new NotFoundException('Message not found');
+    }
+
+    // Delete the target message and all subsequent messages
+    await this.messageRepository
+      .createQueryBuilder()
+      .delete()
+      .where('conversationId = :conversationId', { conversationId })
+      .andWhere('"createdAt" >= :createdAt', { createdAt: targetMessage.createdAt })
+      .execute();
+
+    return { success: true };
+  }
 }

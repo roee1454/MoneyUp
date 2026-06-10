@@ -14,7 +14,6 @@ import Settings from '@/routes/Settings';
 import AccountsSettings from '@/routes/settings/Accounts';
 import AiSettings from '@/routes/settings/Ai';
 import ScrapersSettings from '@/routes/settings/Scrapers';
-import { InvestmentsRoute } from '@/routes/InvestmentsRoute';
 
 import { useState, useEffect } from 'react';
 import { useRouterState, useNavigate } from '@tanstack/react-router';
@@ -32,7 +31,6 @@ const privatePaths = [
   '/settings',
   '/settings/ai',
   '/settings/scrapers',
-  '/investments',
 ];
 
 function AppLayout() {
@@ -165,12 +163,6 @@ const dashboardRoute = createRoute({
   component: Dashboard,
 });
 
-const investmentsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/investments',
-  component: InvestmentsRoute,
-});
-
 const exportRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/export',
@@ -211,7 +203,6 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   dashboardRoute,
-  investmentsRoute,
   exportRoute,
   aiStudioRoute,
   settingsRoute.addChildren([

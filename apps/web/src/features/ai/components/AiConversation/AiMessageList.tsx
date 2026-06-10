@@ -11,6 +11,7 @@ interface AiMessageListProps {
   defaultPrompts: string[];
   selectedModel: string;
   onPromptClick: (prompt: string) => void;
+  onEditSubmit?: (messageId: string, newText: string) => void;
 }
 
 export function AiMessageList({
@@ -20,6 +21,7 @@ export function AiMessageList({
   defaultPrompts,
   selectedModel,
   onPromptClick,
+  onEditSubmit,
 }: AiMessageListProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
 
@@ -27,12 +29,20 @@ export function AiMessageList({
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const visibleMessages = messages.filter(
-    (m) =>
-      m.role !== 'system' &&
-      m.role !== 'tool' &&
-      !(m.role === 'assistant' && !m.text && m.tool_calls?.length)
-  );
+  const visibleMessages = messages.filter((m) => {
+    if (m.role === 'system' || m.role === 'tool') return false;
+    
+    // Hide assistant messages that only have tool calls and no text, 
+    // UNLESS the tool call is our generative UI simulator
+    if (m.role === 'assistant' && !m.text && m.tool_calls?.length) {
+      const hasSimulator = m.tool_calls.some(
+        (tc: any) => (tc.name || tc.function?.name) === 'render_investment_simulator'
+      );
+      if (!hasSimulator) return false;
+    }
+    
+    return true;
+  });
 
   const hasMessages = messages.length > 0;
 
@@ -95,6 +105,7 @@ export function AiMessageList({
                 isLoading={isLoading}
                 isLast={isLast}
                 toolStatus={toolStatus}
+                onEditSubmit={onEditSubmit}
               />
             );
           })}

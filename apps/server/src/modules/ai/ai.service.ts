@@ -66,16 +66,23 @@ export class AiService {
     let currentMessages = [...resolved.messages];
     let iteration = 0;
 
-    const providerInstance = this.getProvider(resolved.provider, resolved.apiKey);
+    const providerInstance = this.getProvider(
+      resolved.provider,
+      resolved.apiKey,
+    );
 
     while (iteration < 5) {
       iteration++;
-      const response = (await providerInstance.prompt(resolved.model, currentMessages, {
-        stream: false,
-        temperature: resolved.temperature,
-        maxTokens: resolved.maxTokens,
-        tools: AI_TOOLS as any,
-      })) as any;
+      const response = (await providerInstance.prompt(
+        resolved.model,
+        currentMessages,
+        {
+          stream: false,
+          temperature: resolved.temperature,
+          maxTokens: resolved.maxTokens,
+          tools: AI_TOOLS as any,
+        },
+      )) as any;
 
       if (response.type === 'tool_calls') {
         const assistantMsg = {
@@ -86,17 +93,24 @@ export class AiService {
         currentMessages.push(assistantMsg);
 
         if (conversationId) {
-          await this.usersService.addMessage(
-            userId,
-            conversationId,
-            assistantMsg.role,
-            assistantMsg.content,
-            assistantMsg.tool_calls,
-          ).catch((e) => console.error('Failed to persist tool call', e));
+          await this.usersService
+            .addMessage(
+              userId,
+              conversationId,
+              assistantMsg.role,
+              assistantMsg.content,
+              assistantMsg.tool_calls,
+            )
+            .catch((e) => console.error('Failed to persist tool call', e));
         }
 
         for (const tc of response.tool_calls) {
-          const result = await this.toolRegistry.run(tc.name, userId, tc.arguments, { provider: resolved.provider, model: resolved.model });
+          const result = await this.toolRegistry.run(
+            tc.name,
+            userId,
+            tc.arguments,
+            { provider: resolved.provider, model: resolved.model },
+          );
           const toolResultMsg = {
             role: 'tool' as const,
             tool_call_id: tc.id,
@@ -105,28 +119,27 @@ export class AiService {
           currentMessages.push(toolResultMsg);
 
           if (conversationId) {
-            await this.usersService.addMessage(
-              userId,
-              conversationId,
-              toolResultMsg.role,
-              toolResultMsg.content,
-              undefined,
-              toolResultMsg.tool_call_id,
-            ).catch((e) => console.error('Failed to persist tool result', e));
+            await this.usersService
+              .addMessage(
+                userId,
+                conversationId,
+                toolResultMsg.role,
+                toolResultMsg.content,
+                undefined,
+                toolResultMsg.tool_call_id,
+              )
+              .catch((e) => console.error('Failed to persist tool result', e));
           }
         }
         continue;
       }
 
       if (conversationId && response.content) {
-        await this.usersService.addMessage(
-          userId,
-          conversationId,
-          'assistant',
-          response.content,
-        ).catch((e) =>
-          console.error('Failed to persist final assistant message', e),
-        );
+        await this.usersService
+          .addMessage(userId, conversationId, 'assistant', response.content)
+          .catch((e) =>
+            console.error('Failed to persist final assistant message', e),
+          );
       }
 
       return { text: response.content };
@@ -142,15 +155,30 @@ export class AiService {
     conversationId?: string,
     iteration = 0,
   ): Promise<void> {
-    if (iteration > 5) throw new Error('AI loop iteration limit reached');
+    if (iteration > 5) {
+      subscriber.next({
+        type: 'text',
+        content:
+          '\n\n*הערה: המערכת הפסיקה ניסיונות נוספים למצוא נתונים מדויקים עקב ריבוי כשלונות.*',
+      });
+      subscriber.complete();
+      return;
+    }
 
-    const providerInstance = this.getProvider(resolvedPayload.provider, resolvedPayload.apiKey);
-    const response$ = await providerInstance.prompt(resolvedPayload.model, resolvedPayload.messages, {
-      stream: true,
-      temperature: resolvedPayload.temperature,
-      maxTokens: resolvedPayload.maxTokens,
-      tools: AI_TOOLS as any,
-    }) as Observable<any>;
+    const providerInstance = this.getProvider(
+      resolvedPayload.provider,
+      resolvedPayload.apiKey,
+    );
+    const response$ = (await providerInstance.prompt(
+      resolvedPayload.model,
+      resolvedPayload.messages,
+      {
+        stream: true,
+        temperature: resolvedPayload.temperature,
+        maxTokens: resolvedPayload.maxTokens,
+        tools: AI_TOOLS as any,
+      },
+    )) as Observable<any>;
 
     const toolCalls: any[] = [];
     let isTextStreaming = false;
@@ -178,18 +206,28 @@ export class AiService {
             resolvedPayload.messages.push(assistantMsg);
 
             if (conversationId) {
-              await this.usersService.addMessage(
-                userId,
-                conversationId,
-                assistantMsg.role,
-                assistantMsg.content,
-                assistantMsg.tool_calls,
-              ).catch((e) => console.error('Failed to persist tool call', e));
+              await this.usersService
+                .addMessage(
+                  userId,
+                  conversationId,
+                  assistantMsg.role,
+                  assistantMsg.content,
+                  assistantMsg.tool_calls,
+                )
+                .catch((e) => console.error('Failed to persist tool call', e));
             }
 
             for (const tc of toolCalls) {
               subscriber.next({ type: 'tool_call', name: tc.name });
-              const result = await this.toolRegistry.run(tc.name, userId, tc.arguments, { provider: resolvedPayload.provider, model: resolvedPayload.model });
+              const result = await this.toolRegistry.run(
+                tc.name,
+                userId,
+                tc.arguments,
+                {
+                  provider: resolvedPayload.provider,
+                  model: resolvedPayload.model,
+                },
+              );
               const toolResultMsg = {
                 role: 'tool' as const,
                 tool_call_id: tc.id,
@@ -198,16 +236,18 @@ export class AiService {
               resolvedPayload.messages.push(toolResultMsg);
 
               if (conversationId) {
-                await this.usersService.addMessage(
-                  userId,
-                  conversationId,
-                  toolResultMsg.role,
-                  toolResultMsg.content,
-                  undefined,
-                  toolResultMsg.tool_call_id,
-                ).catch((e) =>
-                  console.error('Failed to persist tool result', e),
-                );
+                await this.usersService
+                  .addMessage(
+                    userId,
+                    conversationId,
+                    toolResultMsg.role,
+                    toolResultMsg.content,
+                    undefined,
+                    toolResultMsg.tool_call_id,
+                  )
+                  .catch((e) =>
+                    console.error('Failed to persist tool result', e),
+                  );
               }
             }
 
@@ -221,14 +261,16 @@ export class AiService {
             resolve();
           } else if (isTextStreaming) {
             if (conversationId && accumulatedAssistantText) {
-              await this.usersService.addMessage(
-                userId,
-                conversationId,
-                'assistant',
-                accumulatedAssistantText,
-              ).catch((e) =>
-                console.error('Failed to persist final assistant message', e),
-              );
+              await this.usersService
+                .addMessage(
+                  userId,
+                  conversationId,
+                  'assistant',
+                  accumulatedAssistantText,
+                )
+                .catch((e) =>
+                  console.error('Failed to persist final assistant message', e),
+                );
             }
             subscriber.complete();
             resolve();
@@ -236,17 +278,14 @@ export class AiService {
             const fallback = 'מצטער, לא הצלחתי למצוא מידע רלוונטי לבקשה שלך.';
             subscriber.next({ type: 'text', content: fallback });
             if (conversationId) {
-              await this.usersService.addMessage(
-                userId,
-                conversationId,
-                'assistant',
-                fallback,
-              ).catch((e) =>
-                console.error(
-                  'Failed to persist fallback assistant message',
-                  e,
-                ),
-              );
+              await this.usersService
+                .addMessage(userId, conversationId, 'assistant', fallback)
+                .catch((e) =>
+                  console.error(
+                    'Failed to persist fallback assistant message',
+                    e,
+                  ),
+                );
             }
             subscriber.complete();
             resolve();
@@ -293,8 +332,9 @@ export class AiService {
 
     const resolvedPayload = { ...payload };
 
-    const resolvedApiKey = (cfg.decryptedApiKeys?.[payload.provider] ||
-      (cfg.activeAiProvider === payload.provider ? cfg.decryptedApiKey : null));
+    const resolvedApiKey =
+      cfg.decryptedApiKeys?.[payload.provider] ||
+      (cfg.activeAiProvider === payload.provider ? cfg.decryptedApiKey : null);
 
     if (resolvedApiKey && resolvedApiKey !== '***') {
       resolvedPayload.apiKey = resolvedApiKey;
@@ -360,15 +400,39 @@ export class AiService {
     - If you don't know the account number, format it as \`bankid:bankId\` (e.g., \`bankid:max\`).
     - This renders as a visual chip with the bank logo and the account identifier (if provided) in the UI. When the user copies the chip, it will copy the account details (identifier) instead of just the bankId. Never write raw bankId strings without this format.
 
-    Available Expense Categories: מזון, קניות, בילויים ופנאי, דלק/תחבורה, מנויים, לא מסווג.`;
+    Available Expense Categories: מזון, קניות, בילויים ופנאי, דלק/תחבורה, מנויים, לא מסווג.
+
+    INVESTMENT AND PORTFOLIO ADVICE:
+    - You are a Premium AI financial advisor. You have access to the user's Interactive Brokers portfolio (via get_portfolio) and TradingView technical analysis (via get_technical_analysis).
+    - If the user asks for financial analysis on a specific stock or fund but DOES NOT provide the exact ticker symbol, DO NOT tell the user you cannot find it. FIRST use the \`search_web\` tool to look up the correct ticker symbol or Israeli fund number. Once you find the correct ticker symbol, automatically call \`get_technical_analysis\` using that ticker.
+    - Use the \`read_webpage\` tool to extract the contents of URLs returned by \`search_web\` if the search snippets don't contain the exact ETF ticker or fund number.
+    - GRACEFUL DEGRADATION: If you search the web and cannot find an EXACT match for all of the user's criteria (e.g., they ask for a CPI-linked S&P 500 fund but only currency-hedged exist), DO NOT give up and DO NOT ask the user for a ticker. Instead, you MUST provide the closest ALTERNATIVES you found in your search results. Explicitly explain to the user which criteria could not be met, present the closest alternative funds, and run \`get_technical_analysis\` on the best alternative.
+    - FUSION RULE: Whenever you analyze an asset, provide deep, narrative financial education FIRST (explaining taxation like Accumulating vs Distributing, Irish vs US domicile, TER, etc. using your inherent knowledge or web search), and THEN append the real-time \`get_technical_analysis\` data to the end of your report.
+    - When comparing ETFs or talking about long-term tax effects (like Irish UCITS vs US ETFs), ALWAYS call the \`render_investment_simulator\` tool to render an interactive visual simulator for the user.
+    - STOCKS/ETFS CURRENCY RULE: When comparing stocks, US/international ETFs (like VOO, CSPX, QQQ, etc.), or international assets, you must ALWAYS compare them in USD ($) unless specified otherwise by the user. Always set the "currency" parameter in the "render_investment_simulator" tool to "USD". Only use other currencies like "ILS" (₪) if the user is explicitly tells you to and do currency conversions too.
+    - INSTRUCTIONS FOR render_investment_simulator EXPLANATION: After rendering the simulator, you MUST ALWAYS provide a detailed Markdown explanation highlighting:
+      1. הבדלים מהותיים בין הנכסים (Asset type, Domicile, Accumulating/Distributing).
+      2. יתרון מיסוי (Tax rates on dividends/capital gains for Israeli investors).
+      3. יתרון דחיית מס (Tax deferral benefit and how it affects compound interest).
+      4. אפקט הריבית דריבית (How the fund structure impacts long-term compounding).
+      5. מגבלות הסימולטור (Note that it illustrates the parameters but may not capture every tax nuance perfectly).
+      6. מסקנה והמלצה (Summary of pros/cons and which is better for a long-term Israeli investor).
+      7. דיסקליימר (Disclaimer that this is for illustration only and not financial/tax advice).
+    - You can ONLY provide advice based on this data.
+    - You DO NOT have the ability to execute trades, buy, or sell under any circumstances.
+    - Always remind the user that your advice is for informational purposes and they must make their own trading decisions.`;
 
     const forceMarkdown = true;
 
     const markdownSystemPrompt = forceMarkdown
-      ? 'Always respond in high-quality Markdown format. Keep responses short, concise, and on point. Avoid long markdown responses with many lines. Summarize information, transactions, and metrics in markdown tables as much as possible rather than using long lists or text explanations. Ensure proper spacing and multiple newlines between sections, headers, and tables so they are parsed correctly.'
+      ? 'DUAL-MODE COMMUNICATION STYLE:\n1. For Personal Expenses (Banking/Transactions): Keep responses short, concise, and on point. Summarize information in markdown tables.\n2. For Investment & Asset Analysis: Become a premium financial educator. Provide deep, narrative explanations. Always respond in high-quality Markdown format. Ensure proper spacing and multiple newlines between sections.'
       : '';
 
-    const combinedSystemPrompt = [hebrewSystemPrompt, markdownSystemPrompt, MERCHANT_CATEGORIZATION_RULES]
+    const combinedSystemPrompt = [
+      hebrewSystemPrompt,
+      markdownSystemPrompt,
+      MERCHANT_CATEGORIZATION_RULES,
+    ]
       .filter(Boolean)
       .join('\n\n');
 
@@ -379,9 +443,13 @@ export class AiService {
     if (existingSystemMessage) {
       // Always rebuild from the fresh combinedSystemPrompt so tool rules are never stale.
       // Preserve any caller-specific content that isn't already in our prompt.
-      const callerExtra = existingSystemMessage.content.includes(combinedSystemPrompt)
+      const callerExtra = existingSystemMessage.content.includes(
+        combinedSystemPrompt,
+      )
         ? ''
-        : existingSystemMessage.content.replace(combinedSystemPrompt, '').trim();
+        : existingSystemMessage.content
+            .replace(combinedSystemPrompt, '')
+            .trim();
       existingSystemMessage.content = callerExtra
         ? `${combinedSystemPrompt}\n\n${callerExtra}`
         : combinedSystemPrompt;
@@ -420,8 +488,9 @@ export class AiService {
     const session = verifyJwtToken(sessionToken);
     const cfg = await this.usersService.getAiConfig(session.userId);
 
-    const resolvedApiKey = (cfg.decryptedApiKeys?.[payload.provider] ||
-      (cfg.activeAiProvider === payload.provider ? cfg.decryptedApiKey : null));
+    const resolvedApiKey =
+      cfg.decryptedApiKeys?.[payload.provider] ||
+      (cfg.activeAiProvider === payload.provider ? cfg.decryptedApiKey : null);
 
     if (resolvedApiKey && resolvedApiKey !== '***') {
       return {

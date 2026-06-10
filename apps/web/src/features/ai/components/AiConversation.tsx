@@ -195,6 +195,7 @@ export function AiConversation({
     activeSources,
     toolStatus,
     processSubmit,
+    processEdit,
   } = useAiStream({
     provider: agentProvider,
     selectedModel,
@@ -211,7 +212,7 @@ export function AiConversation({
     'כמה בזבזתי על קניות ומזון בחודש האחרון?',
     'האם יש מנויים או חיובים מחזוריים שאתה מזהה בחשבון שלי?',
     'מה תזרים המזומנים שלי החודש לעומת חודש שעבר?',
-    'תראה לי את התנועות הכי גדולות שלי בכרטיס אשראי',
+    'מה מצב תיק ההשקעות שלי והאם יש לך המלצות מבוססות ניתוח טכני?',
   ];
 
   const handlePromptClick = (text: string) => {
@@ -241,6 +242,7 @@ export function AiConversation({
         defaultPrompts={defaultPrompts}
         selectedModel={selectedModel}
         onPromptClick={handlePromptClick}
+        onEditSubmit={processEdit}
       />
 
       {error ? (

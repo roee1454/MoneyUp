@@ -18,6 +18,8 @@ import { AiModule } from './modules/ai/ai.module';
 import { ScraperModule } from './modules/scraper/scraper.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { SpendingModule } from './modules/spending/spending.module';
+import { BrokerModule } from './modules/broker/broker.module';
+import { MarketDataModule } from './modules/market-data/market-data.module';
 
 @Global()
 @Module({
@@ -47,6 +49,8 @@ import { SpendingModule } from './modules/spending/spending.module';
     ScraperModule,
     SyncModule,
     SpendingModule,
+    BrokerModule,
+    MarketDataModule,
   ],
   controllers: [AppController],
 })

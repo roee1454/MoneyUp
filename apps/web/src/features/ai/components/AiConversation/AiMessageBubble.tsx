@@ -1,4 +1,5 @@
-import { CircleNotch, Sparkle } from '@phosphor-icons/react';
+import { CircleNotch, Sparkle, PencilSimple } from '@phosphor-icons/react';
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -6,12 +7,15 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import type { LocalMessage } from './useAiStream';
 import { BankChip } from './BankChip';
+import { InvestmentSimulator, InvestmentSimulatorSkeleton } from './InvestmentSimulator';
 
 interface AiMessageBubbleProps {
   message: LocalMessage;
   isLoading?: boolean;
   isLast?: boolean;
   toolStatus?: string | null;
+  selectedModel?: string;
+  onEditSubmit?: (messageId: string, newText: string) => void;
 }
 
 /** Custom renderer for inline `code` nodes.
@@ -42,12 +46,52 @@ export function AiMessageBubble({
   isLoading,
   isLast,
   toolStatus,
+  onEditSubmit,
 }: AiMessageBubbleProps) {
   const isUser = message.role === 'user';
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(message.text);
 
   if (isUser) {
+    if (isEditing) {
+      return (
+        <div className="flex w-full justify-start">
+          <div className="w-full max-w-2xl rounded-[24px] px-5 py-4 shadow-sm border border-border/40 bg-secondary text-foreground text-right space-y-3">
+            <textarea
+              className="w-full bg-background border border-border/50 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none dir-rtl custom-scrollbar min-h-[100px]"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              dir="auto"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditText(message.text);
+                }}
+                className="text-xs font-bold px-4 py-2 hover:bg-muted/50 rounded-lg text-muted-foreground transition-colors cursor-pointer"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={() => {
+                  if (editText.trim() && editText !== message.text && onEditSubmit) {
+                    onEditSubmit(message.id, editText);
+                  }
+                  setIsEditing(false);
+                }}
+                className="text-xs font-bold px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:bg-primary/90 transition-colors cursor-pointer"
+              >
+                שמור ושלח
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="flex w-full justify-start">
+      <div className="flex w-full justify-start group relative">
         <div className="max-w-[75%] rounded-[24px] px-5 py-3 text-sm font-semibold shadow-xs border border-border/30 bg-secondary text-foreground text-right">
           <div className="markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right">
             <ReactMarkdown
@@ -71,6 +115,15 @@ export function AiMessageBubble({
             </ReactMarkdown>
           </div>
         </div>
+        {onEditSubmit && !isLoading && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="absolute -left-10 top-2 p-2 rounded-full text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted hover:text-foreground cursor-pointer"
+            title="ערוך הודעה"
+          >
+            <PencilSimple className="w-4 h-4" />
+          </button>
+        )}
       </div>
     );
   }
@@ -105,6 +158,40 @@ export function AiMessageBubble({
           </div>
         ) : (
           <div className="markdown-content max-w-none wrap-break-word space-y-2 leading-7 text-right text-foreground">
+            {/* Generative UI: Render Investment Simulator if requested */}
+            {message.tool_calls?.map((tc: any, idx: number) => {
+              const name = tc.name || tc.function?.name;
+              if (name === 'render_investment_simulator') {
+                try {
+                  const args = typeof tc.arguments === 'string' 
+                    ? JSON.parse(tc.arguments) 
+                    : (tc.arguments || (tc.function?.arguments ? JSON.parse(tc.function.arguments) : {}));
+                    
+                  if (tc.isStreamingPlaceholder || args?.isStreamingPlaceholder) {
+                    return <InvestmentSimulatorSkeleton key={`sim-skeleton-${idx}`} />;
+                  }
+                  
+                  return (
+                    <InvestmentSimulator
+                      key={`sim-${idx}`}
+                      assetA={args.assetA || 'Asset A'}
+                      assetB={args.assetB || 'Asset B'}
+                      taxRateA={args.taxRateA || 0.15}
+                      taxRateB={args.taxRateB || 0.25}
+                      terA={args.terA || 0.07}
+                      terB={args.terB || 0.03}
+                      isAccumulatingA={args.isAccumulatingA ?? true}
+                      isAccumulatingB={args.isAccumulatingB ?? false}
+                      currency={args.currency}
+                    />
+                  );
+                } catch (e) {
+                  return null;
+                }
+              }
+              return null;
+            })}
+
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
