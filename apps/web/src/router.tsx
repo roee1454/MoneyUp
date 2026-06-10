@@ -4,6 +4,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  createHashHistory,
 } from '@tanstack/react-router';
 import Dashboard from '@/routes/Dashboard';
 import Introduction from '@/routes/Introduction';
@@ -220,7 +221,12 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree });
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+export const router = createRouter({
+  routeTree,
+  history: isTauri ? createHashHistory() : undefined,
+});
 
 export function AppRouterProvider() {
   return <RouterProvider router={router} />;

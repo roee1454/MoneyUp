@@ -11,6 +11,7 @@ import { InstallBrowserCard } from './InstallBrowserCard';
 import { ScraperSettingsCard } from './ScraperSettingsCard';
 import { DetectingBrowserCard } from './DetectingBrowserCard';
 import { InstallingBrowserCard } from './InstallingBrowserCard';
+import { API_BASE } from '@/lib/api';
 
 const scraperSettingsSchema = z.object({
   scraperTimeoutRetryCount: z.number().int().min(0).max(5),
@@ -116,7 +117,7 @@ export function ScraperSettingsSection({
     setInstallLogs([]);
 
     const eventSource = new EventSource(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/scrapers/install/stream`,
+      `${API_BASE}/scrapers/install/stream`,
       { withCredentials: true },
     );
 
