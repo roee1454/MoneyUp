@@ -287,27 +287,6 @@ export function AiConversation({
           configuredProviders={userProfile?.configuredProviders ?? undefined}
         />
       </div>
-
-      {debugEnabled && (
-        <AiSettingsDialog
-          open={showDebug}
-          onOpenChange={setShowDebug}
-          modelOverride={modelOverride}
-          setModelOverride={setModelOverride}
-          availableModels={availableModels}
-          streaming={streaming}
-          setStreaming={setStreaming}
-          forceMarkdown={forceMarkdown}
-          onForceMarkdownChange={(val) => {
-            setForceMarkdown(val);
-            updateAiSettingsMutation.mutate({ forceMarkdown: val });
-          }}
-          temperature={temperature}
-          setTemperature={setTemperature}
-          maxTokens={maxTokens}
-          setMaxTokens={setMaxTokens}
-        />
-      )}
     </div>
   );
 }

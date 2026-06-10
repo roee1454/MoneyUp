@@ -82,7 +82,6 @@ export default function AiStudio() {
     }
   };
 
-  const hasAiProvider = (userProfile?.configuredProviders?.length ?? 0) > 0;
 
   return (
     <div
@@ -90,84 +89,7 @@ export default function AiStudio() {
       dir="rtl"
     >
       <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
-        {/* Sidebar: Conversation History (Desktop Only) */}
-        {hasAiProvider && (
-          <div className="w-64 hidden md:flex flex-col border-l border-border bg-card/45 backdrop-blur-md shrink-0">
-            <div className="p-4 border-b border-border">
-              <Button
-                onClick={() => setActiveConversationId(null)}
-                className="w-full h-10 rounded-none font-black text-xs uppercase tracking-widest bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Plus className="h-4 w-4" weight="bold" />
-                <span>שיחה חדשה</span>
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-              {conversations.length === 0 ? (
-                <div className="py-8 text-center px-4">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
-                    אין שיחות קודמות. התחל שיחה חדשה כדי לקבל תובנות פיננסיות.
-                  </p>
-                </div>
-              ) : (
-                conversations.map((conv) => {
-                  const isActive = activeConversationId === conv.id;
-                  return (
-                    <div
-                      key={conv.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setActiveConversationId(conv.id)}
-                      className={cn(
-                        'w-full text-right px-3 py-3 flex items-center justify-between group transition-all cursor-pointer border outline-none',
-                        isActive
-                          ? 'bg-muted/50 border-border text-foreground'
-                          : 'bg-transparent border-transparent text-muted-foreground hover:bg-muted/20 hover:border-border/50 hover:text-foreground',
-                      )}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <ChatCircle
-                          className={cn(
-                            'h-4 w-4 shrink-0',
-                            isActive
-                              ? 'text-primary'
-                              : 'text-muted-foreground/60',
-                          )}
-                          weight="duotone"
-                        />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate text-xs font-black leading-tight">
-                            {conv.title}
-                          </span>
-                          <span className="truncate text-[9px] font-semibold opacity-60">
-                            {format(
-                              new Date(conv.updatedAt),
-                              'dd MMM yyyy, HH:mm',
-                              { locale: he },
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteClick(e, conv.id)}
-                        className={cn(
-                          'shrink-0 h-6 w-6 flex items-center justify-center rounded-none text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors outline-none cursor-pointer',
-                          isActive
-                            ? 'opacity-100'
-                            : 'opacity-0 group-hover:opacity-100',
-                        )}
-                        title="מחק שיחה"
-                      >
-                        <Trash className="h-3.5 w-3.5" weight="bold" />
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-
+        
         {/* Main Chat Area */}
         <div className="flex-1 min-w-0 flex flex-col bg-background relative">
           {/* Unified Chat Header */}
