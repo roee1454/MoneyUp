@@ -46,7 +46,7 @@ export function AiMessageList({
       dir="rtl"
       className={cn(
         'flex-1 min-h-0 bg-transparent py-4 pb-6 md:py-5 md:pb-7 custom-scrollbar',
-        hasMessages ? 'overflow-y-auto' : 'overflow-hidden'
+        hasMessages ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
       )}
     >
       {!hasMessages ? (

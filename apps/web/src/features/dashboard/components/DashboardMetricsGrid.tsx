@@ -99,7 +99,7 @@ export function DashboardMetricsGrid({
   }, [accounts]);
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 select-none">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 select-none">
       <DashboardMetricCard
         variant="cell"
         title="יתרה כוללת זמינה"

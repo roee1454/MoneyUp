@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import {
   CircleNotch,
-  ChatText,
   PaperPlaneRight,
   Sliders,
   X,
@@ -358,9 +357,6 @@ export function AiInputPanel({
           )}
           <span className="hidden sm:inline mr-2">
             {isLoading ? 'שולח...' : 'שלח הודעה'}
-          </span>
-          <span className="sm:hidden">
-            <ChatText className="h-4 w-4" weight="bold" />
           </span>
         </PremiumButton>
       </div>

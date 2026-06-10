@@ -7,13 +7,21 @@ import { AppRouterProvider } from '@/router';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <AppRouterProvider />
-        <Toaster position="bottom-left" />
-      </ThemeProvider>
-    </QueryClientProvider>
-  </StrictMode>,
-);
+import { initApiBase } from '@/lib/api';
+
+async function bootstrap() {
+  await initApiBase();
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AppRouterProvider />
+          <Toaster position="bottom-left" />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+}
+
+bootstrap();

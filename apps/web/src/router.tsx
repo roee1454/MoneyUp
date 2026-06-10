@@ -4,6 +4,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  createHashHistory,
 } from '@tanstack/react-router';
 import Dashboard from '@/routes/Dashboard';
 import Introduction from '@/routes/Introduction';
@@ -127,13 +128,20 @@ function AppLayout() {
       )}
       {showNavbar && <Navbar />}
       {showNavbar ? (
-        <div className="min-h-0 flex-1 overflow-y-auto md:pr-72 flex flex-col">
+        <div
+          className={cn(
+            'min-h-0 flex-1 flex flex-col lg:pr-72',
+            routerState.location.pathname === '/ai-studio'
+              ? 'overflow-hidden'
+              : 'overflow-y-auto',
+          )}
+        >
           <div
             className={cn(
-              'mx-auto w-full flex-1 flex flex-col',
+              'mx-auto w-full flex-1 flex flex-col min-h-0',
               routerState.location.pathname === '/ai-studio'
-                ? 'max-w-none px-0 py-0'
-                : 'max-w-7xl px-10 py-8',
+                ? 'max-w-none px-0 py-0 h-full'
+                : 'max-w-7xl px-4 py-4 md:px-8 md:py-6 lg:px-10 lg:py-8',
             )}
           >
             <Outlet />
@@ -220,7 +228,12 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree });
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+export const router = createRouter({
+  routeTree,
+  history: isTauri ? createHashHistory() : undefined,
+});
 
 export function AppRouterProvider() {
   return <RouterProvider router={router} />;
