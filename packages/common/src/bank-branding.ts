@@ -1,5 +1,13 @@
 export type BankIconShape = 'circle' | 'rounded-square';
 
+export interface ScraperMetadata {
+  id: string;
+  name: string;
+  icon: string;
+  enabled: boolean;
+  type: 'bank' | 'credit_card';
+}
+
 export function normalizeBankId(bankId: string | null | undefined): string {
   const normalized = String(bankId ?? '').toLowerCase();
   if (normalized === 'one_zero' || normalized === 'one-zero') return 'onezero';
@@ -42,4 +50,43 @@ export const BANK_ICON_SHAPE_BY_ID: Record<string, BankIconShape> = {
   cal: 'rounded-square',
   hapoalim: 'rounded-square',
   yahav: 'rounded-square',
+};
+
+export const SCRAPERS_METADATA: Record<string, Omit<ScraperMetadata, 'id'>> = {
+  hapoalim: {
+    name: 'בנק הפועלים',
+    icon: 'hapoalim',
+    enabled: true,
+    type: 'bank',
+  },
+  leumi: {
+    name: 'בנק לאומי',
+    icon: 'leumi',
+    enabled: true,
+    type: 'bank',
+  },
+  yahav: {
+    name: 'בנק יהב',
+    icon: 'yahav',
+    enabled: true,
+    type: 'bank',
+  },
+  max: {
+    name: 'MAX',
+    icon: 'max',
+    enabled: true,
+    type: 'credit_card',
+  },
+  isracard: {
+    name: 'ישראכרט',
+    icon: 'isracard',
+    enabled: true,
+    type: 'credit_card',
+  },
+  cal: {
+    name: 'CAL',
+    icon: 'cal',
+    enabled: true,
+    type: 'credit_card',
+  },
 };

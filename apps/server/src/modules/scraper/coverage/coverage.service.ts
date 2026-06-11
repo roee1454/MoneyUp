@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ScrapedCoverageEntity } from '../entities/coverage.entity';
-import { addDays } from '../utils/date.utils';
+import { addDays } from '@money-up/common';
 
 @Injectable()
 export class CoverageService {

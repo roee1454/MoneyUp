@@ -11,7 +11,7 @@ import { DataSourceCard } from '@/features/dashboard/components/DataSourceCard';
 import { cn } from '@/lib/utils';
 import { useAccounts } from '@/hooks/useAccounts';
 import { BankIcon } from '@/features/accounts/components/BankIcon';
-import { getBankName, normalizeBankId } from '@/lib/bank-branding';
+import { getBankName, normalizeBankId } from '@money-up/common';
 import { AiModelDropdownSelector } from '@/features/ai/components/AiModelDropdownSelector';
 import type { AgentProvider } from '@money-up/common';
 

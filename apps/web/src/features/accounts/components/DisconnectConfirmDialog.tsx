@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { getBankName } from '@/lib/bank-branding';
+import { getBankName } from '@money-up/common';
 
 interface DisconnectConfirmDialogProps {
   open: boolean;

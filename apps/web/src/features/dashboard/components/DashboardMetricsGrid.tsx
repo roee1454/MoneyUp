@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { DashboardMetricCard } from './DashboardMetricCard';
 import type { SpendingScansResponse } from '@/hooks/useAi';
 import type { BankAccount } from '@/hooks/useAccounts';
-import { getBankName } from '@/lib/bank-branding';
+import { getBankName } from '@money-up/common';
 
 interface DashboardMetricsGridProps {
   accounts: BankAccount[];

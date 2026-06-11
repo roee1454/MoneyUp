@@ -13,19 +13,14 @@ import {
   subtractUtcDate,
   toUtcDate,
   addDays,
-} from '../utils/date.utils';
-import { ScraperDateLimit } from '../types/scraper.types';
-import { SCRAPERS_METADATA } from '../config/scrapers.config';
+  ScraperDateLimit,
+  SCRAPERS_METADATA,
+  SCRAPER_MIN_LOOKBACKS,
+  getMinimumStartDateForBank,
+} from '@money-up/common';
 import puppeteer from 'puppeteer';
 
-const SCRAPER_MIN_LOOKBACKS: Record<string, ScraperDateLimit> = {
-  hapoalim: { years: 1, days: 1 },
-  leumi: { years: 1 },
-  yahav: { years: 1 },
-  isracard: { years: 1 },
-  max: { years: 4 },
-  cal: { years: 1, months: 6, days: 1 },
-};
+
 
 const LIBRARY_SCRAPER_KEY_BY_BANK_ID: Record<string, string> = {
   cal: 'visaCal',
@@ -64,10 +59,7 @@ export class SyncService implements OnModuleDestroy {
   }
 
   getMinimumStartDateForBank(bankId: string): string {
-    const limit = SCRAPER_MIN_LOOKBACKS[String(bankId).toLowerCase()] ?? {
-      years: 1,
-    };
-    return subtractUtcDate(new Date(), limit).toISOString().slice(0, 10);
+    return getMinimumStartDateForBank(bankId);
   }
 
   clampStartDateForBank(bankId: string, startDate?: string): string {

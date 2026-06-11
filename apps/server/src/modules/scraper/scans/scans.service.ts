@@ -10,8 +10,7 @@ import {
   ScanDebugTrace,
   UnifiedTransaction,
 } from '@money-up/types';
-import { isWithinRange } from '../utils/date.utils';
-import { EXPENSE_CATEGORIES } from '@money-up/common';
+import { isWithinRange, EXPENSE_CATEGORIES } from '@money-up/common';
 
 @Injectable()
 export class ScansService {

@@ -4,7 +4,7 @@ import { Repository, Between } from 'typeorm';
 import { ScrapedCacheEntity } from '../entities/cache.entity';
 import { TransactionEntity } from '../entities/transaction.entity';
 import { VaultEntity } from '../entities/vault.entity';
-import { getTodayUtcDateString } from '../utils/date.utils';
+import { getTodayUtcDateString } from '@money-up/common';
 import * as crypto from 'crypto';
 
 @Injectable()
