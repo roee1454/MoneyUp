@@ -45,6 +45,12 @@ function buildScansDebugQuery(filters: ScanFilters): string {
   return query ? `/spending/scans/debug?${query}` : '/spending/scans/debug';
 }
 
+/**
+ * Fetches analyzed spending scans containing categorized expenses and income.
+ *
+ * @param filters - Optional filters specifying the scan period or date range.
+ * @returns The React Query result containing the spending scans analysis data.
+ */
 export function useSpendingScans(filters: ScanFilters = { period: 'current' }) {
   const session = useAppStore((s) => s.session);
   const period = filters.period ?? 'current';
@@ -60,10 +66,17 @@ export function useSpendingScans(filters: ScanFilters = { period: 'current' }) {
       api.get<SpendingScansResponse>(buildScansQuery({ ...filters, period })),
     enabled: !!session,
     staleTime: 1000 * 60,
-    gcTime: 1000 * 60 * 3, // 3 minutes instead of 10
+    gcTime: 1000 * 60 * 3,
   });
 }
 
+/**
+ * Fetches debug-level analyzed spending scans with raw prompt logs and details.
+ *
+ * @param filters - Optional filters specifying the scan period or date range.
+ * @param enabled - Whether the query is enabled to run automatically.
+ * @returns The React Query result containing the debug spending scans analysis.
+ */
 export function useSpendingScansDebug(
   filters: ScanFilters = { period: 'current' },
   enabled = true,
@@ -84,10 +97,15 @@ export function useSpendingScansDebug(
       ),
     enabled: !!session && enabled,
     staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 2, // 2 minutes instead of 5
+    gcTime: 1000 * 60 * 2,
   });
 }
 
+/**
+ * Sends a mutation request to analyze and annotate spending scans using AI.
+ *
+ * @returns The React Query mutation object for triggering analysis annotation.
+ */
 export function useAnnotateSpendingScans() {
   const queryClient = useQueryClient();
   return useMutation({

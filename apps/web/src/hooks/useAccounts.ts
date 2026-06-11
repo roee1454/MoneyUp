@@ -32,6 +32,12 @@ function buildAccountsQuery(filters: AccountsRangeFilters = {}): string {
   return query ? `/scrapers/accounts?${query}` : '/scrapers/accounts';
 }
 
+/**
+ * Determines whether a given bank ID corresponds to a credit card company.
+ *
+ * @param bankId - The unique identifier of the bank/company.
+ * @returns True if the bank ID belongs to a credit company (e.g., max, isracard, cal), false otherwise.
+ */
 export function isCreditCompanyBankId(bankId: string): boolean {
   const normalized = String(bankId ?? '').toLowerCase();
   return (
@@ -39,10 +45,22 @@ export function isCreditCompanyBankId(bankId: string): boolean {
   );
 }
 
+/**
+ * Determines whether a given bank ID corresponds to a standard bank account.
+ *
+ * @param bankId - The unique identifier of the bank/company.
+ * @returns True if the bank ID belongs to a standard bank account, false otherwise.
+ */
 export function isBankAccountBankId(bankId: string): boolean {
   return !isCreditCompanyBankId(bankId);
 }
 
+/**
+ * Fetches the list of all connected bank accounts using query filters.
+ *
+ * @param filters - Optional filters containing date ranges for the accounts fetch.
+ * @returns The React Query result containing the list of connected bank accounts.
+ */
 export function useAccounts(filters: AccountsRangeFilters = {}) {
   const session = useAppStore((s) => s.session);
 
@@ -57,6 +75,11 @@ export function useAccounts(filters: AccountsRangeFilters = {}) {
   });
 }
 
+/**
+ * Fetches and filters connected accounts to return only credit card company accounts.
+ *
+ * @returns An object containing the query state and the filtered list of credit card accounts.
+ */
 export function useCreditAccount() {
   const query = useAccounts();
   const accounts = (query.data ?? []).filter((account) =>
@@ -68,6 +91,11 @@ export function useCreditAccount() {
   };
 }
 
+/**
+ * Fetches and filters connected accounts to return only standard bank accounts.
+ *
+ * @returns An object containing the query state and the filtered list of standard bank accounts.
+ */
 export function useBankAccount() {
   const query = useAccounts();
   const accounts = (query.data ?? []).filter((account) =>
@@ -79,6 +107,11 @@ export function useBankAccount() {
   };
 }
 
+/**
+ * Starts a manual background synchronization process for accounts and transactions.
+ *
+ * @returns The React Query mutation object for triggering the accounts sync.
+ */
 export function useSyncAccounts() {
   return useMutation({
     mutationFn: (payload?: SyncRangePayload) => {
@@ -95,6 +128,11 @@ export function useSyncAccounts() {
   });
 }
 
+/**
+ * Toggles the duplicate status of a specific transaction.
+ *
+ * @returns The React Query mutation object for updating the transaction's duplicate status.
+ */
 export function useToggleTransactionDuplicate() {
   return useMutation({
     mutationFn: (payload: {
@@ -114,6 +152,11 @@ export function useToggleTransactionDuplicate() {
   });
 }
 
+/**
+ * Disconnects a specific bank account from the system.
+ *
+ * @returns The React Query mutation object for disconnecting the bank account.
+ */
 export function useDisconnectAccount() {
   return useMutation({
     mutationFn: (bankId: string) => {

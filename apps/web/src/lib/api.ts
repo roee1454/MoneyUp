@@ -1,7 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
 
+/**
+ * Holds the base URL for API requests.
+ */
 export let API_BASE = 'http://localhost:3000';
 
+/**
+ * Initializes the API base URL depending on whether the application is running
+ * inside Tauri (dynamically fetching the port) or a standard web environment.
+ *
+ * @returns A promise that resolves when the API base is initialized.
+ */
 export async function initApiBase() {
   const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
   if (isTauri) {
@@ -40,6 +49,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+/**
+ * Exposes core HTTP client methods (GET, POST, PATCH, DELETE) for API requests.
+ */
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>

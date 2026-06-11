@@ -7,6 +7,11 @@ import type { AiMessage, Conversation, ConversationDetail } from '@money-up/type
 export type Message = AiMessage;
 export type { Conversation, ConversationDetail };
 
+/**
+ * Fetches all AI conversation sessions for the current user.
+ *
+ * @returns The React Query result containing the list of AI conversations.
+ */
 export function useConversations() {
   const session = useAppStore((s) => s.session);
   return useQuery({
@@ -16,6 +21,12 @@ export function useConversations() {
   });
 }
 
+/**
+ * Fetches the detail of a specific AI conversation by its ID, including all its messages.
+ *
+ * @param id - The unique identifier of the AI conversation, or null if none is selected.
+ * @returns The React Query result containing the conversation detail.
+ */
 export function useConversation(id: string | null) {
   const session = useAppStore((s) => s.session);
   return useQuery({
@@ -25,6 +36,11 @@ export function useConversation(id: string | null) {
   });
 }
 
+/**
+ * Creates a new AI conversation session and invalidates the conversations list query.
+ *
+ * @returns The React Query mutation object for creating a conversation.
+ */
 export function useCreateConversation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -36,6 +52,11 @@ export function useCreateConversation() {
   });
 }
 
+/**
+ * Adds a message to an existing AI conversation and invalidates related queries.
+ *
+ * @returns The React Query mutation object for adding a message.
+ */
 export function useAddMessage() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -61,6 +82,11 @@ export function useAddMessage() {
   });
 }
 
+/**
+ * Deletes a specific AI conversation session and invalidates the conversations list query.
+ *
+ * @returns The React Query mutation object for deleting a conversation.
+ */
 export function useDeleteConversation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -71,6 +97,11 @@ export function useDeleteConversation() {
   });
 }
 
+/**
+ * Truncates an AI conversation from a specific message ID onwards and invalidates related queries.
+ *
+ * @returns The React Query mutation object for truncating the conversation.
+ */
 export function useTruncateConversationMutation() {
   const queryClient = useQueryClient();
   return useMutation({

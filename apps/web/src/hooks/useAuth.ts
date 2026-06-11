@@ -15,6 +15,11 @@ type SessionResponse = {
   user?: SessionUser;
 };
 
+/**
+ * Fetches the user's active session state and authentication details.
+ *
+ * @returns The React Query result containing the session status and optional user details.
+ */
 export function useSession() {
   return useQuery({
     queryKey: ['session'],
@@ -24,6 +29,11 @@ export function useSession() {
   });
 }
 
+/**
+ * Performs a login mutation and updates the store with the authenticated user session.
+ *
+ * @returns The React Query mutation object for user login.
+ */
 export function useLogin() {
   const setSession = useAppStore((s) => s.setSession);
   const navigate = useNavigate();
@@ -53,6 +63,11 @@ export function useLogin() {
   });
 }
 
+/**
+ * Unlocks a user profile using an encryption unlock key to obtain an unlock ticket.
+ *
+ * @returns The React Query mutation object for profile unlocking.
+ */
 export function useUnlockProfile() {
   return useMutation({
     mutationFn: (payload: { userId: string; unlockKey: string }) =>
@@ -60,6 +75,11 @@ export function useUnlockProfile() {
   });
 }
 
+/**
+ * Logs out the current user, clears the query client cache, and redirects to the login page.
+ *
+ * @returns The React Query mutation object for logging out.
+ */
 export function useLogout() {
   const setSession = useAppStore((s) => s.setSession);
   const navigate = useNavigate();

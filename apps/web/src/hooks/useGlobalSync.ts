@@ -45,6 +45,11 @@ type SyncEventPayload = {
   currentlySyncing?: string | null;
 };
 
+/**
+ * Triggers the start of a global accounts and transactions synchronization.
+ *
+ * @returns The React Query mutation object for starting the synchronization.
+ */
 export function useStartGlobalSync() {
   const setSync = useAppStore((s) => s.setSync);
 
@@ -74,6 +79,12 @@ export function useStartGlobalSync() {
   });
 }
 
+/**
+ * Manages the global synchronization state by setting up socket event listeners
+ * and updating the sync state in the application store.
+ *
+ * @param enabled - Whether the sync manager is active.
+ */
 export function useGlobalSyncManager(enabled: boolean) {
   const queryClient = useQueryClient();
   const setSync = useAppStore((s) => s.setSync);
@@ -301,7 +312,6 @@ export function useGlobalSyncManager(enabled: boolean) {
     closeScraperSocket();
   }, [enabled]);
 
-  // Smoother, stable interval for progress updates
   useEffect(() => {
     let interval: number | null = null;
     
@@ -327,8 +337,6 @@ export function useGlobalSyncManager(enabled: boolean) {
       }, 140);
     };
 
-    // We only react to status changes to start/stop the interval
-    // We use useAppStore.subscribe to watch status without re-rendering the whole hook scope
     const unsubscribe = useAppStore.subscribe(
       (state) => state.sync.status,
       (status: string) => {
@@ -341,7 +349,6 @@ export function useGlobalSyncManager(enabled: boolean) {
       }
     );
 
-    // Initial check
     if (useAppStore.getState().sync.status === 'running') {
       startInterval();
     }

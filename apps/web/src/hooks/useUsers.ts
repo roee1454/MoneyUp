@@ -4,6 +4,11 @@ import { api } from '@/lib/api';
 import type { User } from '@money-up/types';
 export type { User };
 
+/**
+ * Fetches the list of all registered users.
+ *
+ * @returns The React Query result containing the list of users.
+ */
 export function useUsers() {
   return useQuery({
     queryKey: ['users'],
@@ -11,6 +16,12 @@ export function useUsers() {
   });
 }
 
+/**
+ * Fetches the user profile details for the currently logged-in user.
+ *
+ * @param userId - Optional user ID (used as a dependency key and to enable the query).
+ * @returns The React Query result containing the user profile details.
+ */
 export function useUserProfile(userId?: string) {
   return useQuery({
     queryKey: ['user-profile', userId],
@@ -19,6 +30,11 @@ export function useUserProfile(userId?: string) {
   });
 }
 
+/**
+ * Creates a new user profile and invalidates the users list query.
+ *
+ * @returns The React Query mutation object for user creation.
+ */
 export function useCreateUser() {
   const queryClient = useQueryClient();
 
@@ -35,6 +51,11 @@ export function useCreateUser() {
   });
 }
 
+/**
+ * Deletes a user account after validating the confirmation email, and invalidates the users list.
+ *
+ * @returns The React Query mutation object for user deletion.
+ */
 export function useDeleteUserConfirmed() {
   const queryClient = useQueryClient();
 
@@ -49,6 +70,11 @@ export function useDeleteUserConfirmed() {
   });
 }
 
+/**
+ * Updates the AI settings for the logged-in user profile.
+ *
+ * @returns The React Query mutation object for updating AI settings.
+ */
 export function useUpdateAiSettings() {
   const queryClient = useQueryClient();
 
@@ -62,6 +88,11 @@ export function useUpdateAiSettings() {
   });
 }
 
+/**
+ * Updates the scraper settings for the logged-in user profile.
+ *
+ * @returns The React Query mutation object for updating scraper settings.
+ */
 export function useUpdateScraperSettings() {
   const queryClient = useQueryClient();
 

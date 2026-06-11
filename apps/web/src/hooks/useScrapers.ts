@@ -14,10 +14,10 @@ import type { ScraperErrorCode } from '@money-up/types';
 export type { ScraperErrorCode };
 
 /**
- * Hook to fetch the list of supported financial institution scrapers.
+ * Fetches the list of supported financial institution scrapers.
  *
- * @param open Controls whether the query is enabled (active).
- * @returns Query result containing the scraper list items.
+ * @param open - Controls whether the query is enabled (active).
+ * @returns The React Query result containing the scraper list items.
  */
 export function useScrapersList(open: boolean) {
   return useQuery({
@@ -28,10 +28,9 @@ export function useScrapersList(open: boolean) {
 }
 
 /**
- * Hook to trigger detection of Chromium or other compatible local browsers on the system.
- * Designed for manual triggering.
+ * Detects Chromium or other compatible local browsers on the system.
  *
- * @returns Query result containing browser detection details.
+ * @returns The React Query result containing browser detection details.
  */
 export function useDetectChromium() {
   return useQuery({
@@ -49,17 +48,16 @@ export function useDetectChromium() {
           path: string | null;
         }>;
       }>('/scrapers/detect'),
-    enabled: false, // Manual trigger
+    enabled: false,
     staleTime: 0,
     gcTime: 0,
   });
 }
 
 /**
- * Hook to initiate the automated background installation of minimal Chromium.
- * Invalidates the browser detection query upon success.
+ * Initiates the automated background installation of minimal Chromium.
  *
- * @returns Mutation helper to run and track the installation process.
+ * @returns The React Query mutation object to run and track the installation process.
  */
 export function useInstallChromium() {
   const queryClient = useQueryClient();

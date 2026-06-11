@@ -1,3 +1,9 @@
+/**
+ * Formats a raw error input into a user-friendly, readable error message string.
+ *
+ * @param errorInput - The raw error object, string, or error instance.
+ * @returns The formatted user-friendly error message.
+ */
 export function getFriendlyErrorMessage(errorInput: any): string {
   if (!errorInput) return '';
 
@@ -12,7 +18,6 @@ export function getFriendlyErrorMessage(errorInput: any): string {
 
   const lowerStr = errStr.toLowerCase();
 
-  // --- OLLAMA / LOCAL CONNECTION ERRORS ---
   if (
     lowerStr.includes('failed to fetch') ||
     lowerStr.includes('connection refused') ||
@@ -24,9 +29,7 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     return 'שגיאת תקשורת: לא ניתן להתחבר לשרת. ודא שהשרת פועל ושיש חיבור אינטרנט תקין.';
   }
 
-  // --- GEMINI SPECIFIC ERRORS ---
   if (lowerStr.includes('gemini')) {
-    // 429 Resource Exhausted / Quota Limit
     if (
       lowerStr.includes('429') ||
       lowerStr.includes('resource_exhausted') ||
@@ -34,7 +37,6 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     ) {
       return 'נראה שחרגת ממכסת השימוש החינמית ב-Gemini. אנא נסה שוב מאוחר יותר או בחר מודל אחר (שגיאה 429 / RESOURCE_EXHAUSTED).';
     }
-    // 503 Unavailable
     if (
       lowerStr.includes('503') ||
       lowerStr.includes('unavailable') ||
@@ -42,7 +44,6 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     ) {
       return 'מודל Gemini אינו זמין כעת בשל עומס יתר. אנא נסה שוב בעוד מספר רגעים (שגיאה 503 / UNAVAILABLE).';
     }
-    // 401 / 403 Forbidden / API Key
     if (
       lowerStr.includes('401') ||
       lowerStr.includes('403') ||
@@ -51,19 +52,15 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     ) {
       return 'שגיאת התחברות ל-Gemini. אנא ודא שמפתח ה-API תקין ומוגדר כראוי (שגיאה 401/403).';
     }
-    // 400 Invalid Argument / Thought Signature
     if (lowerStr.includes('400') || lowerStr.includes('thought_signature')) {
       return 'בקשה לא תקינה ל-Gemini. אנא ודא שהגדרות המודל תקינות (שגיאה 400).';
     }
   }
 
-  // --- CLAUDE (ANTHROPIC) SPECIFIC ERRORS ---
   if (lowerStr.includes('claude') || lowerStr.includes('anthropic')) {
-    // 429 Too Many Requests
     if (lowerStr.includes('429') || lowerStr.includes('rate_limit')) {
       return 'חרגת מקצב הבקשות המותר ב-Claude. אנא המתן מספר שניות ונסה שוב (שגיאה 429).';
     }
-    // 401 / 403 Invalid API Key / Forbidden / Billing
     if (
       lowerStr.includes('401') ||
       lowerStr.includes('invalid_api_key') ||
@@ -74,7 +71,6 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     if (lowerStr.includes('403') || lowerStr.includes('credit_exhausted')) {
       return 'הגישה ל-Claude נחסמה. ייתכן ויתרת התשלום בחשבון Anthropic שלך הסתיימה (שגיאה 403).';
     }
-    // 529 / 503 Service Overloaded
     if (
       lowerStr.includes('529') ||
       lowerStr.includes('503') ||
@@ -84,9 +80,7 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     }
   }
 
-  // --- OPENAI SPECIFIC ERRORS ---
   if (lowerStr.includes('openai')) {
-    // 429 Too Many Requests / Quota Exceeded
     if (
       lowerStr.includes('429') ||
       lowerStr.includes('insufficient_quota') ||
@@ -94,7 +88,6 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     ) {
       return 'נראה שחרגת ממכסת השימוש או שיתרת התשלום בחשבון OpenAI שלך הסתיימה (שגיאה 429).';
     }
-    // 401 Unauthorized / Invalid API Key
     if (
       lowerStr.includes('401') ||
       lowerStr.includes('invalid_api_key') ||
@@ -102,7 +95,6 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     ) {
       return 'מפתח ה-API של OpenAI שהוזן אינו תקין. אנא בדוק את הגדרות החיבור (שגיאה 401).';
     }
-    // 500 / 503 Internal Server Error
     if (
       lowerStr.includes('500') ||
       lowerStr.includes('503') ||
@@ -110,13 +102,11 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     ) {
       return 'שרתי OpenAI חווים עומס כרגע או שאינם זמינים זמנית. אנא נסה שוב בעוד מספר רגעים (שגיאה 500/503).';
     }
-    // 400 Context / Invalid
     if (lowerStr.includes('400')) {
       return 'בקשה לא תקינה ל-OpenAI. ייתכן וההודעה ארוכה מדי או שהמודל שנבחר אינו זמין (שגיאה 400).';
     }
   }
 
-  // --- OPENROUTER SPECIFIC ERRORS ---
   if (lowerStr.includes('openrouter')) {
     if (lowerStr.includes('401') || lowerStr.includes('403')) {
       return 'שגיאת התחברות ל-OpenRouter. אנא ודא שמפתח ה-API תקין ושיש לך יתרה מספקת בחשבון.';
@@ -133,12 +123,10 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     }
   }
 
-  // --- OLLAMA MODEL NOT FOUND ---
   if (lowerStr.includes('ollama') && lowerStr.includes('404')) {
     return 'מודל Ollama שנבחר לא נמצא. ודא שהרצת "ollama pull <model-name>" במחשב שלך (שגיאה 404).';
   }
 
-  // --- GENERAL / GENERIC ERROR CODES ---
   if (lowerStr.includes('429')) {
     return 'חרגת מקצב הבקשות המותר. אנא המתן מספר רגעים ונסה שוב (שגיאה 429).';
   }
@@ -149,7 +137,6 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     return 'שגיאת הרשאה או מפתח API שגוי. אנא בדקו את הגדרות החיבור (שגיאה 401/403).';
   }
 
-  // Clean up error message if it wraps a NestJS error or similar JSON
   let cleanMsg = errStr;
   const jsonMatch = errStr.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
@@ -161,11 +148,9 @@ export function getFriendlyErrorMessage(errorInput: any): string {
         cleanMsg = parsed.message;
       }
     } catch {
-      // ignore parsing failure
     }
   }
 
-  // Clean up standard prefixes
   cleanMsg = cleanMsg
     .replace(/^Error:\s*/i, '')
     .replace(/^[a-zA-Z]+ request failed \(\d+\):\s*/i, '')
@@ -175,6 +160,13 @@ export function getFriendlyErrorMessage(errorInput: any): string {
   return cleanMsg || 'אירעה שגיאה בתקשורת עם השרת.';
 }
 
+/**
+ * Formats a scraper-specific error and optional error code into a user-friendly message.
+ *
+ * @param errorInput - The raw error object or message from the scraper.
+ * @param errorCode - Optional error code indicating the type of scraper error.
+ * @returns The formatted user-friendly scraper error message.
+ */
 export function getFriendlyScraperError(errorInput: any, errorCode?: string): string {
   if (errorCode === 'INVALID_CREDENTIALS') {
     return 'פרטי המשתמש אינם נכונים, אנא נסה שנית עם פרטים אחרים.';
@@ -209,6 +201,5 @@ export function getFriendlyScraperError(errorInput: any, errorCode?: string): st
     return 'החיבור חסום כרגע אצלך (ייתכן בשל זיהוי בוטים וסורקים) אנא נסה שוב בעוד מספר דקות.';
   }
 
-  // Fallback to cleaner message if it contains "Unexpected end of JSON input" or similar
   return errStr || 'החיבור חסום כרגע אצלך (ייתכן בשל זיהוי בוטים וסורקים) אנא נסה שוב בעוד מספר דקות.\nבנוסף מומלץ להדליק הצגת דפדפן בהגדרות סורקים כדי להבין איפה ההתחברות נכשלת.';
 }

@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+/**
+ * Verifies the connection credentials for a specific AI provider.
+ *
+ * @returns The React Query mutation object for verifying the connection.
+ */
 export function useVerifyAiConnection() {
   return useMutation({
     mutationFn: (payload: {
@@ -10,6 +15,13 @@ export function useVerifyAiConnection() {
   });
 }
 
+/**
+ * Fetches the list of available models for a given AI provider using the provided API key.
+ *
+ * @param provider - The AI provider to fetch models for.
+ * @param apiKey - Optional API key for authorization with the provider.
+ * @returns The React Query result containing the list of available models.
+ */
 export function useFetchAiModels(
   provider?: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
   apiKey?: string,
@@ -25,6 +37,11 @@ export function useFetchAiModels(
   });
 }
 
+/**
+ * Saves or updates the user's AI configuration and invalidates related queries.
+ *
+ * @returns The React Query mutation object for saving AI configuration.
+ */
 export function useSaveAiConfig() {
   const queryClient = useQueryClient();
 
@@ -53,6 +70,11 @@ export function useSaveAiConfig() {
   });
 }
 
+/**
+ * Deletes the configuration of a specific AI provider from the user's settings.
+ *
+ * @returns The React Query mutation object for deleting the AI provider configuration.
+ */
 export function useDeleteAiProvider() {
   const queryClient = useQueryClient();
 
