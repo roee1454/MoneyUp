@@ -1,12 +1,12 @@
-export const AgentProvider = {
-  OpenAI: "openai",
-  Gemini: "gemini",
-  Claude: "claude",
-  OpenRouter: "openrouter",
-  Ollama: "ollama"
-} as const;
+export type AgentProvider = "openai" | "gemini" | "claude" | "openrouter" | "ollama";
 
-export type AgentProvider = typeof AgentProvider[keyof typeof AgentProvider];
+export const AgentProvider = {
+  OpenAI: "openai" as const,
+  Gemini: "gemini" as const,
+  Claude: "claude" as const,
+  OpenRouter: "openrouter" as const,
+  Ollama: "ollama" as const
+};
 
 export const OpenAiModels = [
   'gpt-4o-mini',

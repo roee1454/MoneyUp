@@ -42,17 +42,27 @@ export interface UnifiedAccount {
   transactions: UnifiedTransaction[];
 }
 
+export type ScraperErrorCode =
+  | 'INVALID_CREDENTIALS'
+  | 'CHALLENGE_FAILED'
+  | 'BANK_UNAVAILABLE'
+  | 'SESSION_EXPIRED'
+  | 'UNKNOWN_CONNECT_ERROR'
+  | 'ACCOUNT_ALREADY_CONNECTED';
+
+export interface BankAccount {
+  bankId: string;
+  accountNumber: string;
+  balance?: number;
+  lastScrapedAt?: string | null;
+  transactions: UnifiedTransaction[];
+}
+
 export interface ScraperResponse {
   status: ScraperStatus;
   sessionId?: string;
   error?: string;
-  errorCode?:
-    | 'INVALID_CREDENTIALS'
-    | 'CHALLENGE_FAILED'
-    | 'BANK_UNAVAILABLE'
-    | 'SESSION_EXPIRED'
-    | 'UNKNOWN_CONNECT_ERROR'
-    | 'ACCOUNT_ALREADY_CONNECTED';
+  errorCode?: ScraperErrorCode;
   challenge?: {
     type: string; // 'SMS', 'OTP', etc.
     message?: string;
@@ -142,4 +152,10 @@ export type ScanIncomeResult = {
     displayMerchant: string;
   }>;
   debugTrace?: ScanDebugTrace;
+};
+
+export type ScraperDateLimit = {
+  years?: number;
+  months?: number;
+  days?: number;
 };

@@ -4,25 +4,8 @@ import { api } from '@/lib/api';
 import { emitScraperSocket } from '@/lib/scraper-socket';
 import { useAppStore } from '@/store';
 
-interface Transaction {
-  id: string;
-  date: string;
-  processedDate: string;
-  amount: number;
-  chargedAmount: number;
-  description: string;
-  memo?: string;
-  originalCurrency?: string;
-  isDuplicate?: boolean;
-}
-
-export interface BankAccount {
-  bankId: string;
-  accountNumber: string;
-  balance?: number;
-  lastScrapedAt?: string | null;
-  transactions: Transaction[];
-}
+import type { BankAccount } from '@money-up/types';
+export type { BankAccount };
 
 type SyncRangePayload = {
   startDate?: string;

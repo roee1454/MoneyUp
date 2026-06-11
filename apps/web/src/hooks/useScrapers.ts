@@ -10,13 +10,8 @@ type ScraperListItem = {
   enabled: boolean;
 };
 
-export type ScraperErrorCode =
-  | 'INVALID_CREDENTIALS'
-  | 'CHALLENGE_FAILED'
-  | 'BANK_UNAVAILABLE'
-  | 'SESSION_EXPIRED'
-  | 'AUTOMATION_BLOCKED'
-  | 'UNKNOWN_CONNECT_ERROR';
+import type { ScraperErrorCode } from '@money-up/types';
+export type { ScraperErrorCode };
 
 /**
  * Hook to fetch the list of supported financial institution scrapers.

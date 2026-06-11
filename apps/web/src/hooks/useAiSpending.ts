@@ -4,63 +4,10 @@ import { useAppStore } from '@/store';
 import { toast } from 'sonner';
 import { getFriendlyErrorMessage } from '@/lib/error-formatter';
 
-export interface AiScanCategory {
-  name: string;
-  amount: number;
-  count: number;
-}
+import type { CategorizedExpense, ScanIncomeResult } from '@money-up/types';
 
-export interface SpendingScansResponse {
-  totalIncome: number;
-  totalExpenses: number;
-  totalBalance: number;
-  categories: AiScanCategory[];
-  categoryTransactions: Record<
-    string,
-    Array<{
-      transactionId: string;
-      bankId: string;
-      accountNumber: string;
-      cardLast4?: string;
-      merchant: string;
-      date: string;
-      amount: number;
-      reason: string;
-      confidence: number;
-      tags: string[];
-    }>
-  >;
-  debugTrace?: {
-    period: 'current' | 'previous' | 'both';
-    periodStartIso: string;
-    periodEndIso: string;
-    accountsSummary: Array<{
-      bankId: string;
-      accountNumber: string;
-      isCreditCompany: boolean;
-      transactionCount: number;
-    }>;
-    transactions: Array<{
-      bankId: string;
-      accountNumber: string;
-      transactionId: string;
-      date: string;
-      amount: number;
-      description: string;
-      dedupKey: string;
-      isCreditCompany: boolean;
-      status: string;
-      category?: string;
-      reason: string;
-    }>;
-    finalTotals: {
-      totalIncome: number;
-      totalExpenses: number;
-      totalBalance: number;
-      categories: AiScanCategory[];
-    };
-  };
-}
+export type AiScanCategory = CategorizedExpense;
+export type SpendingScansResponse = ScanIncomeResult;
 
 export type ScanFilters = {
   period?: 'current' | 'previous' | 'both';
