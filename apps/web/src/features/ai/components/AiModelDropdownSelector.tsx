@@ -5,8 +5,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AiIcon, type AiProvider } from './AiIcon';
-import { getFriendlyModelName } from '@/lib/ai-models';
-import { ModelTags } from '@money-up/common';
+import { getFriendlyModelName, ModelTags } from '@money-up/common';
 import { cn } from '@/lib/utils';
 import { CaretUp } from '@phosphor-icons/react';
 

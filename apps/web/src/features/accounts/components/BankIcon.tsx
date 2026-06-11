@@ -5,7 +5,7 @@ import {
   type BankIconShape,
   getBankName,
   normalizeBankId,
-} from '@/lib/bank-branding';
+} from '@money-up/common';
 import { cn } from '@/lib/utils';
 
 interface BankIconProps {

@@ -2,7 +2,7 @@ import { Calendar } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { DatePicker } from './DatePicker';
 import { parseISO } from 'date-fns';
-import { toDateInputValue } from '@/lib/date-range-utils';
+import { toDateInputValue } from '@money-up/common';
 
 interface DashboardRangePickerProps {
   startDate: string;

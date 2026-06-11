@@ -15,8 +15,7 @@ import { cn } from '@/lib/utils';
 import { CircleNotch, Sparkle, CaretDown, Gear } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
-import { OpenAiModels, GeminiModels, ModelTags } from '@money-up/common';
-import { getFriendlyModelName } from '@/lib/ai-models';
+import { OpenAiModels, GeminiModels, ModelTags, getFriendlyModelName } from '@money-up/common';
 import { Button } from '@/components/ui/button';
 
 const MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {

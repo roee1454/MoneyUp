@@ -8,7 +8,7 @@ import {
   useDisconnectAccount,
 } from '@/hooks/useAccounts';
 import { BankIcon } from './BankIcon';
-import { getBankName, normalizeBankId } from '@/lib/bank-branding';
+import { getBankName, normalizeBankId } from '@money-up/common';
 import {
   Dialog,
   DialogContent,

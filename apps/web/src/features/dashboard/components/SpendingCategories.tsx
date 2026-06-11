@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CircleNotch, CreditCard, Sparkle, Info } from '@phosphor-icons/react';
-import { getBankName } from '@/lib/bank-branding';
+import { getBankName } from '@money-up/common';
 import { cn } from '@/lib/utils';
 import type { SpendingScansResponse } from '@/hooks/useAi';
 import { toast } from 'sonner';

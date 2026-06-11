@@ -19,12 +19,12 @@ import { DashboardRangePicker } from '@/features/dashboard/components/DashboardR
 import { DashboardMetricsGrid } from '@/features/dashboard/components/DashboardMetricsGrid';
 import { IncomeTransactionsSheet } from '@/features/dashboard/components/IncomeTransactionsSheet';
 import { SpendingCategories } from '@/features/dashboard/components/SpendingCategories';
-import { getBankName } from '@/lib/bank-branding';
 import {
+  getBankName,
   getCurrentRange,
   getMinimumStartDateForBank,
   toDateInputValue,
-} from '@/lib/date-range-utils';
+} from '@money-up/common';
 
 export default function Dashboard() {
   const navigate = useNavigate();

@@ -10,7 +10,7 @@ import { ScansService } from './scans/scans.service';
 import { ScraperCredentials } from 'israeli-bank-scrapers';
 import { randomUUID } from 'crypto';
 import type { UnifiedTransaction, ScanIncomeRequest } from '@money-up/types';
-import { getTodayUtcDateString } from './utils/date.utils';
+import { getTodayUtcDateString } from '@money-up/common';
 import {
   normalizeCredentials,
   validateCredentials,

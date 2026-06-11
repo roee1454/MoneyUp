@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BankIcon } from '@/features/accounts/components/BankIcon';
-import { getBankName } from '@/lib/bank-branding';
+import { getBankName } from '@money-up/common';
 import { cn } from '@/lib/utils';
 import { Check, Copy } from '@phosphor-icons/react';
 

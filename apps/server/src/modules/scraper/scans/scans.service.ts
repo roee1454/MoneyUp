@@ -9,6 +9,7 @@ import {
 import { scanIncomeDeterministic } from './helpers/scans-calculator.helper';
 import { normalizeMerchantKey } from './helpers/scans-description.helper';
 import { isValidCategory } from './helpers/scans-categorizer.helper';
+import { isWithinRange, EXPENSE_CATEGORIES } from '@money-up/common';
 
 /**
  * Service responsible for processing transaction scans.

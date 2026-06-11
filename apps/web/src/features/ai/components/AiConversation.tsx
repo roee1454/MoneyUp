@@ -52,8 +52,8 @@ export function AiConversation({
   const currentProvider = configuredProviders[0] || AgentProvider.Gemini;
 
   const [agentProvider, setAgentProvider] = useState<AgentProvider>(() => {
-    const saved = localStorage.getItem('moneyup_studio_provider');
-    if (saved && (configuredProviders as string[]).includes(saved)) return saved as AgentProvider;
+    const saved = localStorage.getItem('moneyup_studio_provider') as AgentProvider | null;
+    if (saved && configuredProviders.includes(saved)) return saved;
     return currentProvider || AgentProvider.Gemini;
   });
 
