@@ -1,33 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-export type User = {
-  id: string;
-  username: string;
-  email: string;
-  isLocked?: boolean;
-  activeAiProvider?: 'openai' | 'claude' | 'gemini' | null;
-  preferredModel?: string | null;
-  configuredProviders?: Array<'openai' | 'claude' | 'gemini'>;
-  scraperTimeoutRetryCount?: number;
-  scraperAutoSyncCooldownSeconds?: number;
-  scraperShowBrowser?: boolean;
-  scraperLoginTimeoutSeconds?: number;
-  scraperDefaultTimeoutSeconds?: number;
-  scraperChromiumPath?: string | null;
-  forceMarkdown?: boolean;
-  aiProviderConfigs?: Record<
-    string,
-    {
-      model: string;
-      preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
-      temperature?: number;
-      maxTokens?: number;
-      stream?: boolean;
-      forceMarkdown?: boolean;
-    }
-  > | null;
-};
+import type { User } from '@money-up/types';
+export type { User };
 
 export function useUsers() {
   return useQuery({

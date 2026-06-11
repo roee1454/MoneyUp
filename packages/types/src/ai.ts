@@ -1,9 +1,26 @@
+export type AiProvider = 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+
+export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
+
 export interface AiMessage {
   id?: string;
-  role: 'user' | 'assistant' | 'system' | 'tool';
+  role: MessageRole;
   content: string;
   tool_calls?: AiToolCall[];
   tool_call_id?: string;
+  createdAt?: string;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface ConversationDetail {
+  conversation: Conversation;
+  messages: AiMessage[];
 }
 
 export interface AiToolCall {

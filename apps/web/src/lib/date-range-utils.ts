@@ -25,11 +25,8 @@ export function getCurrentRange(): { startDate: string; endDate: string } {
   };
 }
 
-export type ScraperDateLimit = {
-  years?: number;
-  months?: number;
-  days?: number;
-};
+import type { ScraperDateLimit } from '@money-up/types';
+export type { ScraperDateLimit };
 
 export const SCRAPER_MIN_LOOKBACKS: Record<string, ScraperDateLimit> = {
   hapoalim: { years: 1, days: 1 },

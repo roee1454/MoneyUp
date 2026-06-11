@@ -10,12 +10,8 @@ type ScraperListItem = {
   enabled: boolean;
 };
 
-export type ScraperErrorCode =
-  | 'INVALID_CREDENTIALS'
-  | 'CHALLENGE_FAILED'
-  | 'BANK_UNAVAILABLE'
-  | 'SESSION_EXPIRED'
-  | 'UNKNOWN_CONNECT_ERROR';
+import type { ScraperErrorCode } from '@money-up/types';
+export type { ScraperErrorCode };
 
 export function useScrapersList(open: boolean) {
   return useQuery({

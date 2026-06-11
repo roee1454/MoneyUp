@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-export type AiProvider = 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+import type { AiProvider } from '@money-up/types';
+export type { AiProvider };
 export type AiIconShape = 'circle' | 'rounded-square';
 
 interface AiIconProps {

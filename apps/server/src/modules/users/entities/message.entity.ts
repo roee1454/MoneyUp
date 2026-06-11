@@ -6,7 +6,8 @@ import {
   Index,
 } from 'typeorm';
 
-export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
+import { MessageRole } from '@money-up/types';
+export type { MessageRole };
 
 @Entity('messages')
 @Index(['conversationId', 'createdAt'])

@@ -2,26 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAppStore } from '@/store';
 
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string;
-  tool_calls?: any[];
-  tool_call_id?: string;
-  createdAt: string;
-}
+import type { AiMessage, Conversation, ConversationDetail } from '@money-up/types';
 
-export interface Conversation {
-  id: string;
-  title: string;
-  updatedAt: string;
-  createdAt: string;
-}
-
-export interface ConversationDetail {
-  conversation: Conversation;
-  messages: Message[];
-}
+export type Message = AiMessage;
+export type { Conversation, ConversationDetail };
 
 export function useConversations() {
   const session = useAppStore((s) => s.session);
