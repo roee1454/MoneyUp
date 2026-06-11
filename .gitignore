@@ -54,6 +54,7 @@ pids
 .pnpm-store
 .codex
 .agents
+!.agents/skills/
 data
 .turbo
 
