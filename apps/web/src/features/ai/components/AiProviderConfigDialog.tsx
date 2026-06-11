@@ -14,7 +14,7 @@ import { useSaveAiConfig } from '@/hooks/useAi';
 import { toast } from 'sonner';
 import { CircleNotch } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
-import { OPENAI_MODELS, GEMINI_MODELS } from '@money-up/common';
+import { OpenAiModels, GeminiModels } from '@money-up/common';
 
 interface AiProviderConfigDialogProps {
   provider: AiProvider;
@@ -31,13 +31,13 @@ interface AiProviderConfigDialogProps {
 }
 
 const MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
-  openai: OPENAI_MODELS,
+  openai: OpenAiModels,
   claude: [
     'claude-3-5-sonnet-20241022',
     'claude-3-5-haiku-20241022',
     'claude-3-opus-20240229',
   ],
-  gemini: GEMINI_MODELS,
+  gemini: GeminiModels,
   ollama: [
     'qwen2.5:14b-instruct',
     'llama3.1:8b',

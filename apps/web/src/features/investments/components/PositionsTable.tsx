@@ -7,15 +7,15 @@ import { PremiumButton } from '@/components/ui/premium-button';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
 import { api } from '@/lib/api';
-import { OPENAI_MODELS, GEMINI_MODELS } from '@money-up/common';
+import { OpenAiModels, GeminiModels } from '@money-up/common';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
 import ReactMarkdown from 'react-markdown';
 
 const MODELS_BY_PROVIDER: Record<string, string[]> = {
-  openai: OPENAI_MODELS,
+  openai: OpenAiModels,
   claude: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'],
-  gemini: GEMINI_MODELS,
+  gemini: GeminiModels,
 };
 
 interface Position {

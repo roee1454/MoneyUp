@@ -1,4 +1,4 @@
-import { Trash, Plus, ChatCircle } from '@phosphor-icons/react';
+import { Trash } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
@@ -9,9 +9,7 @@ import { useConversations, useDeleteConversation } from '@/hooks/useAi';
 import { Select, SelectItem } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { he } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+
 
 import {
   Dialog,

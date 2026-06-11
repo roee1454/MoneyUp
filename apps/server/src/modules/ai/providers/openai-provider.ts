@@ -1,7 +1,7 @@
 import { Observable } from 'rxjs';
 import type { ReadableStream } from 'node:stream/web';
 import { AIProvider, PromptOptions } from './ai-provider';
-import { OPENAI_MODELS } from '@money-up/common';
+import { OpenAiModels } from '@money-up/common';
 import { AiMessage, StructuredResponse } from '@money-up/types';
 
 export class OpenAIProvider extends AIProvider {
@@ -21,7 +21,7 @@ export class OpenAIProvider extends AIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    return OPENAI_MODELS;
+    return OpenAiModels;
   }
 
   async prompt(

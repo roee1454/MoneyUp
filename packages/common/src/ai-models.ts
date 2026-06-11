@@ -1,11 +1,19 @@
-export const OPENAI_MODELS = [
+export const enum AgentProvider {
+  OpenAI = "openai",
+  Gemini = "gemini",
+  Claude = "claude",
+  OpenRouter = "openrouter",
+  Ollama = "ollama"
+}
+
+export const OpenAiModels = [
   'gpt-4o-mini',
   'gpt-4o',
   'gpt-5.4-mini',
   'gpt-5.4',
 ];
 
-export const GEMINI_MODELS = [
+export const GeminiModels = [
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
   'gemini-3.1-flash-lite',
@@ -13,7 +21,11 @@ export const GEMINI_MODELS = [
   'gemini-3.5-flash',
 ];
 
-export const MODEL_TAGS: Record<string, string> = {
+export const ClaudeModels = [
+  
+]
+
+export const ModelTags: Record<string, string> = {
   'gpt-4o-mini': 'token efficient',
   'gpt-4o': 'token efficient',
   'gpt-5.4-mini': 'thinking',

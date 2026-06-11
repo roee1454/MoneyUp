@@ -15,18 +15,18 @@ import { cn } from '@/lib/utils';
 import { CircleNotch, Sparkle, CaretDown, Gear } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
-import { OPENAI_MODELS, GEMINI_MODELS, MODEL_TAGS } from '@money-up/common';
+import { OpenAiModels, GeminiModels, ModelTags } from '@money-up/common';
 import { getFriendlyModelName } from '@/lib/ai-models';
 import { Button } from '@/components/ui/button';
 
 const MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
-  openai: OPENAI_MODELS,
+  openai: OpenAiModels,
   claude: [
     'claude-3-5-sonnet-20241022',
     'claude-3-5-haiku-20241022',
     'claude-3-opus-20240229',
   ],
-  gemini: GEMINI_MODELS,
+  gemini: GeminiModels,
   ollama: [
     'qwen2.5:14b-instruct',
     'llama3.1:8b',
@@ -247,9 +247,9 @@ export function AiGlobalSwitcher() {
               >
                 <div className="flex items-center gap-1.5">
                   <span>{getFriendlyModelName(m)}</span>
-                  {MODEL_TAGS[m] && (
+                  {ModelTags[m] && (
                     <span className="px-1.5 py-0.5 text-[9px] font-black uppercase bg-primary/10 text-primary rounded-xs tracking-wider">
-                      {MODEL_TAGS[m]}
+                      {ModelTags[m]}
                     </span>
                   )}
                 </div>

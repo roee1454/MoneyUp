@@ -5,12 +5,10 @@ import {
   useConversation,
   useSaveAiConfig,
 } from '@/hooks/useAi';
-import { useUpdateAiSettings } from '@/hooks/useUsers';
 import { useAiStream } from './AiConversation/useAiStream';
 import { AiMessageList } from './AiConversation/AiMessageList';
 import { AiInputPanel } from './AiConversation/AiInputPanel';
-import { AiSettingsDialog } from './AiConversation/AiSettingsDialog';
-import { OPENAI_MODELS, GEMINI_MODELS } from '@money-up/common';
+import { OpenAiModels, GeminiModels, AgentProvider, ClaudeModels } from '@money-up/common';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
 
@@ -25,24 +23,14 @@ interface AiConversationProps {
   onConnectClick?: () => void;
 }
 
-const MODELS_BY_PROVIDER: Record<string, string[]> = {
-  openai: OPENAI_MODELS,
-  claude: [
-    'claude-3-5-sonnet-20241022',
-    'claude-3-5-haiku-20241022',
-    'claude-3-opus-20240229',
-  ],
-  gemini: GEMINI_MODELS,
-  ollama: ['qwen2.5:14b-instruct', 'llama3.1:8b', 'mistral', 'gemma2'],
-  openrouter: [
-    'meta-llama/llama-3.1-8b-instruct:free',
-    'google/gemini-2.5-flash',
-    'deepseek/deepseek-chat',
-    'anthropic/claude-3.5-sonnet',
-  ],
+const ModelsByProvider: Record<string, string[]> = {
+  openai: OpenAiModels,
+  claude: ClaudeModels,
+  gemini: GeminiModels,
+  ollama: [],
+  openrouter: [],
 };
 
-const debugEnabled = import.meta.env.VITE_DEBUG_AI_CHAT === 'true';
 
 export function AiConversation({
   userProfile,
@@ -54,21 +42,19 @@ export function AiConversation({
   const navigate = useNavigate();
 
   const configuredProviders = useMemo(() => {
-    return (userProfile?.configuredProviders ?? []) as string[];
+    return (userProfile?.configuredProviders ?? []) as AgentProvider[];
   }, [userProfile?.configuredProviders]);
 
   const configs = useMemo(() => {
     return userProfile?.aiProviderConfigs || {};
   }, [userProfile?.aiProviderConfigs]);
 
-  const currentProvider = configuredProviders[0] || 'gemini';
+  const currentProvider = configuredProviders[0] || AgentProvider.Gemini;
 
-  const [agentProvider, setAgentProvider] = useState<
-    'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter'
-  >(() => {
+  const [agentProvider, setAgentProvider] = useState<AgentProvider>(() => {
     const saved = localStorage.getItem('moneyup_studio_provider');
-    if (saved && configuredProviders.includes(saved)) return saved as any;
-    return (currentProvider as any) || 'gemini';
+    if (saved && configuredProviders.includes(saved)) return saved;
+    return currentProvider || AgentProvider.Gemini;
   });
 
   const [agentModel, setAgentModel] = useState<string>(() => {
@@ -76,14 +62,13 @@ export function AiConversation({
     if (saved) return saved;
     return (
       configs[currentProvider]?.model ||
-      MODELS_BY_PROVIDER[currentProvider]?.[0] ||
+      ModelsByProvider[currentProvider]?.[0] ||
       'gemini-2.5-flash'
     );
   });
 
   const { data: conversationDetail, isLoading: isLoadingHistory } =
     useConversation(conversationId);
-  const updateAiSettingsMutation = useUpdateAiSettings();
   const saveAiConfig = useSaveAiConfig();
 
   useEffect(() => {
@@ -91,23 +76,18 @@ export function AiConversation({
       configuredProviders.length > 0 &&
       !configuredProviders.includes(agentProvider)
     ) {
-      const prov = configuredProviders[0] as
-        | 'openai'
-        | 'claude'
-        | 'gemini'
-        | 'ollama'
-        | 'openrouter';
+      const prov = configuredProviders[0] as AgentProvider;
       setAgentProvider(prov);
       setAgentModel(
         configs[prov]?.model ||
-          MODELS_BY_PROVIDER[prov]?.[0] ||
+          ModelsByProvider[prov]?.[0] ||
           'gemini-2.5-flash',
       );
     }
   }, [configuredProviders]);
 
   const handleAgentProviderChange = (
-    provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
+    provider: AgentProvider,
   ) => {
     if (!configuredProviders.includes(provider)) {
       toast.error(`ספק ${provider.toUpperCase()} אינו מחובר.`, {
@@ -122,7 +102,7 @@ export function AiConversation({
     setAgentProvider(provider);
     localStorage.setItem('moneyup_studio_provider', provider);
     const config = configs[provider] || {
-      model: MODELS_BY_PROVIDER[provider][0],
+      model: ModelsByProvider[provider][0],
       preset: 'moderate',
     };
 
@@ -167,16 +147,12 @@ export function AiConversation({
     return configs[agentProvider] || {};
   }, [configs, agentProvider]);
 
-  const [streaming, setStreaming] = useState(providerConfig.stream ?? false);
+  const { temperature, maxTokens, streaming } = providerConfig;
+
   const [forceMarkdown, setForceMarkdown] = useState(
     userProfile?.forceMarkdown ?? true,
   );
-  const [temperature, setTemperature] = useState(
-    providerConfig.temperature ?? 0.7,
-  );
-  const [maxTokens, setMaxTokens] = useState(providerConfig.maxTokens ?? 1024);
-  const [modelOverride, setModelOverride] = useState('');
-  const [showDebug, setShowDebug] = useState(false);
+
 
   const modelsQuery = useFetchAiModels(agentProvider);
   const availableModels = useMemo(
@@ -186,13 +162,11 @@ export function AiConversation({
 
   const selectedModel = useMemo(() => {
     return (
-      (modelOverride && modelOverride !== 'none'
-        ? modelOverride
-        : agentModel) ||
+      agentModel ||
       availableModels[0] ||
       ''
     );
-  }, [modelOverride, agentModel, availableModels]);
+  }, [agentModel, availableModels]);
 
   useEffect(() => {
     if (userProfile?.forceMarkdown !== undefined) {
@@ -276,14 +250,12 @@ export function AiConversation({
           onSubmit={handleSubmitPrompt}
           isLoading={isLoading}
           selectedModel={configuredProviders.length > 0 ? selectedModel : ''}
-          debugEnabled={debugEnabled}
           activeSources={activeSources}
-          onShowDebug={() => setShowDebug(true)}
           agentProvider={agentProvider}
           setAgentProvider={handleAgentProviderChange}
           agentModel={agentModel}
           setAgentModel={handleAgentModelChange}
-          modelsByProvider={MODELS_BY_PROVIDER}
+          modelsByProvider={ModelsByProvider}
           configuredProviders={userProfile?.configuredProviders ?? undefined}
         />
       </div>
