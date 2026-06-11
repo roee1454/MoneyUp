@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { EXPENSE_CATEGORIES } from '@money-up/common';
+import { EXPENSE_CATEGORIES, isWithinRange } from '@money-up/common';
 import {
   ScanAccount,
   ScanIncomeResult,
@@ -7,7 +7,6 @@ import {
   ScanDebugTrace,
 } from '@money-up/types';
 import { MerchantAnnotationEntity } from '../../entities/merchant-annotation.entity';
-import { isWithinRange } from '../../utils/date.utils';
 import {
   isCreditCompany,
   getCleanDescription,
