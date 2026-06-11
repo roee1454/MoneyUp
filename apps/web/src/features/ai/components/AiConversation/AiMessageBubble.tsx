@@ -23,8 +23,13 @@ interface AiMessageBubbleProps {
   onEditSubmit?: (messageId: string, newText: string) => void;
 }
 
-/** Custom renderer for inline `code` nodes.
- *  If the content starts with "bankid:" we render a BankChip instead of <code>. */
+/**
+ * Custom renderer for inline `code` nodes.
+ * If the content starts with "bankid:" we render a BankChip instead of <code>.
+ *
+ * @param children The text content of the inline code node.
+ * @param isUser Whether the message belongs to the user.
+ */
 function InlineCode({
   children,
   isUser: _isUser,
@@ -47,6 +52,10 @@ function InlineCode({
   );
 }
 
+/**
+ * Renders an AI conversation message bubble.
+ * Supports inline bank-chips, interactive investment simulator panels, and user message edit capability.
+ */
 export function AiMessageBubble({
   message,
   isLoading,

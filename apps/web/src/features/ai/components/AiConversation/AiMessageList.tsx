@@ -17,6 +17,10 @@ interface AiMessageListProps {
   onConnectClick?: () => void;
 }
 
+/**
+ * Renders the list of active messages in the AI conversation.
+ * Handles system/tool message filtering, empty state prompts, and scrolling to the newest message.
+ */
 export function AiMessageList({
   messages,
   isLoading,
