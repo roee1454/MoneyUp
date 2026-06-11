@@ -5,6 +5,9 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+/**
+ * Database Entity representing the Vault table/collection.
+ */
 @Entity('vault')
 export class VaultEntity {
   @PrimaryGeneratedColumn('uuid')

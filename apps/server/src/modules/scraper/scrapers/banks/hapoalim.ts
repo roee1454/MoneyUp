@@ -9,6 +9,9 @@ import {
 } from 'israeli-bank-scrapers';
 import { ScraperResponse } from '@money-up/types';
 
+/**
+ * Class representing HapoalimScraper.
+ */
 @Injectable()
 export class HapoalimScraper extends BaseScraper {
   constructor(

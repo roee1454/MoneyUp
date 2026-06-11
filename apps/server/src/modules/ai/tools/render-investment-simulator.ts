@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for RenderInvestmentSimulator.
+ */
 @Injectable()
 export class RenderInvestmentSimulatorRunner implements ToolRunner {
   readonly name = 'render_investment_simulator';

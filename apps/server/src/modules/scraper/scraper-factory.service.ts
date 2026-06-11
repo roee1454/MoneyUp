@@ -7,6 +7,9 @@ import { IsracardScraper } from './scrapers/credit/isracard';
 import { CalScraper } from './scrapers/credit/cal';
 import { BaseScraper } from './scrapers/base';
 
+/**
+ * Class representing ScraperFactory.
+ */
 @Injectable()
 export class ScraperFactory {
   constructor(

@@ -3,6 +3,9 @@ import { ScraperService } from '../../scraper/scraper.service';
 
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for GetSpendingSummary.
+ */
 @Injectable()
 export class GetSpendingSummaryRunner implements ToolRunner {
   readonly name = 'get_spending_summary';

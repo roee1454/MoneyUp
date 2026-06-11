@@ -7,6 +7,9 @@ import {
   Index,
 } from 'typeorm';
 
+/**
+ * Database Entity representing the Conversation table/collection.
+ */
 @Entity('conversations')
 @Index(['userId', 'updatedAt'])
 export class ConversationEntity {

@@ -5,8 +5,14 @@ import { User } from './entities/user.entity';
 import { ConversationEntity } from './entities/conversation.entity';
 import { MessageEntity, MessageRole } from './entities/message.entity';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
-import { decrypt, encrypt } from './utils/crypto';
+import { encryptUserConfig as encrypt, decryptUserConfig as decrypt } from '../../utils/crypto.utils';
+import { AgentProvider } from '@money-up/common';
 
+/**
+ * Service managing user profiles, configurations, and chat session histories.
+ * Handles credential encryption, lock/unlock keys via scrypt, AI provider details,
+ * and database storage for conversations and message logs.
+ */
 @Injectable()
 export class UsersService {
   constructor(
@@ -18,6 +24,14 @@ export class UsersService {
     private readonly messageRepository: Repository<MessageEntity>,
   ) {}
 
+  /**
+   * Creates a new user profile with optional security locking.
+   * Checks for duplicate usernames and emails.
+   *
+   * @param data Details including username, email, optional lock profile settings, and unlockKey passcode.
+   * @returns Promise<User> The created user entity.
+   * @throws Error if email or username is already taken, or if passcode requirements are not met.
+   */
   async create(data: {
     username: string;
     email: string;
@@ -69,10 +83,21 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
+  /**
+   * Fetches all registered users from the database.
+   *
+   * @returns Promise<User[]> Array of user entities.
+   */
   async findAll(): Promise<User[]> {
     return this.userRepository.find();
   }
 
+  /**
+   * Finds a single user by ID and calculates their configured AI providers.
+   *
+   * @param id The user ID to retrieve.
+   * @returns Promise<User & { configuredProviders: string[] }> The user details with configured provider flags, or null if not found.
+   */
   async findOne(
     id: string,
   ): Promise<(User & { configuredProviders: string[] }) | null> {
@@ -89,6 +114,14 @@ export class UsersService {
     return { ...user, configuredProviders };
   }
 
+  /**
+   * Updates partial metadata fields on the user profile.
+   *
+   * @param id User ID to update.
+   * @param data Configuration overrides (e.g., scraper retry limits, cooldown).
+   * @returns Promise<User> The updated user entity.
+   * @throws NotFoundException if user is not found.
+   */
   async update(
     id: string,
     data: Partial<{
@@ -106,11 +139,25 @@ export class UsersService {
     return updated;
   }
 
+  /**
+   * Deletes a user by ID.
+   *
+   * @param id User ID to remove.
+   * @returns Promise<{ deleted: boolean }>
+   */
   async remove(id: string): Promise<{ deleted: boolean }> {
     await this.userRepository.delete(id);
     return { deleted: true };
   }
 
+  /**
+   * Deletes a user profile with email validation protection.
+   *
+   * @param id User ID to delete.
+   * @param confirmationEmail Confirmation text representing the user email.
+   * @returns Promise<{ deleted: boolean }>
+   * @throws NotFoundException if user is not found, or Error if email confirmation mismatch.
+   */
   async deleteWithConfirmation(
     id: string,
     confirmationEmail: string,
@@ -124,6 +171,13 @@ export class UsersService {
     return { deleted: true };
   }
 
+  /**
+   * Verifies the user unlock key (passcode) using timing-safe scrypt validation.
+   *
+   * @param id User ID.
+   * @param unlockKey Raw passcode string to test.
+   * @returns Promise<{ valid: boolean }>
+   */
   async verifyUnlockKey(
     id: string,
     unlockKey: string,
@@ -142,13 +196,21 @@ export class UsersService {
     return { valid: timingSafeEqual(left, right) };
   }
 
+  /**
+   * Saves or updates an AI configuration block for the user.
+   * Automatically encrypts the API key before DB storage.
+   *
+   * @param id User ID.
+   * @param data Provider details, api keys, and preset configurations.
+   * @returns Promise<User> The updated user entity.
+   */
   async saveAiConfig(
     id: string,
     data: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: AgentProvider;
       apiKey: string;
       preferredModel: string;
-      activeProvider?: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      activeProvider?: AgentProvider;
       config?: {
         model: string;
         preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
@@ -190,9 +252,16 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
+  /**
+   * Deletes the configured AI provider credentials and keys for a user.
+   *
+   * @param id User ID.
+   * @param provider The target AI provider to wipe.
+   * @returns Promise<User> The updated user entity.
+   */
   async deleteAiProvider(
     id: string,
-    provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
+    provider: AgentProvider,
   ): Promise<User> {
     const user = await this.findOne(id);
     if (!user) {
@@ -218,10 +287,18 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
+  /**
+   * Retrieves the decrypted AI configurations and API keys for a user.
+   * Wipes temporary or dummy keys ('***') from display results.
+   *
+   * @param id User ID.
+   * @returns AI configurations, preferred model name, active provider, and decrypted API keys dictionary.
+   * @throws NotFoundException if user is not found.
+   */
   async getAiConfig(id: string): Promise<{
-    activeAiProvider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter' | null;
+    activeAiProvider: AgentProvider | null;
     preferredModel: string | null;
-    configuredProviders: Array<'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter'>;
+    configuredProviders: Array<AgentProvider>;
     aiProviderConfigs: Record<string, any> | null;
     forceMarkdown: boolean;
     decryptedApiKey: string | null;
@@ -232,7 +309,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const configuredProviders: Array<'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter'> = [];
+    const configuredProviders: Array<AgentProvider> = [];
     const decryptedApiKeys: Record<string, string | null> = {};
     let decryptedApiKey: string | null = null;
 
@@ -285,7 +362,7 @@ export class UsersService {
 
     return {
       activeAiProvider:
-        (user.activeAiProvider as 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter' | null) ??
+        (user.activeAiProvider as AgentProvider | null) ??
         null,
       preferredModel: user.preferredModel,
       configuredProviders,
@@ -296,6 +373,13 @@ export class UsersService {
     };
   }
 
+  /**
+   * Toggles the force markdown flag inside user AI settings.
+   *
+   * @param id User ID.
+   * @param forceMarkdown Set true to mandate markdown response format.
+   * @returns Promise<User> The updated user entity.
+   */
   async updateAiSettings(id: string, forceMarkdown: boolean): Promise<User> {
     const user = await this.findOne(id);
     if (!user) {
@@ -309,6 +393,14 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
+  /**
+   * Saves scraper operational configurations for the user.
+   * Imposes safe min/max bounds on retry counts and cooldown ranges.
+   *
+   * @param id User ID.
+   * @param data Retry limits, auto sync cooldown periods, and timeout parameters.
+   * @returns Promise<User> The updated user entity.
+   */
   async saveScraperSettings(
     id: string,
     data: {
@@ -363,7 +455,12 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
-  // AI Conversation Management
+  /**
+   * Fetches all chat conversations belonging to a user, sorted by update date descending.
+   *
+   * @param userId User ID.
+   * @returns Promise<ConversationEntity[]> List of conversations.
+   */
   async getConversations(userId: string): Promise<ConversationEntity[]> {
     return this.conversationRepository.find({
       where: { userId },
@@ -371,6 +468,14 @@ export class UsersService {
     });
   }
 
+  /**
+   * Retrieves a single conversation metadata along with its chronological messages list.
+   *
+   * @param userId User ID.
+   * @param conversationId Target conversation ID.
+   * @returns Promise with conversation details and messages.
+   * @throws NotFoundException if the conversation does not exist or belong to the user.
+   */
   async getConversation(
     userId: string,
     conversationId: string,
@@ -388,6 +493,13 @@ export class UsersService {
     return { conversation, messages };
   }
 
+  /**
+   * Creates a new chat conversation session.
+   *
+   * @param userId Target user ID.
+   * @param title Title of the conversation.
+   * @returns Promise<ConversationEntity>
+   */
   async createConversation(
     userId: string,
     title: string,
@@ -402,6 +514,17 @@ export class UsersService {
     return this.conversationRepository.save(conversation);
   }
 
+  /**
+   * Appends a new message log to a conversation session and updates the conversation's updatedAt timestamp.
+   *
+   * @param userId The ID of the conversation owner.
+   * @param conversationId Target conversation ID.
+   * @param role The message sender role ('system', 'user', 'assistant', 'tool').
+   * @param content Message text contents.
+   * @param tool_calls Optional array of tool calls generated by the model.
+   * @param tool_call_id Optional tool call reference identifier.
+   * @returns Promise<MessageEntity> The persisted message log entity.
+   */
   async addMessage(
     userId: string,
     conversationId: string,
@@ -432,6 +555,13 @@ export class UsersService {
     return message;
   }
 
+  /**
+   * Deletes a conversation session along with all its associated message records.
+   *
+   * @param userId Target user ID.
+   * @param conversationId Conversation ID to remove.
+   * @returns Promise<{ success: boolean }>
+   */
   async deleteConversation(
     userId: string,
     conversationId: string,
@@ -449,6 +579,15 @@ export class UsersService {
     return { success: true };
   }
 
+  /**
+   * Truncates a conversation session history by deleting a target message and all subsequent messages.
+   * Useful for rewinding conversation flow.
+   *
+   * @param userId User ID.
+   * @param conversationId Target conversation ID.
+   * @param messageId The ID of the message to truncate from.
+   * @returns Promise<{ success: boolean }>
+   */
   async truncateConversationAtMessage(
     userId: string,
     conversationId: string,

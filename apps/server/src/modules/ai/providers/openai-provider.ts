@@ -4,6 +4,9 @@ import { AIProvider, PromptOptions } from './ai-provider';
 import { OpenAiModels } from '@money-up/common';
 import { AiMessage, StructuredResponse } from '@money-up/types';
 
+/**
+ * Class representing OpenAIProvider.
+ */
 export class OpenAIProvider extends AIProvider {
   private readonly baseUrl = 'https://api.openai.com/v1';
 

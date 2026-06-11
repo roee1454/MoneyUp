@@ -6,6 +6,9 @@ import { AiService } from '../ai.service';
 import { ToolRunner, ToolRegistry } from './tool-registry';
 import { UserAiConfig } from '../../../types/gateway.types';
 
+/**
+ * AI Tool Runner executing tasks for FindMerchants.
+ */
 @Injectable()
 export class FindMerchantsRunner implements ToolRunner {
   readonly name = 'find_merchants_by_topic';

@@ -7,6 +7,9 @@ import {
   Index,
 } from 'typeorm';
 
+/**
+ * Database Entity representing the MerchantAnnotation table/collection.
+ */
 @Entity('merchant_annotations')
 export class MerchantAnnotationEntity {
   @PrimaryGeneratedColumn('uuid')

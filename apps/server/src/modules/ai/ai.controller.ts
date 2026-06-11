@@ -13,10 +13,14 @@ import {
 import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { AgentProvider } from '@money-up/common';
 import { requireSessionUserId } from '../../utils/auth.utils';
 import { AiService } from './ai.service';
 import { UsersService } from '../users/users.service';
 
+/**
+ * NestJS Controller handling incoming HTTP requests for Ai.
+ */
 @Controller('ai')
 export class AiController {
   constructor(
@@ -99,7 +103,7 @@ export class AiController {
   async verifyAiConnection(
     @Body()
     payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: AgentProvider;
       apiKey: string;
     },
   ) {
@@ -113,7 +117,7 @@ export class AiController {
   @Get('models')
   async listAiModels(
     @Query('provider')
-    provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
+    provider: AgentProvider,
     @Query('apiKey') apiKey?: string,
     @Req() request?: Request,
   ) {
@@ -132,7 +136,7 @@ export class AiController {
   async listAiModelsPost(
     @Body()
     payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: AgentProvider;
       apiKey?: string;
     },
     @Req() request?: Request,
@@ -153,7 +157,7 @@ export class AiController {
     @Req() request: Request,
     @Body()
     payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: AgentProvider;
       model: string;
       messages: any[];
       conversationId?: string;
@@ -178,7 +182,7 @@ export class AiController {
     @Req() request: Request,
     @Body()
     payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: AgentProvider;
       model: string;
       messages: any[];
       conversationId?: string;

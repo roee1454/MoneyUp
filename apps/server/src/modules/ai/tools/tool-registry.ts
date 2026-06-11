@@ -5,6 +5,9 @@ export interface ToolRunner {
   execute(userId: string, args: any, context?: { provider: string; model: string }): Promise<any>;
 }
 
+/**
+ * Class representing ToolRegistry.
+ */
 @Injectable()
 export class ToolRegistry {
   private readonly runners = new Map<string, ToolRunner>();

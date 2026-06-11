@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for SearchWeb.
+ */
 @Injectable()
 export class SearchWebRunner implements ToolRunner {
   readonly name = 'search_web';

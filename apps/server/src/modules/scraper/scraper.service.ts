@@ -11,14 +11,20 @@ import { ScraperCredentials } from 'israeli-bank-scrapers';
 import { randomUUID } from 'crypto';
 import type { UnifiedTransaction, ScanIncomeRequest } from '@money-up/types';
 import { getTodayUtcDateString } from './utils/date.utils';
+import {
+  normalizeCredentials,
+  validateCredentials,
+} from './helpers/scraper-credentials.helper';
+import {
+  PublicScraperErrorCode,
+  normalizeScraperError,
+  buildSanitizedError,
+} from './helpers/scraper-error.helper';
 
-type PublicScraperErrorCode =
-  | 'INVALID_CREDENTIALS'
-  | 'CHALLENGE_FAILED'
-  | 'BANK_UNAVAILABLE'
-  | 'SESSION_EXPIRED'
-  | 'UNKNOWN_CONNECT_ERROR';
-
+/**
+ * Service orchestrating bank and credit card scraper operations.
+ * Handles the session lifecycle, challenge verification, background scraping, and accounts synchronization.
+ */
 @Injectable()
 export class ScraperService {
   /** Tracks userIds that currently have a sync_accounts call in flight.
@@ -86,16 +92,16 @@ export class ScraperService {
         };
       }
 
-      const normalizedCredentials = this.normalizeCredentials(
+      const normalizedCredentials = normalizeCredentials(
         bankId,
         data.credentials as Record<string, string>,
       );
-      const validationError = this.validateCredentials(
+      const validationError = validateCredentials(
         bankId,
         normalizedCredentials,
       );
       if (validationError) {
-        const sanitized = this.buildSanitizedError('INVALID_CREDENTIALS');
+        const sanitized = buildSanitizedError('INVALID_CREDENTIALS');
         return {
           status: 'FAILED',
           errorCode: sanitized.code,
@@ -133,7 +139,7 @@ export class ScraperService {
       };
     } catch (err: any) {
       console.error('[scrapeAndConnect] Immediate failure:', err);
-      const sanitized = this.buildSanitizedError('UNKNOWN_CONNECT_ERROR');
+      const sanitized = buildSanitizedError('UNKNOWN_CONNECT_ERROR');
       return {
         status: 'FAILED',
         errorCode: sanitized.code,
@@ -243,7 +249,7 @@ export class ScraperService {
           `[scrapeAndConnect] Scraper reported failure for ${bankId}:`,
           response.error,
         );
-        const sanitized = this.normalizeScraperError(response.error);
+        const sanitized = normalizeScraperError(response.error);
         await this.credentialsService.markConnectionFailed(
           userId,
           bankId,
@@ -262,7 +268,7 @@ export class ScraperService {
         `[scrapeAndConnect] Unexpected error during background scrape for ${bankId}:`,
         err,
       );
-      const sanitized = this.normalizeScraperError(raw);
+      const sanitized = normalizeScraperError(raw);
       await this.credentialsService.markConnectionFailed(userId, bankId, raw);
       this.sessionService.updateSession(sessionId, {
         status: 'FAILED',
@@ -276,7 +282,7 @@ export class ScraperService {
   async getScraperStatus(data: { sessionId: string }): Promise<any> {
     const session = this.sessionService.getSession(data.sessionId);
     if (!session) {
-      const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
+      const sanitized = buildSanitizedError('SESSION_EXPIRED');
       return {
         status: 'FAILED',
         errorCode: sanitized.code,
@@ -301,7 +307,7 @@ export class ScraperService {
   }): Promise<any> {
     const session = this.sessionService.getSession(data.sessionId);
     if (!session) {
-      const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
+      const sanitized = buildSanitizedError('SESSION_EXPIRED');
       return {
         status: 'FAILED',
         errorCode: sanitized.code,
@@ -309,7 +315,7 @@ export class ScraperService {
       };
     }
     if (session.status !== 'CHALLENGE_REQUIRED') {
-      const sanitized = this.buildSanitizedError('SESSION_EXPIRED');
+      const sanitized = buildSanitizedError('SESSION_EXPIRED');
       return {
         status: 'FAILED',
         errorCode: sanitized.code,
@@ -323,7 +329,7 @@ export class ScraperService {
       });
       return { status: 'PROCESSING' };
     }
-    const sanitized = this.buildSanitizedError('CHALLENGE_FAILED');
+    const sanitized = buildSanitizedError('CHALLENGE_FAILED');
     return {
       status: 'FAILED',
       errorCode: sanitized.code,
@@ -574,156 +580,4 @@ export class ScraperService {
     return { success: true };
   }
 
-  private normalizeCredentials(
-    bankId: string,
-    credentials: Record<string, string>,
-  ): Record<string, string> {
-    if (
-      bankId === 'hapoalim' &&
-      credentials.username &&
-      !credentials.userCode
-    ) {
-      return {
-        ...credentials,
-        userCode: credentials.username,
-      };
-    }
-
-    if (
-      (bankId === 'leumi' || bankId === 'yahav') &&
-      credentials.id &&
-      !credentials.nationalID
-    ) {
-      return {
-        ...credentials,
-        nationalID: credentials.id,
-      };
-    }
-
-    return credentials;
-  }
-
-  private validateCredentials(
-    bankId: string,
-    credentials: Record<string, string>,
-  ): string | null {
-    const isMissing = (value: string | undefined) =>
-      !value || value.trim().length === 0;
-
-    if (bankId === 'hapoalim') {
-      if (isMissing(credentials.userCode) || isMissing(credentials.password)) {
-        return "Missing required hapoalim credentials. Expected 'userCode' and 'password'.";
-      }
-    }
-
-    if (bankId === 'leumi') {
-      if (isMissing(credentials.username) || isMissing(credentials.password)) {
-        return "Missing required leumi credentials. Expected 'username' and 'password'.";
-      }
-    }
-
-    if (bankId === 'yahav') {
-      if (
-        isMissing(credentials.username) ||
-        isMissing(credentials.password) ||
-        (isMissing(credentials.nationalID) && isMissing(credentials.id))
-      ) {
-        return "Missing required yahav credentials. Expected 'username', 'password', and 'nationalID'.";
-      }
-    }
-
-    if (bankId === 'max') {
-      if (isMissing(credentials.username) || isMissing(credentials.password)) {
-        return "Missing required max credentials. Expected 'username' and 'password'.";
-      }
-    }
-
-    if (bankId === 'cal') {
-      if (isMissing(credentials.username) || isMissing(credentials.password)) {
-        return "Missing required cal credentials. Expected 'username' and 'password'.";
-      }
-    }
-
-    if (bankId === 'isracard') {
-      if (
-        isMissing(credentials.id) ||
-        isMissing(credentials.card6Digits) ||
-        isMissing(credentials.password)
-      ) {
-        return "Missing required isracard credentials. Expected 'id', 'card6Digits', and 'password'.";
-      }
-    }
-
-    return null;
-  }
-
-  private normalizeScraperError(rawError?: string): {
-    code: PublicScraperErrorCode;
-    message: string;
-  } {
-    const text = (rawError || '').toLowerCase();
-
-    if (
-      text.includes('invalid_credentials') ||
-      text.includes('invalid credentials') ||
-      text.includes('wrong password') ||
-      text.includes('שם משתמש או סיסמה') ||
-      text.includes('usercode') ||
-      text.includes('password') ||
-      text.includes('פרטים שגויים')
-    ) {
-      return this.buildSanitizedError('INVALID_CREDENTIALS');
-    }
-
-    if (
-      text.includes('otp') ||
-      text.includes('challenge') ||
-      text.includes('sms code') ||
-      text.includes('קוד אימות')
-    ) {
-      return this.buildSanitizedError('CHALLENGE_FAILED');
-    }
-
-    if (
-      text.includes('timeout') ||
-      text.includes('econnreset') ||
-      text.includes('enotfound') ||
-      text.includes('navigation') ||
-      text.includes('bank unavailable') ||
-      text.includes('block automation') ||
-      text.includes('cloudflare') ||
-      text.includes('waf') ||
-      text.includes('sorry, you have been blocked') ||
-      text.includes('access denied') ||
-      text.includes('מזיהוי אוטומטי')
-    ) {
-      return this.buildSanitizedError('BANK_UNAVAILABLE');
-    }
-
-    return this.buildSanitizedError('UNKNOWN_CONNECT_ERROR');
-  }
-
-  private buildSanitizedError(code: PublicScraperErrorCode): {
-    code: PublicScraperErrorCode;
-    message: string;
-  } {
-    switch (code) {
-      case 'INVALID_CREDENTIALS':
-        return { code, message: 'שם משתמש או סיסמה אינם נכונים' };
-      case 'CHALLENGE_FAILED':
-        return { code, message: 'קוד האימות שגוי' };
-      case 'BANK_UNAVAILABLE':
-        return {
-          code,
-          message: 'שירות הבנק לא זמין כרגע. נסה שוב בעוד כמה דקות.',
-        };
-      case 'SESSION_EXPIRED':
-        return { code, message: 'פג תוקף הסשן. התחל מחדש את תהליך החיבור.' };
-      default:
-        return {
-          code: 'UNKNOWN_CONNECT_ERROR',
-          message: 'ההתחברות נכשלה. נסה שוב.',
-        };
-    }
-  }
 }

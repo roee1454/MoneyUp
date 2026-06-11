@@ -35,6 +35,11 @@ type SyncListener = (event: string, snapshot: SyncJobSnapshot) => void;
 import { ScraperService } from '../scraper/scraper.service';
 import { UsersService } from '../users/users.service';
 
+/**
+ * Service orchestrating scraping synchronization jobs for users.
+ * Manages active job state snapshots, progress tickers, job streams (RxJS Subjects),
+ * listener callbacks, and auto-sync rate-limiting cooldown blocks.
+ */
 @Injectable()
 export class SyncJobService {
   private readonly defaultInitialAutoSyncCooldownMs = 30 * 60 * 1000;
@@ -49,6 +54,12 @@ export class SyncJobService {
     private readonly usersService: UsersService,
   ) {}
 
+  /**
+   * Generates a default static snapshot representing an idle sync job.
+   *
+   * @param source The sync job trigger source ('initial' or 'manual').
+   * @returns SyncJobSnapshot representing the idle status.
+   */
   getIdleSnapshot(source: 'initial' | 'manual' = 'manual'): SyncJobSnapshot {
     const now = new Date().toISOString();
     return {
@@ -64,15 +75,36 @@ export class SyncJobService {
     };
   }
 
+  /**
+   * Retrieves the current sync job snapshot for a user, decorated with cooldown stats.
+   *
+   * @param userId Target user ID.
+   * @returns SyncJobSnapshot representing the current job state.
+   */
   getSnapshot(userId: string): SyncJobSnapshot {
     const snapshot = this.syncJobs.get(userId) ?? this.getIdleSnapshot();
     return this.decorateSnapshotWithCooldown(userId, snapshot);
   }
 
+  /**
+   * Checks whether a user currently has an active, running sync job.
+   *
+   * @param userId Target user ID.
+   * @returns True if job status is 'running', false otherwise.
+   */
   isRunning(userId: string): boolean {
     return this.syncJobs.get(userId)?.status === 'running';
   }
 
+  /**
+   * Evaluates if a user is permitted to auto-start an initial scraping job.
+   * Checks if an active cooldown block exists.
+   *
+   * @param userId Target user ID.
+   * @param startDate Optional sync start boundary.
+   * @param endDate Optional sync end boundary.
+   * @returns True if allowed to trigger immediately, false if blocked by cooldown.
+   */
   canAutoStartInitial(
     userId: string,
     startDate?: string,
@@ -88,6 +120,9 @@ export class SyncJobService {
     return false;
   }
 
+  /**
+   * Registers a cooldown block on initial auto-sync attempts after a scraping failure.
+   */
   private markInitialAutoSyncFailure(
     userId: string,
     startDate?: string,
@@ -101,6 +136,9 @@ export class SyncJobService {
     );
   }
 
+  /**
+   * Wipes any existing auto-sync cooldown blocks for a user.
+   */
   private clearInitialAutoSyncFailure(
     userId: string,
     startDate?: string,
@@ -110,6 +148,9 @@ export class SyncJobService {
     this.initialAutoSyncBlockedUntil.delete(key);
   }
 
+  /**
+   * Formulates a unique tracking key for initial auto-sync tasks.
+   */
   private buildInitialAutoSyncKey(
     userId: string,
     startDate?: string,
@@ -118,6 +159,9 @@ export class SyncJobService {
     return `${userId}|${startDate ?? ''}|${endDate ?? ''}`;
   }
 
+  /**
+   * Resolves timestamps for active cooldown periods on auto-sync tasks.
+   */
   private getInitialAutoSyncCooldownInfo(
     userId: string,
     startDate?: string,
@@ -137,6 +181,9 @@ export class SyncJobService {
     };
   }
 
+  /**
+   * Injects cooldown meta details into a target sync job snapshot.
+   */
   private decorateSnapshotWithCooldown(
     userId: string,
     snapshot: SyncJobSnapshot,
@@ -168,6 +215,14 @@ export class SyncJobService {
     };
   }
 
+  /**
+   * Subscribes an RxJS Subject to receive real-time sync progress updates for a user.
+   * Immediately delivers the latest state snapshot to the stream.
+   *
+   * @param userId Target user ID.
+   * @param stream The RxJS Subject to push updates into.
+   * @returns Unsubscribe function to clean up connection.
+   */
   subscribeStream(userId: string, stream: Subject<MessageEvent>): () => void {
     const streams =
       this.syncStreams.get(userId) ?? new Set<Subject<MessageEvent>>();
@@ -189,6 +244,14 @@ export class SyncJobService {
     };
   }
 
+  /**
+   * Registers a callback listener to trace sync progress snapshots for a user.
+   * Immediately invokes the callback with the latest snapshot.
+   *
+   * @param userId Target user ID.
+   * @param listener Callback function receiving event name and snapshot object.
+   * @returns Unsubscribe function to clean up listener.
+   */
   subscribeListener(userId: string, listener: SyncListener): () => void {
     const listeners = this.syncListeners.get(userId) ?? new Set<SyncListener>();
     listeners.add(listener);
@@ -205,6 +268,15 @@ export class SyncJobService {
     };
   }
 
+  /**
+   * Starts a new synchronization job for a user or returns the existing running job if one is already in flight.
+   *
+   * @param userId Target user ID.
+   * @param source Sync trigger mode ('initial' or 'manual').
+   * @param startDate Optional range start date.
+   * @param endDate Optional range end date.
+   * @returns Object containing the sync snapshot and a reused boolean flag.
+   */
   startOrReuseSyncJob(
     userId: string,
     source: 'initial' | 'manual',
@@ -280,6 +352,15 @@ export class SyncJobService {
     }
   }
 
+  /**
+   * Applies updates to a user's running or completed sync job state.
+   * Automatically updates the updatedAt timestamp and broadcasts updates to subscribers.
+   *
+   * @param userId Target user ID.
+   * @param patch The partial snapshot state changes.
+   * @param event The event code (defaults to 'job_update').
+   * @returns SyncJobSnapshot The complete updated snapshot state.
+   */
   patchSyncJob(
     userId: string,
     patch: Partial<SyncJobSnapshot>,
@@ -315,6 +396,14 @@ export class SyncJobService {
     return () => clearInterval(timer);
   }
 
+  /**
+   * Executes the asynchronous processing pipeline for a synchronization job.
+   * Orchestrates the phases sequentially:
+   * 1. 'initializing': queries active connections count.
+   * 2. 'syncing_scrapers': calls ScraperService.syncAccounts to login and scrape new transactions.
+   * 3. 'recomputing_spending': recalculates category aggregates.
+   * 4. 'finalizing': updates cooldowns and concludes state to 'done' or 'failed'.
+   */
   private async runSyncJob(userId: string): Promise<void> {
     const existing = this.syncJobs.get(userId);
     const syncSource = existing?.source ?? 'manual';

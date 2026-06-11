@@ -19,6 +19,7 @@ export interface SessionState {
     | 'CHALLENGE_FAILED'
     | 'BANK_UNAVAILABLE'
     | 'SESSION_EXPIRED'
+    | 'AUTOMATION_BLOCKED'
     | 'UNKNOWN_CONNECT_ERROR'
     | 'ACCOUNT_ALREADY_CONNECTED';
   internalErrorRaw?: string;

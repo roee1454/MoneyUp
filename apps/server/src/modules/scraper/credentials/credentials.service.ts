@@ -2,8 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { VaultEntity } from '../entities/vault.entity';
-import { encrypt, decrypt } from '../utils/crypto';
+import { encryptVault as encrypt, decryptVault as decrypt } from '../../../utils/crypto.utils';
 
+/**
+ * Service providing business logic and database access for Credentials.
+ */
 @Injectable()
 export class CredentialsService {
   constructor(

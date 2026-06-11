@@ -10,8 +10,12 @@ import {
 import { Request } from 'express';
 import { SpendingService } from './spending.service';
 import { SpendingScansResponse } from '../../types/gateway.types';
+import { AgentProvider } from '@money-up/common';
 import { requireSessionUserId } from '../../utils/auth.utils';
 
+/**
+ * NestJS Controller handling incoming HTTP requests for Spending.
+ */
 @Controller('spending')
 export class SpendingController {
   constructor(private readonly spendingService: SpendingService) {}
@@ -62,7 +66,7 @@ export class SpendingController {
       period?: 'current' | 'previous' | 'both';
       startDate?: string;
       endDate?: string;
-      provider?: 'openai' | 'claude' | 'gemini';
+      provider?: AgentProvider;
       model?: string;
     },
   ): Promise<SpendingScansResponse> {

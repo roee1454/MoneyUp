@@ -9,6 +9,7 @@ import {
   AI_TOOLS,
   MERCHANT_CATEGORIZATION_RULES,
   EXPENSE_CATEGORIES,
+  AgentProvider,
 } from '@money-up/common';
 import { UsersService } from '../users/users.service';
 
@@ -19,8 +20,13 @@ import { GeminiProvider } from './providers/gemini-provider';
 import { OllamaProvider } from './providers/ollama-provider';
 import { OpenRouterProvider } from './providers/openrouter-provider';
 
-type ProviderName = 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+type ProviderName = AgentProvider;
 
+/**
+ * AI Service managing connections to various LLM API providers.
+ * Resolves user credentials, injects context-specific financial instruction rules,
+ * invokes agents with tools, and manages real-time streaming chat loops.
+ */
 @Injectable()
 export class AiService {
   constructor(
@@ -29,6 +35,15 @@ export class AiService {
     private readonly toolRegistry: ToolRegistry,
   ) {}
 
+  /**
+   * Instantiates the specified AI provider with an API key.
+   * Prioritizes user-configured overrides, falling back to server environment variables.
+   *
+   * @param providerName The target provider identifier ('openai', 'claude', 'gemini', 'ollama', or 'openrouter').
+   * @param customApiKey Optional raw API key to override global config.
+   * @returns An instance of the AIProvider wrapper class.
+   * @throws InternalServerErrorException if the required API key is missing or the provider is unsupported.
+   */
   getProvider(providerName: ProviderName, customApiKey?: string): AIProvider {
     let apiKey =
       customApiKey ||
@@ -62,6 +77,18 @@ export class AiService {
     }
   }
 
+  /**
+   * Executes a non-streaming prompting session with the AI.
+   * Runs an agentic loop (up to 5 iterations) to resolve any tool calls made by the model,
+   * executes those tools locally using the ToolRegistry, feeds the outputs back to the model,
+   * and persists conversation history in the database.
+   *
+   * @param userId The ID of the user triggering the request.
+   * @param resolved The pre-resolved payload containing AI settings and messages.
+   * @param conversationId Optional conversation ID to persist messages in history.
+   * @returns Promise<{ text: string }> containing the final text response from the model.
+   * @throws Error if the agentic loop iteration limit is reached.
+   */
   async promptNonStream(
     userId: string,
     resolved: any,
@@ -152,6 +179,19 @@ export class AiService {
     throw new Error('AI loop iteration limit reached');
   }
 
+  /**
+   * Runs the real-time streaming agentic prompt loop.
+   * Streams token-by-token responses to the user subscriber.
+   * If the model requests a tool call, intercepts the stream, executes the tool,
+   * adds the tool response to the history, and resumes streaming/reasoning.
+   *
+   * @param subscriber Subscriber to stream token updates back to.
+   * @param userId The ID of the user requesting the prompt.
+   * @param resolvedPayload The payload containing provider, model, and message history.
+   * @param conversationId Optional conversation ID for database persistence.
+   * @param iteration Current depth of the agentic tool-execution recursive loop.
+   * @returns Promise<void>
+   */
   async runStreamLoop(
     subscriber: Subscriber<any>,
     userId: string,
@@ -309,9 +349,19 @@ export class AiService {
     });
   }
 
+  /**
+   * Resolves the complete AI request payload by loading user configuration overrides
+   * (e.g., active provider API keys, custom temperature, max tokens, stream options)
+   * and injecting the system instructions (Hebrew language rules, tool registry directions,
+   * bank/credit card semantic protocols, and investment simulation requirements).
+   *
+   * @param payload User configuration and current message history.
+   * @param request The incoming HTTP Express request (used to verify cookies and session token).
+   * @returns Promise<any> The augmented/resolved AI payload ready to be sent to a provider.
+   */
   async resolveAiPayload(
     payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: AgentProvider;
       model: string;
       messages: any[];
       apiKey?: string;
@@ -477,14 +527,22 @@ export class AiService {
     return resolvedPayload;
   }
 
+  /**
+   * Resolves the API payload used specifically to fetch models from the selected provider.
+   * Retrieves any decryped user API keys for authentication.
+   *
+   * @param payload Contains provider name and optional API key.
+   * @param request Incoming HTTP request to resolve user session and fetch config.
+   * @returns Promise<{ provider: ProviderName; apiKey?: string }> The resolved configuration object.
+   */
   async resolveAiModelsPayload(
     payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: AgentProvider;
       apiKey?: string;
     },
     request?: Request,
   ): Promise<{
-    provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+    provider: AgentProvider;
     apiKey?: string;
   }> {
     if (payload.apiKey) {

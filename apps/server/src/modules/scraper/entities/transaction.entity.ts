@@ -6,6 +6,9 @@ import {
   Index,
 } from 'typeorm';
 
+/**
+ * Database Entity representing the Transaction table/collection.
+ */
 @Entity('transaction')
 @Index(['userId', 'bankId', 'accountNumber'])
 export class TransactionEntity {

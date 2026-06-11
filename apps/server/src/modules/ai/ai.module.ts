@@ -39,4 +39,7 @@ import { MarketDataModule } from '../market-data/market-data.module';
   ],
   exports: [AiService],
 })
+/**
+ * NestJS Module configuring declarations and providers for Ai.
+ */
 export class AiModule {}

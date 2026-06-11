@@ -3,6 +3,10 @@ import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
+/**
+ * Main application component for the Tauri desktop application.
+ * Manages greeting inputs and interacts with the Tauri Rust backend commands.
+ */
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");

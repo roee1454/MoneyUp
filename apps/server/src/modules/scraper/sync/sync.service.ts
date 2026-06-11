@@ -31,6 +31,11 @@ const LIBRARY_SCRAPER_KEY_BY_BANK_ID: Record<string, string> = {
   cal: 'visaCal',
 };
 
+/**
+ * Service orchestrating batch scraper synchronization runs for users.
+ * Resolves dates, checks cached transaction coverage maps to identify delta ranges,
+ * launches Puppeteer instances in batch or shared modes, and updates user scrapers status.
+ */
 @Injectable()
 export class SyncService implements OnModuleDestroy {
   private activeSharedBrowser: any = null;
@@ -45,6 +50,12 @@ export class SyncService implements OnModuleDestroy {
     private readonly configService: ConfigService,
   ) {}
 
+  /**
+   * Fetches metadata for all enabled financial institutions supported by the scraper.
+   * Maps local config mappings to the underlying library's login field requirements.
+   *
+   * @returns Array of supported scraper details (id, name, englishName, loginFields, enabled, type).
+   */
   getScrapersList(): any[] {
     const list = Object.entries(SCRAPERS_METADATA).map(([key, meta]) => {
       const libraryKey = LIBRARY_SCRAPER_KEY_BY_BANK_ID[key] ?? key;
@@ -63,6 +74,12 @@ export class SyncService implements OnModuleDestroy {
     return list.filter((s) => s.enabled);
   }
 
+  /**
+   * Resolves the absolute minimum lookback date allowed by the bank scraper policy.
+   *
+   * @param bankId Target financial institution identifier.
+   * @returns Date string in YYYY-MM-DD format.
+   */
   getMinimumStartDateForBank(bankId: string): string {
     const limit = SCRAPER_MIN_LOOKBACKS[String(bankId).toLowerCase()] ?? {
       years: 1,
@@ -70,6 +87,13 @@ export class SyncService implements OnModuleDestroy {
     return subtractUtcDate(new Date(), limit).toISOString().slice(0, 10);
   }
 
+  /**
+   * Clamps the requested start date to the maximum allowed lookback limit for the bank.
+   *
+   * @param bankId Target financial institution identifier.
+   * @param startDate The user-requested start date.
+   * @returns Clamped date string in YYYY-MM-DD format.
+   */
   clampStartDateForBank(bankId: string, startDate?: string): string {
     const requested = (
       startDate ?? subtractUtcDate(new Date(), { months: 6 }).toISOString()
@@ -78,6 +102,14 @@ export class SyncService implements OnModuleDestroy {
     return requested < minimum ? minimum : requested;
   }
 
+  /**
+   * Normalizes the requested date range, validating constraints and clamping boundaries.
+   *
+   * @param bankId Target financial institution identifier.
+   * @param startDate Optional range start date.
+   * @param endDate Optional range end date.
+   * @returns Object containing validated start and end date strings, or null if boundaries are invalid.
+   */
   normalizeRequestedRangeForBank(
     bankId: string,
     startDate?: string,
@@ -98,6 +130,13 @@ export class SyncService implements OnModuleDestroy {
     return { startDate: clampedStart, endDate: requestedEnd };
   }
 
+  /**
+   * Resolves a Date object representing the validated, clamped scrape start point.
+   *
+   * @param bankId Target financial institution identifier.
+   * @param startDate User-requested start date string.
+   * @returns Date object.
+   */
   resolveScrapeStartDate(bankId: string, startDate?: string): Date {
     const clampedStartDate = this.clampStartDateForBank(bankId, startDate);
     return toUtcDate(clampedStartDate);
@@ -480,6 +519,15 @@ export class SyncService implements OnModuleDestroy {
     }));
   }
 
+  /**
+   * Verifies if a specific date range is fully covered by existing scraped data
+   * for all connected accounts, preventing redundant scraper invocations.
+   *
+   * @param userId Target user ID.
+   * @param startDate Optional range start date.
+   * @param endDate Optional range end date.
+   * @returns Promise<boolean> True if the range is fully covered for all connections, false otherwise.
+   */
   async isRangeCoveredForAllConnections(
     userId: string,
     startDate?: string,

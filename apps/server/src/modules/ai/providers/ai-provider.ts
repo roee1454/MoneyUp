@@ -10,6 +10,9 @@ export interface PromptOptions {
   tools?: AiToolDefinition[];
 }
 
+/**
+ * Class representing AIProvider.
+ */
 export abstract class AIProvider {
   constructor(protected readonly apiKey: string) {}
 

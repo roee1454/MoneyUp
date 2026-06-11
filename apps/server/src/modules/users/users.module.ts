@@ -14,4 +14,7 @@ import { UsersController } from './users.controller';
   providers: [UsersService],
   exports: [UsersService],
 })
+/**
+ * NestJS Module configuring declarations and providers for Users.
+ */
 export class UsersModule {}

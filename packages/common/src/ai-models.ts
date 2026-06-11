@@ -1,10 +1,12 @@
-export const enum AgentProvider {
-  OpenAI = "openai",
-  Gemini = "gemini",
-  Claude = "claude",
-  OpenRouter = "openrouter",
-  Ollama = "ollama"
-}
+export const AgentProvider = {
+  OpenAI: "openai",
+  Gemini: "gemini",
+  Claude: "claude",
+  OpenRouter: "openrouter",
+  Ollama: "ollama"
+} as const;
+
+export type AgentProvider = typeof AgentProvider[keyof typeof AgentProvider];
 
 export const OpenAiModels = [
   'gpt-4o-mini',

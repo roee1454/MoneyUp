@@ -43,6 +43,9 @@ type ScraperSocket = {
     credentials: true,
   },
 })
+/**
+ * WebSocket Gateway managing real-time connections and events for ScraperSocket.
+ */
 export class ScraperSocketGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {

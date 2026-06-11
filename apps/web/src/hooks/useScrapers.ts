@@ -15,8 +15,15 @@ export type ScraperErrorCode =
   | 'CHALLENGE_FAILED'
   | 'BANK_UNAVAILABLE'
   | 'SESSION_EXPIRED'
+  | 'AUTOMATION_BLOCKED'
   | 'UNKNOWN_CONNECT_ERROR';
 
+/**
+ * Hook to fetch the list of supported financial institution scrapers.
+ *
+ * @param open Controls whether the query is enabled (active).
+ * @returns Query result containing the scraper list items.
+ */
 export function useScrapersList(open: boolean) {
   return useQuery({
     queryKey: ['scrapers'],
@@ -25,6 +32,12 @@ export function useScrapersList(open: boolean) {
   });
 }
 
+/**
+ * Hook to trigger detection of Chromium or other compatible local browsers on the system.
+ * Designed for manual triggering.
+ *
+ * @returns Query result containing browser detection details.
+ */
 export function useDetectChromium() {
   return useQuery({
     queryKey: ['detect-chromium'],
@@ -47,6 +60,12 @@ export function useDetectChromium() {
   });
 }
 
+/**
+ * Hook to initiate the automated background installation of minimal Chromium.
+ * Invalidates the browser detection query upon success.
+ *
+ * @returns Mutation helper to run and track the installation process.
+ */
 export function useInstallChromium() {
   const queryClient = useQueryClient();
   return useMutation({

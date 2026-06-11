@@ -2,6 +2,9 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { TradingViewService } from '../../market-data/tradingview.service';
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for GetTechnicalAnalysis.
+ */
 @Injectable()
 export class GetTechnicalAnalysisRunner implements ToolRunner {
   readonly name = 'get_technical_analysis';

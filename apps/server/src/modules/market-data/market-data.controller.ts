@@ -1,6 +1,9 @@
 import { Controller, Get, Inject, forwardRef } from '@nestjs/common';
 import { BrokerService } from '../broker/broker.service';
 
+/**
+ * NestJS Controller handling incoming HTTP requests for MarketData.
+ */
 @Controller('market-data')
 export class MarketDataController {
   constructor(

@@ -40,3 +40,18 @@ MoneyUp employs a modern, high-contrast, premium neo-brutalist aesthetic. Mainta
 4. **Responsive Layouts & RTL Positioning**:
    - The interface is styled with RTL (`dir="rtl"`). To avoid horizontal overflow scrollbugs on mobile viewports, do **NOT** use large negative absolute offsets relative to a full-width container (e.g. `w-full relative` with `absolute -left-10`).
    - Instead, wrap elements in responsive max-width flex bounds (such as `max-w-[85%] sm:max-w-[75%]`) and position context buttons relative to the inner flex boundaries.
+
+---
+
+## 3. Shared Packages (@packages) Architecture & Rules
+
+All shared code under the `packages/` directory must adhere to the modular boundaries and dependency rules defined in [packages/README.md](file:///home/eviltwin/Projects/MoneyUp/packages/README.md). Key constraints include:
+
+1. **Browser Safety for @money-up/common**:
+   - The universal package `@money-up/common` must remain browser-safe and framework-agnostic. It must never import backend-only NestJS dependencies or Node.js runtime globals.
+2. **NestJS Isolation in @money-up/common/backend**:
+   - NestJS exceptions, filters, and interceptors must be strictly mapped under the `./backend` subpath export and kept isolated from client bundles.
+3. **Workspace Resolution Only**:
+   - Applications must declare and import shared packages using the pnpm workspace protocol (`workspace:*`). Bypassing compile boundaries using raw typescript source file path aliases in production configs is prohibited.
+4. **Zero Circular Imports**:
+   - Shared packages must never import modules or configs from client or server applications (`apps/*`).

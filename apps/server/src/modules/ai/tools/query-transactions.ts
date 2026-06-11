@@ -3,6 +3,9 @@ import { ScraperService } from '../../scraper/scraper.service';
 
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for QueryTransactions.
+ */
 @Injectable()
 export class QueryTransactionsRunner implements ToolRunner {
   readonly name = 'query_transactions';

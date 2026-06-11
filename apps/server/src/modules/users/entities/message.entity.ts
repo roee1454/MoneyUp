@@ -8,6 +8,9 @@ import {
 
 export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
+/**
+ * Database Entity representing the Message table/collection.
+ */
 @Entity('messages')
 @Index(['conversationId', 'createdAt'])
 export class MessageEntity {

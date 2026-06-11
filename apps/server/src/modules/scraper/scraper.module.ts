@@ -73,4 +73,7 @@ import { ScraperSocketGateway } from './scraper-socket.gateway';
     ScraperFactory,
   ],
 })
+/**
+ * NestJS Module configuring declarations and providers for Scraper.
+ */
 export class ScraperModule {}

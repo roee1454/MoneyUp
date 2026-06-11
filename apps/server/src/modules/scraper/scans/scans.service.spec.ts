@@ -88,7 +88,7 @@ describe('ScansService scanIncome', () => {
     expect(result.totalExpenses).toBe(150);
     expect(result.totalBalance).toBe(14500);
     expect(result.categories).toEqual([
-      { name: 'מותרות', amount: 150, count: 1 },
+      { name: 'בילוי', amount: 150, count: 1 },
     ]);
   });
 

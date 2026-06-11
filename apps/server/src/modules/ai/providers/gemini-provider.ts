@@ -3,6 +3,9 @@ import type { ReadableStream } from 'node:stream/web';
 import { AIProvider, PromptOptions } from './ai-provider';
 import { AiMessage, StructuredResponse } from '@money-up/types';
 
+/**
+ * Class representing GeminiProvider.
+ */
 export class GeminiProvider extends AIProvider {
   private readonly baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 

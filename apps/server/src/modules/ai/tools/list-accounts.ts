@@ -3,6 +3,9 @@ import { ScraperService } from '../../scraper/scraper.service';
 
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for ListAccounts.
+ */
 @Injectable()
 export class ListAccountsRunner implements ToolRunner {
   readonly name = 'list_connected_accounts';

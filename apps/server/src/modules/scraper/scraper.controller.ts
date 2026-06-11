@@ -18,6 +18,9 @@ import { UsersService } from '../users/users.service';
 import { requireSessionUserId, verifyJwtToken } from '../../utils/auth.utils';
 import { ConnectScraperDto, SubmitChallengeDto } from '@money-up/types';
 
+/**
+ * NestJS Controller handling incoming HTTP requests for Scraper.
+ */
 @Controller('scrapers')
 export class ScraperController {
   constructor(

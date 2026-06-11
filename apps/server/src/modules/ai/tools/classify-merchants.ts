@@ -2,6 +2,9 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { SpendingService } from '../../spending/spending.service';
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for ClassifyMerchants.
+ */
 @Injectable()
 export class ClassifyMerchantsRunner implements ToolRunner {
   readonly name = 'classify_merchants_with_ai';

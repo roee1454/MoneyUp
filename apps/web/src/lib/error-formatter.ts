@@ -182,6 +182,9 @@ export function getFriendlyScraperError(errorInput: any, errorCode?: string): st
   if (errorCode === 'CHALLENGE_FAILED') {
     return 'הפרטים שהזנת אינם נכונים.';
   }
+  if (errorCode === 'AUTOMATION_BLOCKED') {
+    return 'החיבור נחסם זמנית על ידי מערכות האבטחה של המוסד הפיננסי (חסימת WAF / זיהוי בוטים). אנא המתן 15–30 דקות ונסה שוב, או הפעל "הצגת דפדפן" בהגדרות כדי לפתור זאת ידנית.';
+  }
   if (errorCode === 'BANK_UNAVAILABLE') {
     return 'שירות חברת האשראי או הבנק לא זמין כרגע. נסה שוב בעוד כמה דקות.';
   }

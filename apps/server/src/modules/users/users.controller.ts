@@ -11,6 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { AgentProvider } from '@money-up/common';
 import { UsersService } from './users.service';
 import { UserPayload } from '../../types/gateway.types';
 import {
@@ -19,6 +20,9 @@ import {
   verifyJwtToken,
 } from '../../utils/auth.utils';
 
+/**
+ * NestJS Controller handling incoming HTTP requests for Users.
+ */
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -73,10 +77,10 @@ export class UsersController {
     @Req() request: Request,
     @Body()
     payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: AgentProvider;
       apiKey: string;
       preferredModel: string;
-      activeProvider?: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      activeProvider?: AgentProvider;
       config?: {
         model: string;
         preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
@@ -153,7 +157,7 @@ export class UsersController {
     @Req() request: Request,
     @Body()
     payload: {
-      provider: 'openai' | 'claude' | 'gemini';
+      provider: AgentProvider;
     },
   ) {
     const userId = requireSessionUserId(request);

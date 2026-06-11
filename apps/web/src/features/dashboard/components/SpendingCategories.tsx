@@ -39,13 +39,7 @@ interface SpendingCategoriesProps {
   onExcludedExpensesChange?: (amount: number) => void;
 }
 
-const categoryEmojis: Record<string, string> = {
-  מותרות: '🎉',
-  'קניות בסופר': '🛒',
-  'דלק/תחבורה': '⛽',
-  מנויים: '📱',
-  'לא מסווג': '📦',
-};
+const categoryEmojis: Record<string, string> = CATEGORY_EMOJIS;
 
 function getTransactionKey(
   categoryName: string,
@@ -55,7 +49,7 @@ function getTransactionKey(
   return `${effectiveCategory}::${txn.id ?? `${txn.merchant}|${txn.rawDate}|${txn.amount}`}`;
 }
 
-import { OpenAiModels, GeminiModels } from '@money-up/common';
+import { OpenAiModels, GeminiModels, CATEGORY_EMOJIS } from '@money-up/common';
 
 function getDisplayReason(reason?: string): string | null {
   if (!reason) return null;

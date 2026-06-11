@@ -4,8 +4,13 @@ import { AiService } from '../ai/ai.service';
 import { UsersService } from '../users/users.service';
 import { SpendingScansResponse, UserAiConfig } from '../../types/gateway.types';
 import { SyncJobService } from '../sync/sync-job.service';
-import { MERCHANT_CATEGORIZATION_RULES } from '@money-up/common';
+import { MERCHANT_CATEGORIZATION_RULES, AgentProvider } from '@money-up/common';
 
+/**
+ * Service managing user spending, financial aggregates, and categorization.
+ * Coordinates database caching, triggers automated background synchronization jobs,
+ * runs scanning routines, and handles AI-based merchant classification passes.
+ */
 @Injectable()
 export class SpendingService {
   private readonly spendingScansDebugEnabled =
@@ -27,6 +32,18 @@ export class SpendingService {
     private readonly syncJobService: SyncJobService,
   ) {}
 
+  /**
+   * Computes the user's transaction aggregates (income and expenses) for the specified period.
+   * If the cache is stale or incomplete, automatically schedules a background scraping sync job.
+   *
+   * @param userId The ID of the requesting user.
+   * @param accountsOverride Optional transaction data arrays to override cached database entries (useful for manual mock overrides).
+   * @param period Time boundaries option ('current', 'previous', or 'both').
+   * @param debug Enables detailed transaction logs to stdout.
+   * @param startDate Custom date range start (YYYY-MM-DD).
+   * @param endDate Custom date range end (YYYY-MM-DD).
+   * @returns Promise<SpendingScansResponse> Containing category breakdowns, totals, and transaction logs.
+   */
   async computeSpendingScans(
     userId: string,
     accountsOverride?: Array<{
@@ -110,12 +127,25 @@ export class SpendingService {
     return scanResult;
   }
 
+  /**
+   * Triggers an active AI processing run to classify uncategorized merchants.
+   * Scans existing transactions, extracts unresolved merchant strings, prompts the configured
+   * LLM API to suggest standard categories, and writes back findings to the annotation store.
+   *
+   * @param userId The ID of the target user.
+   * @param period Time boundaries option ('current', 'previous', or 'both').
+   * @param startDate Optional custom range start date.
+   * @param endDate Optional custom range end date.
+   * @param overrideProvider Option to force a specific model provider (e.g., 'openai').
+   * @param overrideModel Option to force a specific model version.
+   * @returns Promise<SpendingScansResponse> Re-computed scans with updated categories.
+   */
   async runSpendingAnnotationPass(
     userId: string,
     period: 'current' | 'previous' | 'both',
     startDate?: string,
     endDate?: string,
-    overrideProvider?: 'openai' | 'claude' | 'gemini',
+    overrideProvider?: AgentProvider,
     overrideModel?: string,
   ): Promise<SpendingScansResponse> {
     const response = await this.scraperService.getConnectedAccounts({
@@ -156,6 +186,16 @@ export class SpendingService {
     });
   }
 
+  /**
+   * Marks a specific transaction as duplicate or returns it to active status.
+   * Delegated directly to ScraperService.
+   *
+   * @param userId Target user ID.
+   * @param bankId Financial institution ID.
+   * @param accountNumber Target bank account or credit card number.
+   * @param id The transaction unique ID.
+   * @param isDuplicate True to mark as duplicate, false to restore.
+   */
   async markTransactionDuplicate(
     userId: string,
     bankId: string,
@@ -181,10 +221,20 @@ export class SpendingService {
     }
   }
 
+  /**
+   * Calls the configured AI Provider to classify an array of unknown merchants.
+   * Splits merchants into configured batch sizes and updates them sequentially.
+   *
+   * @param userId Target user ID.
+   * @param unresolved Array containing merchant descriptions and normalized strings.
+   * @param overrideProvider Option to override LLM provider.
+   * @param overrideModel Option to override LLM model.
+   * @returns Array of AI-derived merchant annotations.
+   */
   public async classifyUnknownMerchantsWithAi(
     userId: string,
     unresolved: Array<{ normalizedMerchant: string; displayMerchant: string }>,
-    overrideProvider?: 'openai' | 'claude' | 'gemini',
+    overrideProvider?: AgentProvider,
     overrideModel?: string,
   ): Promise<
     Array<{
@@ -351,72 +401,147 @@ export class SpendingService {
 
     // Map common English and Hebrew category names to standard Hebrew keys
     const categoryMap: Record<string, string> = {
-      // מותרות / Food & Leisure -> מותרות
-      'מותרות': 'מותרות',
-      'מזון': 'מותרות',
-      'אוכל/מסעדות': 'מותרות',
-      'food': 'מותרות',
-      'dining': 'מותרות',
-      'restaurant': 'מותרות',
-      'restaurants': 'מותרות',
-      'cafe': 'מותרות',
-      'wolt': 'מותרות',
-      'ten bis': 'מותרות',
-      'bar': 'מותרות',
-      'bars': 'מותרות',
-      'pub': 'מותרות',
-      'בילויים ופנאי': 'מותרות',
-      'בילויים': 'מותרות',
-      'בידור': 'מותרות',
-      'leisure': 'מותרות',
-      'entertainment': 'מותרות',
-      'going out': 'מותרות',
-      'nightlife': 'מותרות',
-      'cinema': 'מותרות',
-      'movies': 'מותרות',
+      // דיור
+      'דיור': 'דיור',
+      'שכירות': 'דיור',
+      'ארנונה': 'דיור',
+      'ועד בית': 'דיור',
+      'משכנתא': 'דיור',
+      'housing': 'דיור',
+      'rent': 'דיור',
 
-      // קניות / Shopping -> קניות בסופר
-      'קניות': 'קניות בסופר',
-      'קניות בסופר': 'קניות בסופר',
-      'shopping': 'קניות בסופר',
-      'supermarket': 'קניות בסופר',
-      'groceries': 'קניות בסופר',
-      'grocery': 'קניות בסופר',
-      'online shopping': 'קניות בסופר',
-      'online': 'קניות בסופר',
-      'clothing': 'קניות בסופר',
-      'apparel': 'קניות בסופר',
-      'fashion': 'קניות בסופר',
-      'shoes': 'קניות בסופר',
-      'electronics': 'קניות בסופר',
-      'gadgets': 'קניות בסופר',
-      'computers': 'קניות בסופר',
-      'super': 'קניות בסופר',
-      'amazon': 'קניות בסופר',
-      'aliexpress': 'קניות בסופר',
-      'ebay': 'קניות בסופר',
-      'ביגוד': 'קניות בסופר',
-      'אלקטרוניקה': 'קניות בסופר',
-      'אונליין': 'קניות בסופר',
-      'סופר': 'קניות בסופר',
+      // מזון
+      'מזון': 'מזון',
+      'סופרמרקט': 'מזון',
+      'קניות בסופר': 'מזון',
+      'סופר': 'מזון',
+      'מכולת': 'מזון',
+      'מרקט': 'מזון',
+      'שופרסל': 'מזון',
+      'רמי לוי': 'מזון',
+      'ויקטורי': 'מזון',
+      'food': 'מזון',
+      'groceries': 'מזון',
+      'grocery': 'מזון',
+      'supermarket': 'מזון',
 
-      // דלק/תחבורה / Transport
-      'דלק/תחבורה': 'דלק/תחבורה',
-      'תחבורה': 'דלק/תחבורה',
-      'דלק': 'דלק/תחבורה',
-      'fuel': 'דלק/תחבורה',
-      'transport': 'דלק/תחבורה',
-      'transportation': 'דלק/תחבורה',
-      'taxi': 'דלק/תחבורה',
-      'gas': 'דלק/תחבורה',
+      // תחבורה
+      'תחבורה': 'תחבורה',
+      'דלק/תחבורה': 'תחבורה',
+      'דלק': 'תחבורה',
+      'רב-קו': 'תחבורה',
+      'רב קו': 'תחבורה',
+      'gett': 'תחבורה',
+      'מונית': 'תחבורה',
+      'רכבת': 'תחבורה',
+      'אוטובוס': 'תחבורה',
+      'transport': 'תחבורה',
+      'transportation': 'תחבורה',
+      'gas': 'תחבורה',
+      'fuel': 'תחבורה',
+      'parking': 'תחבורה',
+      'פז': 'תחבורה',
+      'סונול': 'תחבורה',
+      'דור אלון': 'תחבורה',
+      'פנגו': 'תחבורה',
+      'pango': 'תחבורה',
 
-      // מנויים / Subscriptions
-      'מנויים': 'מנויים',
-      'subscriptions': 'מנויים',
-      'subscription': 'מנויים',
-      'services': 'מנויים',
+      // שירותים
+      'שירותים': 'שירותים',
+      'חשמל': 'שירותים',
+      'חברת חשמל': 'שירותים',
+      'מקורות': 'שירותים',
+      'מים': 'שירותים',
+      'בזק': 'שירותים',
+      'סלולר': 'שירותים',
+      'אינטרנט': 'שירותים',
+      'גז': 'שירותים',
+      'מנוי': 'שירותים',
+      'מנויים': 'שירותים',
+      'services': 'שירותים',
+      'utilities': 'שירותים',
 
-      // לא מסווג / Unclassified
+      // בריאות
+      'בריאות': 'בריאות',
+      'קופת חולים': 'בריאות',
+      'בית מרקחת': 'בריאות',
+      'כללית': 'בריאות',
+      'מכבי': 'בריאות',
+      'מאוחדת': 'בריאות',
+      'לאומית': 'בריאות',
+      'סופר פארם': 'בריאות',
+      'סופר-פארם': 'בריאות',
+      'מרפאה': 'בריאות',
+      'רופא': 'בריאות',
+      'פארם': 'בריאות',
+      'תרופה': 'בריאות',
+      'health': 'בריאות',
+      'pharmacy': 'בריאות',
+
+      // חינוך
+      'חינוך': 'חינוך',
+      'גן': 'חינוך',
+      'בית ספר': 'חינוך',
+      'קורס': 'חינוך',
+      'קורסים': 'חינוך',
+      'אוניברסיטה': 'חינוך',
+      'מכללה': 'חינוך',
+      'חוג': 'חינוך',
+      'שיעור': 'חינוך',
+      'שכר לימוד': 'חינוך',
+      'education': 'חינוך',
+
+      // בילוי
+      'בילוי': 'בילוי',
+      'בילויים': 'בילוי',
+      'בילויים ופנאי': 'בילוי',
+      'מותרות': 'בילוי',
+      'מסעדה': 'בילוי',
+      'מסעדות': 'בילוי',
+      'קפה': 'בילוי',
+      'בר ': 'בילוי',
+      'פאב': 'בילוי',
+      'קולנוע': 'בילוי',
+      'סרט': 'בילוי',
+      'הופעה': 'בילוי',
+      'מסיבה': 'בילוי',
+      'נטפליקס': 'בילוי',
+      'netflix': 'בילוי',
+      'ספוטיפיי': 'בילוי',
+      'spotify': 'בילוי',
+      'וולט': 'בילוי',
+      'wolt': 'בילוי',
+      'תן ביס': 'בילוי',
+      'ten bis': 'בילוי',
+      'leisure': 'בילוי',
+      'entertainment': 'בילוי',
+      'dining': 'בילוי',
+      'restaurant': 'בילוי',
+      'streaming': 'בילוי',
+
+      // ביטוח
+      'ביטוח': 'ביטוח',
+      'ביטוחים': 'ביטוח',
+      'הראל': 'ביטוח',
+      'מגדל': 'ביטוח',
+      'פניקס': 'ביטוח',
+      'מנורה': 'ביטוח',
+      'כלל': 'ביטוח',
+      'איילון': 'ביטוח',
+      'ישיר': 'ביטוח',
+      'insurance': 'ביטוח',
+
+      // חיסכון
+      'חיסכון': 'חיסכון',
+      'פנסיה': 'חיסכון',
+      'קרן השתלמות': 'חיסכון',
+      'קופת גמל': 'חיסכון',
+      'הפקדה': 'חיסכון',
+      'השקעה': 'חיסכון',
+      'pension': 'חיסכון',
+      'savings': 'חיסכון',
+
+      // לא מסווג
       'לא מסווג': 'לא מסווג',
       'uncategorized': 'לא מסווג',
       'unknown': 'לא מסווג',

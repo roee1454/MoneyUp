@@ -8,4 +8,7 @@ import { UsersModule } from '../users/users.module';
   controllers: [AuthController],
   providers: [AuthService],
 })
+/**
+ * NestJS Module configuring declarations and providers for Auth.
+ */
 export class AuthModule {}

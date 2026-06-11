@@ -4,6 +4,9 @@ import { Repository } from 'typeorm';
 import { ScrapedCoverageEntity } from '../entities/coverage.entity';
 import { addDays } from '../utils/date.utils';
 
+/**
+ * Service providing business logic and database access for Coverage.
+ */
 @Injectable()
 export class CoverageService {
   constructor(

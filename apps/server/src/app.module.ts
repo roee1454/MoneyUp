@@ -54,4 +54,7 @@ import { MarketDataModule } from './modules/market-data/market-data.module';
   ],
   controllers: [AppController],
 })
+/**
+ * NestJS Module configuring declarations and providers for App.
+ */
 export class AppModule {}

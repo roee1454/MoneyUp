@@ -2,6 +2,9 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { BrokerService } from '../../broker/broker.service';
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for GetPortfolio.
+ */
 @Injectable()
 export class GetPortfolioRunner implements ToolRunner {
   readonly name = 'get_portfolio';

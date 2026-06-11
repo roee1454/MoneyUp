@@ -14,6 +14,11 @@ import {
   detectBrowserPlatform,
 } from '@puppeteer/browsers';
 
+/**
+ * Service managing local Puppeteer browser environments.
+ * Handles platform detection, caches browser binaries, searches for system-wide chrome installations,
+ * downloads and updates minimal Chromium runtimes, and generates standard memory-optimized browser launch arguments.
+ */
 @Injectable()
 export class BrowserService {
   constructor(private readonly configService: ConfigService) {}
@@ -25,6 +30,13 @@ export class BrowserService {
     );
   }
 
+  /**
+   * Generates a list of optimal start arguments for launching Chromium instances.
+   * Auto-injects Linux sandbox bypass flags and aggressive memory-saving configurations
+   * (e.g., muting audio, disabling extensions, disabling GPU) to optimize resource usage.
+   *
+   * @returns Array of command line flag arguments.
+   */
   getCommonBrowserArgs(): string[] {
     const configuredArgs = this.configService.get<string>(
       'SCRAPER_BROWSER_ARGS',
@@ -98,6 +110,12 @@ export class BrowserService {
     return platform;
   }
 
+  /**
+   * Scans common system-specific paths to find pre-installed browsers (Google Chrome, Chromium, Edge).
+   * Supports Linux, macOS, and Windows directories.
+   *
+   * @returns Promise<string | null> Path to the system browser executable, or null if none found.
+   */
   async findSystemBrowser(): Promise<string | null> {
     const checkPaths = [
       process.env.PUPPETEER_EXECUTABLE_PATH,
@@ -158,6 +176,15 @@ export class BrowserService {
     return null;
   }
 
+  /**
+   * Guarantees a browser executable is ready for scraping operations.
+   * Evaluates locations in the following sequence:
+   * 1. Check local cached Puppeteer downloads folder.
+   * 2. Search common operating system directories for pre-existing Google Chrome or Chromium.
+   * 3. Download and register a minimal Chromium build if no local browser is detected.
+   *
+   * @returns Promise<string | null> Path to executable browser binary.
+   */
   async ensureBrowser(): Promise<string | null> {
     console.log('[BrowserService] Ensuring browser is available...');
 
@@ -200,6 +227,11 @@ export class BrowserService {
     return null;
   }
 
+  /**
+   * Scans the Puppeteer cache directory for pre-installed Chromium or Google Chrome binaries.
+   *
+   * @returns Promise containing search success, latest browser path/version, and all available listings.
+   */
   async detectChromium(): Promise<{
     path: string | null;
     version: string | null;
@@ -263,6 +295,11 @@ export class BrowserService {
     }
   }
 
+  /**
+   * Downloads and installs the latest stable minimal Chromium build for the detected platform.
+   *
+   * @returns Installation success details.
+   */
   async installChromium(): Promise<{
     success: boolean;
     error?: string;
@@ -301,6 +338,12 @@ export class BrowserService {
     }
   }
 
+  /**
+   * Creates an Observable stream representing the download progress of a Chromium installation.
+   * Enables pushing reactive percentage updates to client gateways.
+   *
+   * @returns RxJS Observable emitting progress updates and logs.
+   */
   installChromiumStream(): Observable<{
     type: 'log' | 'progress' | 'done' | 'error';
     message?: string;

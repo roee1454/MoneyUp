@@ -7,4 +7,7 @@ import { MarketDataModule } from '../market-data/market-data.module';
   providers: [BrokerService],
   exports: [BrokerService],
 })
+/**
+ * NestJS Module configuring declarations and providers for Broker.
+ */
 export class BrokerModule {}

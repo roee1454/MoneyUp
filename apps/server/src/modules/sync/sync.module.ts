@@ -11,4 +11,7 @@ import { UsersModule } from '../users/users.module';
   providers: [SyncJobService],
   exports: [SyncJobService],
 })
+/**
+ * NestJS Module configuring declarations and providers for Sync.
+ */
 export class SyncModule {}

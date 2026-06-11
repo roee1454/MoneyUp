@@ -1,4 +1,4 @@
-import { EXPENSE_CATEGORIES } from './categories';
+import { EXPENSE_CATEGORIES, SHARED_CATEGORIES } from './categories';
 
 export const AI_TOOLS = [
   {
@@ -225,32 +225,39 @@ export const MERCHANT_CATEGORIZATION_RULES = [
   'Your task is to classify Israeli & international merchant names into exactly ONE of the allowed Hebrew categories AND provide 3-5 descriptive English/Hebrew keywords.',
   '',
   'Allowed Hebrew Categories:',
-  `- ${EXPENSE_CATEGORIES[0]} (Leisure, dining, restaurants, cafes, fast food, coffee shops, Wolt, Ten Bis, bars, pubs, entertainment, cinemas, concert tickets, bowling, attractions, parties, and nightlife events)`,
-  `- ${EXPENSE_CATEGORIES[1]} (Supermarkets, groceries, online shopping, clothing, fashion, electronics, KSP, Ivory, Amazon, AliExpress)`,
-  `- ${EXPENSE_CATEGORIES[2]} (Gas stations, Pango, Cello, public transit, taxis)`,
-  `- ${EXPENSE_CATEGORIES[3]} (Recurring services, Netflix, Spotify, cellular, iCloud)`,
+  ...SHARED_CATEGORIES.filter(c => c.id !== 'la_mesuvag').map(c => {
+    const englishName = c.id === 'diur' ? 'Housing' :
+                        c.id === 'mazon' ? 'Food' :
+                        c.id === 'tahaburah' ? 'Transportation' :
+                        c.id === 'shartuim' ? 'Utilities & Services' :
+                        c.id === 'briut' ? 'Health' :
+                        c.id === 'chinuch' ? 'Education' :
+                        c.id === 'bilui' ? 'Leisure & Entertainment' :
+                        c.id === 'bituach' ? 'Insurance' : 'Savings';
+    return `- ${c.name} (${englishName} / ${c.translation}: ${c.examples.join(', ')})`;
+  }),
   '',
   'Instructions:',
   '1. The "category" field in your output JSON must match EXACTLY one of the allowed Hebrew categories listed above. Do not translate them to English.',
-  `2. Do NOT use "${EXPENSE_CATEGORIES[4]}" (Unclassified) under any circumstances. You must classify every single merchant into one of the other 4 categories. If you are unsure, make your best educated guess based on the merchant name and typical consumer spending behavior.`,
+  `2. Do NOT use "${EXPENSE_CATEGORIES[9]}" (Unclassified) under any circumstances. You must classify every single merchant into one of the other 9 categories. If you are unsure, make your best educated guess based on the merchant name and typical consumer spending behavior.`,
   '3. Return ONLY a valid JSON array of objects. Do NOT include markdown code blocks (e.g. ```json) or any explanations.',
   '',
   'Example Input:',
-  '[{"normalizedMerchant":"wolt","displayMerchant":"Wolt"},{"normalizedMerchant":"zara","displayMerchant":"ZARA"}]',
+  '[{"normalizedMerchant":"wolt","displayMerchant":"Wolt"},{"normalizedMerchant":"shufersal","displayMerchant":"שופרסל"}]',
   '',
   'Example Output:',
   '[',
   '  {',
   '    "normalizedMerchant": "wolt",',
-  `    "category": "${EXPENSE_CATEGORIES[0]}",`,
-  '    "keywords": "food delivery, restaurants, fast food",',
+  `    "category": "${EXPENSE_CATEGORIES[6]}",`,
+  '    "keywords": "food delivery, restaurants, fast food, Wolt",',
   '    "confidence": 0.95',
   '  },',
   '  {',
-  '    "normalizedMerchant": "zara",',
+  '    "normalizedMerchant": "shufersal",',
   `    "category": "${EXPENSE_CATEGORIES[1]}",`,
-  '    "keywords": "clothing, fashion, apparel, shopping",',
-  '    "confidence": 0.90',
+  '    "keywords": "supermarket, groceries, Shufersal",',
+  '    "confidence": 0.95',
   '  }',
   ']',
 ].join('\n');

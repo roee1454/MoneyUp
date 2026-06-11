@@ -19,6 +19,9 @@ import {
   verifyUnlockTicket,
 } from '../../utils/auth.utils';
 
+/**
+ * NestJS Controller handling incoming HTTP requests for Auth.
+ */
 @Controller('auth')
 export class AuthController {
   constructor(

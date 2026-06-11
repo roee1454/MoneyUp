@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+/**
+ * Service providing business logic and database access for TradingView.
+ */
 @Injectable()
 export class TradingViewService {
   private readonly logger = new Logger(TradingViewService.name);

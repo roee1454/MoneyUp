@@ -11,4 +11,7 @@ import { UsersModule } from '../users/users.module';
   providers: [SpendingService],
   exports: [SpendingService],
 })
+/**
+ * NestJS Module configuring declarations and providers for Spending.
+ */
 export class SpendingModule {}

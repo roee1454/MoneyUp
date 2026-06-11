@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
+/**
+ * AI Tool Runner executing tasks for BankIdMapper.
+ */
 @Injectable()
 export class BankIdMapperRunner implements ToolRunner {
   readonly name = 'bank_id_mapper';

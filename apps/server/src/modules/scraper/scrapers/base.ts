@@ -12,6 +12,9 @@ import {
 } from '@money-up/types';
 import { ScraperProgressTypes } from 'israeli-bank-scrapers/lib/definitions';
 
+/**
+ * Class representing BaseScraper.
+ */
 export abstract class BaseScraper {
   abstract readonly companyId: CompanyTypes;
   constructor(

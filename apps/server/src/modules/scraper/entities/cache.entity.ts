@@ -1,5 +1,8 @@
 import { Entity, PrimaryColumn, Column, UpdateDateColumn } from 'typeorm';
 
+/**
+ * Database Entity representing the ScrapedCache table/collection.
+ */
 @Entity('scraped_cache')
 export class ScrapedCacheEntity {
   @PrimaryColumn()

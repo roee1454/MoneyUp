@@ -12,6 +12,9 @@ import { Observable, Subject } from 'rxjs';
 import { SyncJobService } from './sync-job.service';
 import { requireSessionUserId } from '../../utils/auth.utils';
 
+/**
+ * NestJS Controller handling incoming HTTP requests for Sync.
+ */
 @Controller('sync')
 export class SyncController {
   constructor(private readonly syncJobService: SyncJobService) {}

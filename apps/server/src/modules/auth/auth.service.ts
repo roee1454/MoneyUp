@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
+/**
+ * Service providing business logic and database access for Auth.
+ */
 @Injectable()
 export class AuthService {
   authenticate(userId: string, username: string) {

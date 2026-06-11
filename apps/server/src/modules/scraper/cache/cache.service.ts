@@ -7,6 +7,9 @@ import { VaultEntity } from '../entities/vault.entity';
 import { getTodayUtcDateString } from '../utils/date.utils';
 import * as crypto from 'crypto';
 
+/**
+ * Service providing business logic and database access for Cache.
+ */
 @Injectable()
 export class CacheService {
   constructor(

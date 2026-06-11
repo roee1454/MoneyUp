@@ -1,5 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 
+/**
+ * Database Entity representing the ScrapedCoverage table/collection.
+ */
 @Entity('scraper_coverage')
 @Index(['userId', 'bankId'])
 export class ScrapedCoverageEntity {

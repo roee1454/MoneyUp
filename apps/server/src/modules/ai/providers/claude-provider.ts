@@ -3,6 +3,9 @@ import type { ReadableStream } from 'node:stream/web';
 import { AIProvider, PromptOptions } from './ai-provider';
 import { AiMessage, StructuredResponse } from '@money-up/types';
 
+/**
+ * Class representing ClaudeProvider.
+ */
 export class ClaudeProvider extends AIProvider {
   private readonly baseUrl = 'https://api.anthropic.com/v1';
 

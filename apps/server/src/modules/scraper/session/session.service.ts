@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { SessionState } from '../types/scraper.types';
 
+/**
+ * Service providing business logic and database access for Session.
+ */
 @Injectable()
 export class SessionService {
   private readonly sessions = new Map<string, SessionState>();

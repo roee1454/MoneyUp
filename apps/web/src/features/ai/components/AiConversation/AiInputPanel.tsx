@@ -498,8 +498,8 @@ export function AiInputPanel({
           ) : (
             <div className="shrink-0">
               <AiModelDropdownSelector
-                selectedProvider={agentProvider}
-                setSelectedProvider={setAgentProvider}
+                selectedProvider={agentProvider as any}
+                setSelectedProvider={setAgentProvider as any}
                 selectedModel={agentModel}
                 setSelectedModel={setAgentModel}
                 modelsByProvider={modelsByProvider}

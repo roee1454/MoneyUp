@@ -58,6 +58,9 @@ fn get_server_port(_state: tauri::State<'_, ServerState>) -> u16 {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Starts the Tauri desktop application.
+/// Sets up state management, configures port routing, and spawns the NestJS backend
+/// process in release builds.
 pub fn run() {
     let server_port = if let Some(custom_port) = get_configured_port() {
         custom_port
