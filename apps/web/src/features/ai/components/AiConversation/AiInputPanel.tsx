@@ -2,7 +2,6 @@ import React, { useState, useMemo, useRef } from 'react';
 import {
   CircleNotch,
   PaperPlaneRight,
-  Sliders,
   X,
   ChartLineUp,
 } from '@phosphor-icons/react';
@@ -14,6 +13,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { BankIcon } from '@/features/accounts/components/BankIcon';
 import { getBankName, normalizeBankId } from '@/lib/bank-branding';
 import { AiModelDropdownSelector } from '@/features/ai/components/AiModelDropdownSelector';
+import type { AgentProvider } from '@money-up/common';
 
 type TaggedItem =
   | { type: 'account'; bankId: string; accountNumber: string; name?: string }
@@ -25,13 +25,11 @@ interface AiInputPanelProps {
   onSubmit: (promptValue: string) => void;
   isLoading: boolean;
   selectedModel: string;
-  debugEnabled: boolean;
   activeSources: string[];
-  onShowDebug: () => void;
 
-  agentProvider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+  agentProvider: AgentProvider;
   setAgentProvider: (
-    provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
+    provider: AgentProvider,
   ) => void;
   agentModel: string;
   setAgentModel: (model: string) => void;
@@ -51,9 +49,7 @@ export function AiInputPanel({
   onSubmit,
   isLoading,
   selectedModel,
-  debugEnabled,
   activeSources,
-  onShowDebug,
   agentProvider,
   setAgentProvider,
   agentModel,
@@ -493,18 +489,6 @@ export function AiInputPanel({
 
       <div className="flex items-center justify-between px-3 py-2.5 border-t border-border/50 bg-muted/10 min-h-[52px]">
         <div className="flex items-center gap-1.5">
-          {debugEnabled && !activeSources.length && (
-            <PremiumButton
-              type="button"
-              onClick={onShowDebug}
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 text-muted-foreground/70"
-            >
-              <Sliders className="h-4.5 w-4.5" weight="duotone" />
-            </PremiumButton>
-          )}
-
           {activeSources.length > 0 ? (
             <DataSourceCard
               bankIds={activeSources}

@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AiIcon, type AiProvider } from './AiIcon';
 import { getFriendlyModelName } from '@/lib/ai-models';
-import { MODEL_TAGS } from '@money-up/common';
+import { ModelTags } from '@money-up/common';
 import { cn } from '@/lib/utils';
 import { CaretUp } from '@phosphor-icons/react';
 
@@ -171,9 +171,9 @@ export function AiModelDropdownSelector({
                     <span className="text-[10px] font-bold leading-tight truncate w-full">
                       {getFriendlyModelName(m)}
                     </span>
-                    {MODEL_TAGS[m] ? (
+                    {ModelTags[m] ? (
                       <span className="px-1.5 py-0.5 text-[8px] font-black uppercase bg-primary/10 text-primary rounded-xs tracking-wider shrink-0 mt-1">
-                        {MODEL_TAGS[m]}
+                        {ModelTags[m]}
                       </span>
                     ) : (
                       <span className="text-[8px] text-muted-foreground font-bold leading-none shrink-0 mt-1">

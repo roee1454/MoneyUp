@@ -55,7 +55,7 @@ function getTransactionKey(
   return `${effectiveCategory}::${txn.id ?? `${txn.merchant}|${txn.rawDate}|${txn.amount}`}`;
 }
 
-import { OPENAI_MODELS, GEMINI_MODELS } from '@money-up/common';
+import { OpenAiModels, GeminiModels } from '@money-up/common';
 
 function getDisplayReason(reason?: string): string | null {
   if (!reason) return null;
@@ -68,12 +68,12 @@ function getDisplayReason(reason?: string): string | null {
 }
 
 const MODELS_BY_PROVIDER = {
-  openai: OPENAI_MODELS,
+  openai: OpenAiModels,
   claude: [
     'claude-3-5-sonnet-20241022',
     'claude-3-5-haiku-20241022',
   ],
-  gemini: GEMINI_MODELS,
+  gemini: GeminiModels,
 };
 
 export function SpendingCategories({

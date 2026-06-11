@@ -11,6 +11,8 @@ import {
   InvestmentSimulator,
   InvestmentSimulatorSkeleton,
 } from './InvestmentSimulator';
+import { PremiumButton } from '@/components/ui/premium-button';
+import { PremiumTextarea } from '@/components/ui/premium-textarea';
 
 interface AiMessageBubbleProps {
   message: LocalMessage;
@@ -60,24 +62,25 @@ export function AiMessageBubble({
     if (isEditing) {
       return (
         <div className="flex w-full justify-start">
-          <div className="w-full max-w-2xl rounded-[24px] px-5 py-4 shadow-sm border border-border/40 bg-secondary text-foreground text-right space-y-3">
-            <textarea
-              className="w-full bg-background border border-border/50 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none dir-rtl custom-scrollbar min-h-[100px]"
+          <div className="w-full max-w-2xl rounded-none border border-border bg-card shadow-sm flex flex-col relative text-right">
+            <PremiumTextarea
+              className="w-full min-h-[100px] border-none bg-transparent hover:bg-transparent focus:bg-transparent shadow-none py-3 px-4 resize-none text-right text-foreground relative z-10 leading-relaxed text-[17px] focus:ring-0 focus-visible:ring-0 focus:border-transparent"
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               dir="auto"
             />
-            <div className="flex items-center justify-end gap-2">
-              <button
+            <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-border bg-muted/10">
+              <PremiumButton
                 onClick={() => {
                   setIsEditing(false);
                   setEditText(message.text);
                 }}
-                className="text-xs font-bold px-4 py-2 hover:bg-muted/50 rounded-lg text-muted-foreground transition-colors cursor-pointer"
+                variant="ghost"
+                size="sm"
               >
                 ביטול
-              </button>
-              <button
+              </PremiumButton>
+              <PremiumButton
                 onClick={() => {
                   if (
                     editText.trim() &&
@@ -88,10 +91,11 @@ export function AiMessageBubble({
                   }
                   setIsEditing(false);
                 }}
-                className="text-xs font-bold px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:bg-primary/90 transition-colors cursor-pointer"
+                variant="default"
+                size="sm"
               >
                 שמור ושלח
-              </button>
+              </PremiumButton>
             </div>
           </div>
         </div>
@@ -99,43 +103,45 @@ export function AiMessageBubble({
     }
 
     return (
-      <div className="flex w-full justify-start group relative">
-        <div className="max-w-[75%] rounded-[24px] px-5 py-3 text-[17px] font-semibold shadow-xs border border-border/30 bg-secondary text-foreground text-right">
-          <div className="markdown-content max-w-none break-words space-y-2 leading-7 text-right">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex]}
-              components={{
-                code({ node: _node, className, children, ...props }) {
-                  const isBlock = Boolean(className);
-                  if (isBlock) {
+      <div className="flex w-full justify-start group">
+        <div className="relative max-w-[85%] sm:max-w-[75%]">
+          <div className="rounded-[24px] px-5 py-3 text-[17px] font-semibold shadow-xs border border-border/30 bg-secondary text-foreground text-right">
+            <div className="markdown-content max-w-none break-words space-y-2 leading-7 text-right">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+                components={{
+                  code({ node: _node, className, children, ...props }) {
+                    const isBlock = Boolean(className);
+                    if (isBlock) {
+                      return (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      );
+                    }
                     return (
-                      <code className={className} {...props}>
+                      <InlineCode isUser={true} {...props}>
                         {children}
-                      </code>
+                      </InlineCode>
                     );
-                  }
-                  return (
-                    <InlineCode isUser={true} {...props}>
-                      {children}
-                    </InlineCode>
-                  );
-                },
-              }}
-            >
-              {message.text}
-            </ReactMarkdown>
+                  },
+                }}
+              >
+                {message.text}
+              </ReactMarkdown>
+            </div>
           </div>
+          {onEditSubmit && !isLoading && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="absolute -left-10 top-2 p-2 rounded-full text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-muted hover:text-foreground cursor-pointer"
+              title="ערוך הודעה"
+            >
+              <PencilSimple className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        {onEditSubmit && !isLoading && (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="absolute -left-10 top-2 p-2 rounded-full text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted hover:text-foreground cursor-pointer"
-            title="ערוך הודעה"
-          >
-            <PencilSimple className="w-4 h-4" />
-          </button>
-        )}
       </div>
     );
   }
