@@ -72,7 +72,7 @@ export class AiService {
         return new OpenRouterProvider(apiKey);
       default:
         throw new InternalServerErrorException(
-          `Unsupported provider: ${providerName}`,
+        `Unsupported provider: ${providerName}`,
         );
     }
   }

@@ -25,5 +25,5 @@
     },
   },
 
-  "include": ["apps/**/*.ts", "packages/**/*.ts", "scripts/**/*.js"],
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "scripts/**/*.js", "scripts/tokenizer.ts"],
 }

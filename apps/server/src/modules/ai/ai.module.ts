@@ -19,6 +19,9 @@ import { SpendingModule } from '../spending/spending.module';
 import { BrokerModule } from '../broker/broker.module';
 import { MarketDataModule } from '../market-data/market-data.module';
 
+/**
+ * NestJS Module configuring declarations and providers for Ai.
+ */
 @Module({
   imports: [UsersModule, ScraperModule, forwardRef(() => SpendingModule), forwardRef(() => BrokerModule), forwardRef(() => MarketDataModule)],
   controllers: [AiController],
@@ -39,7 +42,4 @@ import { MarketDataModule } from '../market-data/market-data.module';
   ],
   exports: [AiService],
 })
-/**
- * NestJS Module configuring declarations and providers for Ai.
- */
 export class AiModule {}

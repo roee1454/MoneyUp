@@ -6,6 +6,7 @@
   "author": "",
   "private": true,
   "license": "MIT",
+  "type": "module",
   "scripts": {
     "packages:build": "turbo run build --filter=@money-up/types --filter=@money-up/common",
     "server:build": "turbo run build --filter=server",
@@ -28,7 +29,9 @@
     "test:e2e": "turbo run test:e2e"
   },
   "dependencies": {
-    "better-sqlite3": "^12.10.0"
+    "better-sqlite3": "^12.10.0",
+    "js-tiktoken": "^1.0.21",
+    "@money-up/common": "workspace:*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -38,8 +41,8 @@
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
     "prettier": "^3.4.2",
+    "turbo": "^2.4.0",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.20.0",
-    "turbo": "^2.4.0"
+    "typescript-eslint": "^8.20.0"
   }
 }

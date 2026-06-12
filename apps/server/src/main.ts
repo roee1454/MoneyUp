@@ -7,14 +7,6 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
 
-  // Diagnostic memory logging
-  setInterval(() => {
-    const usage = process.memoryUsage();
-    console.log(
-      `[Server Monolith Memory] RSS: ${Math.round(usage.rss / 1024 / 1024)}MB, Heap: ${Math.round(usage.heapUsed / 1024 / 1024)}MB`,
-    );
-  }, 60000);
-
   const clientUrls = process.env.CLIENT_URL
     ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
     : [];
@@ -24,7 +16,7 @@ async function bootstrap() {
       'http://localhost:5173',
       'http://127.0.0.1:5173',
       ...clientUrls,
-    ].filter(Boolean) as string[],
+    ].filter(Boolean),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: 'Content-Type,Accept,Authorization',

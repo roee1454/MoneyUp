@@ -24,8 +24,23 @@ export const GeminiModels = [
 ];
 
 export const ClaudeModels = [
-  
-]
+  'claude-3-5-sonnet-20241022',
+  'claude-3-5-haiku-20241022',
+  'claude-3-opus-20240229',
+];
+
+export const OllamaModels: string[] = [];
+
+export const OpenRouterModels: string[] = [];
+
+/** All supported provider identifiers, in display order. */
+export const ALL_PROVIDERS: AgentProvider[] = [
+  'gemini',
+  'openai',
+  'claude',
+  'ollama',
+  'openrouter',
+];
 
 export const ModelTags: Record<string, string> = {
   'gpt-4o-mini': 'token efficient',

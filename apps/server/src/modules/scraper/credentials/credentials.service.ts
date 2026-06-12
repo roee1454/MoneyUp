@@ -40,7 +40,7 @@ export class CredentialsService {
     });
     if (!vaultEntry) return null;
     const decrypted = decrypt(vaultEntry.encryptedCredentials);
-    return JSON.parse(decrypted);
+    return JSON.parse(decrypted) as Record<string, string>;
   }
 
   async getUserConnections(userId: string): Promise<VaultEntity[]> {

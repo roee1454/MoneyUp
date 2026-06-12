@@ -9,16 +9,13 @@ import { CoverageService } from '../coverage/coverage.service';
 import { SessionService } from '../session/session.service';
 import {
   getTodayUtcDateString,
-  getOneMonthAgoUtcDateString,
   subtractUtcDate,
   toUtcDate,
-  addDays,
-  ScraperDateLimit,
   SCRAPERS_METADATA,
-  SCRAPER_MIN_LOOKBACKS,
   getMinimumStartDateForBank,
 } from '@money-up/common';
 import puppeteer from 'puppeteer';
+import { UnifiedAccount } from 'packages/types/dist';
 
 
 
@@ -488,7 +485,7 @@ export class SyncService implements OnModuleDestroy {
   }
 
   private filterAccountsToIntervals(
-    accounts: any[],
+    accounts: UnifiedAccount[],
     intervals: Array<{ startDate: string; endDate: string }>,
   ): any[] {
     if (intervals.length === 0) {

@@ -3,6 +3,9 @@ import { api } from '@/lib/api';
 import { useAppStore } from '@/store';
 import { toast } from 'sonner';
 import { getFriendlyErrorMessage } from '@/lib/error-formatter';
+import { useState } from 'react';
+import { getScraperSocket } from '@/lib/scraper-socket';
+import { AgentProvider } from '@money-up/common';
 
 import type { CategorizedExpense, ScanIncomeResult } from '@money-up/types';
 
@@ -113,7 +116,7 @@ export function useAnnotateSpendingScans() {
       period?: 'current' | 'previous' | 'both';
       startDate?: string;
       endDate?: string;
-      provider?: 'openai' | 'claude' | 'gemini';
+      provider?: AgentProvider;
       model?: string;
     }) => api.post<SpendingScansResponse>('/spending/scans/annotate', payload),
     onSuccess: async () => {
@@ -126,4 +129,115 @@ export function useAnnotateSpendingScans() {
       toast.error(getFriendlyErrorMessage(err));
     },
   });
+}
+
+/**
+ * Triggered classification stream mutation over WebSocket.
+ */
+export function useAnnotateSpendingScansProgress() {
+  const queryClient = useQueryClient();
+  const [isPending, setIsPending] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentMerchant, setCurrentMerchant] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutateAsync = async (payload: {
+    startDate?: string;
+    endDate?: string;
+    provider?: AgentProvider;
+    model?: string;
+  }) => {
+    setIsPending(true);
+    setProgress(0);
+    setCurrentMerchant(undefined);
+    setError(null);
+
+    const socket = getScraperSocket();
+
+    return new Promise<SpendingScansResponse>((resolve, reject) => {
+      const handleProgress = (data: { currentMerchant: string; progressPercent: number }) => {
+        setProgress(data.progressPercent);
+        setCurrentMerchant(data.currentMerchant);
+      };
+
+      const handleSuccess = async (data: SpendingScansResponse) => {
+        setIsPending(false);
+        setProgress(100);
+        cleanup();
+        await queryClient.invalidateQueries({ queryKey: ['spending-scans'] });
+        await queryClient.invalidateQueries({ queryKey: ['spending-scans-debug'] });
+        resolve(data);
+      };
+
+      const handleError = (data: { error: string }) => {
+        setIsPending(false);
+        cleanup();
+        const errMsg = data.error || 'סיווג נכשל';
+        setError(errMsg);
+        reject(new Error(errMsg));
+      };
+
+      const cleanup = () => {
+        socket.off('spending:annotate:progress', handleProgress);
+        socket.off('spending:annotate:success', handleSuccess);
+        socket.off('spending:annotate:error', handleError);
+      };
+
+      socket.on('spending:annotate:progress', handleProgress);
+      socket.on('spending:annotate:success', handleSuccess);
+      socket.on('spending:annotate:error', handleError);
+
+      socket.emit('spending:annotate', payload);
+    });
+  };
+
+  return {
+    mutateAsync,
+    isPending,
+    progress,
+    currentMerchant,
+    error,
+  };
+}
+
+/**
+ * Fetches the count and list of unresolved (unclassified) merchants for a given
+ * date range. Designed for the classification dialog — only activates when `enabled`
+ * is true (i.e. the dialog is open) to avoid wasteful background fetches.
+ *
+ * Because it calls the same `/spending/scans` endpoint as the dashboard query,
+ * TanStack Query serves the result from cache when the range matches — zero
+ * extra network requests in the common case.
+ *
+ * @param startDate - Range start in YYYY-MM-DD format.
+ * @param endDate - Range end in YYYY-MM-DD format.
+ * @param enabled - Whether the query should run (typically `isDialogOpen`).
+ * @returns `{ count, merchants, isLoading }` where `merchants` is the full unresolved list.
+ */
+export function useUnresolvedMerchantsCount(
+  startDate: string,
+  endDate: string,
+  enabled: boolean,
+) {
+  const session = useAppStore((s) => s.session);
+
+  const query = useQuery({
+    queryKey: ['spending-scans', 'both', startDate, endDate],
+    queryFn: () =>
+      api.get<SpendingScansResponse>(
+        `/spending/scans?period=both&startDate=${startDate}&endDate=${endDate}`,
+      ),
+    enabled: !!session && enabled && !!startDate && !!endDate,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 3,
+  });
+
+  const merchants = query.data?.unresolvedMerchants ?? [];
+
+  return {
+    merchants,
+    count: merchants.length,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+  };
 }

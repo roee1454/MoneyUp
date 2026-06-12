@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CircleNotch, CreditCard, Sparkle, Info } from '@phosphor-icons/react';
-import { getBankName } from '@money-up/common';
 import { cn } from '@/lib/utils';
-import type { SpendingScansResponse } from '@/hooks/useAi';
+import type { SpendingScansResponse } from '@/hooks/useAiSpending';
+import { useAnnotateSpendingScansProgress, useUnresolvedMerchantsCount } from '@/hooks/useAiSpending';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
 import { AiModelDropdownSelector } from '@/features/ai/components/AiModelDropdownSelector';
@@ -12,11 +12,25 @@ import { SpendingCategoryList } from './SpendingCategoryList';
 import { CategoryDetailsSheet } from './CategoryDetailsSheet';
 import { FilterChips } from '@/components/ui/filter-chips';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { DashboardRangePicker } from './DashboardRangePicker';
+import {
+  AgentProvider,
+  getBankName,
+  OpenAiModels,
+  GeminiModels,
+  ClaudeModels,
+  OllamaModels,
+  OpenRouterModels,
+  ALL_PROVIDERS,
+  CATEGORY_EMOJIS,
+  getModelPricing,
+} from '@money-up/common';
 
 interface SpendingCategoriesProps {
   scans?: SpendingScansResponse | null;
@@ -32,9 +46,7 @@ interface SpendingCategoriesProps {
   hasConnectedAccounts?: boolean;
   canUseAiAnnotation?: boolean;
   configuredProviders?: string[];
-  isAnnotatingWithAi?: boolean;
   isWidgetBusy?: boolean;
-  onAnnotateWithAi?: (provider?: 'openai' | 'claude' | 'gemini', model?: string) => void;
   onGoToAiStudio?: () => void;
   onExcludedExpensesChange?: (amount: number) => void;
 }
@@ -49,8 +61,6 @@ function getTransactionKey(
   return `${effectiveCategory}::${txn.id ?? `${txn.merchant}|${txn.rawDate}|${txn.amount}`}`;
 }
 
-import { OpenAiModels, GeminiModels, CATEGORY_EMOJIS } from '@money-up/common';
-
 function getDisplayReason(reason?: string): string | null {
   if (!reason) return null;
   const normalized = reason.toLowerCase();
@@ -61,14 +71,15 @@ function getDisplayReason(reason?: string): string | null {
   return null;
 }
 
-const MODELS_BY_PROVIDER = {
+
+const MODELS_BY_PROVIDER: Record<string, string[]> = {
   openai: OpenAiModels,
-  claude: [
-    'claude-3-5-sonnet-20241022',
-    'claude-3-5-haiku-20241022',
-  ],
+  claude: ClaudeModels,
   gemini: GeminiModels,
+  ollama: OllamaModels,
+  openrouter: OpenRouterModels,
 };
+
 
 export function SpendingCategories({
   scans,
@@ -80,18 +91,28 @@ export function SpendingCategories({
   hasConnectedAccounts = false,
   canUseAiAnnotation = false,
   configuredProviders = [],
-  isAnnotatingWithAi = false,
   isWidgetBusy = false,
-  onAnnotateWithAi,
   onGoToAiStudio,
   onExcludedExpensesChange,
 }: SpendingCategoriesProps) {
   const navigate = useNavigate();
 
-  const [classProvider, setClassProvider] = useState<'openai' | 'claude' | 'gemini'>(() => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [diagStartDate, setDiagStartDate] = useState(startDate);
+  const [diagEndDate, setDiagEndDate] = useState(endDate);
+
+  // Sync dialog date range to dashboard range whenever the dialog opens
+  useEffect(() => {
+    if (isDialogOpen) {
+      setDiagStartDate(startDate);
+      setDiagEndDate(endDate);
+    }
+  }, [isDialogOpen, startDate, endDate]);
+
+  const [classProvider, setClassProvider] = useState<AgentProvider>(() => {
     const saved = localStorage.getItem('moneyup_classification_provider');
-    if (saved === 'openai' || saved === 'claude' || saved === 'gemini') {
-      return saved;
+    if (saved === 'openai' || saved === 'claude' || saved === 'gemini' || saved === 'ollama' || saved === 'openrouter') {
+      return saved as AgentProvider;
     }
     return 'gemini';
   });
@@ -104,16 +125,16 @@ export function SpendingCategories({
 
   useEffect(() => {
     if (configuredProviders.length > 0) {
-      const savedProvider = localStorage.getItem('moneyup_classification_provider') as 'openai' | 'claude' | 'gemini' | null;
+      const savedProvider = localStorage.getItem('moneyup_classification_provider') as AgentProvider | null;
       const savedModel = localStorage.getItem('moneyup_classification_model');
 
-      let targetProvider: 'openai' | 'claude' | 'gemini' = 'gemini';
+      let targetProvider: AgentProvider = 'gemini';
       if (savedProvider && configuredProviders.includes(savedProvider)) {
         targetProvider = savedProvider;
       } else if (configuredProviders.includes(classProvider)) {
         targetProvider = classProvider;
       } else {
-        targetProvider = (configuredProviders[0] as any) || 'gemini';
+        targetProvider = (configuredProviders[0] as AgentProvider) || 'gemini';
       }
 
       setClassProvider(targetProvider);
@@ -125,12 +146,14 @@ export function SpendingCategories({
         let defaultModel = 'gemini-2.5-flash';
         if (targetProvider === 'openai') defaultModel = 'gpt-4o-mini';
         else if (targetProvider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
+        else if (targetProvider === 'gemini') defaultModel = 'gemini-2.5-flash';
+        else defaultModel = MODELS_BY_PROVIDER[targetProvider]?.[0] || '';
         setClassModel(defaultModel);
       }
     }
   }, [configuredProviders]);
 
-  const handleProviderChange = (provider: 'openai' | 'claude' | 'gemini') => {
+  const handleProviderChange = (provider: AgentProvider) => {
     if (!configuredProviders.includes(provider)) {
       toast.error(`ספק ${provider.toUpperCase()} אינו מחובר.`, {
         action: {
@@ -146,6 +169,8 @@ export function SpendingCategories({
     let defaultModel = 'gemini-2.5-flash';
     if (provider === 'openai') defaultModel = 'gpt-4o-mini';
     else if (provider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
+    else if (provider === 'gemini') defaultModel = 'gemini-2.5-flash';
+    else defaultModel = MODELS_BY_PROVIDER[provider]?.[0] || '';
     
     setClassModel(defaultModel);
     localStorage.setItem('moneyup_classification_model', defaultModel);
@@ -154,6 +179,50 @@ export function SpendingCategories({
   const handleModelChange = (model: string) => {
     setClassModel(model);
     localStorage.setItem('moneyup_classification_model', model);
+  };
+
+  const {
+    mutateAsync: annotateWithAiSocket,
+    isPending: isAnnotatingSocket,
+  } = useAnnotateSpendingScansProgress();
+
+  // Live unresolved merchant count for the dialog's own date range.
+  // Only fetches when the dialog is open; TanStack Query serves from cache
+  // when diagRange === dashboardRange (zero extra network cost).
+  const {
+    count: uncategorizedCount,
+    isLoading: isMerchantsLoading,
+  } = useUnresolvedMerchantsCount(diagStartDate, diagEndDate, isDialogOpen);
+
+  const tokenEstimation = useMemo(() => {
+    const N = uncategorizedCount;
+    if (N === 0) return { input: 0, output: 0, total: 0, batches: 0, estimatedUsd: null };
+    const SYSTEM_PROMPT_TOKENS = 478;
+    const INPUT_PER_MERCHANT = 18;
+    const OUTPUT_PER_MERCHANT = 35;
+    const batches = Math.ceil(N / 50);
+    const input = (batches * SYSTEM_PROMPT_TOKENS) + (N * INPUT_PER_MERCHANT);
+    const output = N * OUTPUT_PER_MERCHANT;
+    const pricing = getModelPricing(classModel);
+    const estimatedUsd = pricing
+      ? (input / 1_000_000) * pricing.inputPer1M + (output / 1_000_000) * pricing.outputPer1M
+      : null;
+    return { input, output, total: input + output, batches, estimatedUsd };
+  }, [uncategorizedCount, classModel]);
+
+  const handleRunClassification = async () => {
+    try {
+      await annotateWithAiSocket({
+        startDate: diagStartDate,
+        endDate: diagEndDate,
+        provider: classProvider as AgentProvider,
+        model: classModel,
+      });
+      toast.success('הסיווג החכם הושלם בהצלחה!');
+      setIsDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'הסיווג נכשל');
+    }
   };
 
   const [selectedCategory, setSelectedCategory] =
@@ -320,94 +389,31 @@ export function SpendingCategories({
   }, [selectedCategory, sortedCategories, allExpensesCategory]);
 
   const showShimmer = isLoadingScans || (hasConnectedAccounts && !scans);
-  const isBusy = (isWidgetBusy || isAnnotatingWithAi) && !showShimmer;
+  const isBusy = (isWidgetBusy || isAnnotatingSocket) && !showShimmer;
   const shouldShimmerSpendingValues = showShimmer || isRefreshingScans;
 
   const aiAction = hasConnectedAccounts ? (
     <div className="flex items-center gap-2">
-      {canUseAiAnnotation && onAnnotateWithAi ? (
-        <div className={cn(
-          "flex items-center gap-2 border border-border/80 bg-muted/30 p-1.5 rounded-none shadow-xs",
-          (isAnnotatingWithAi || isWidgetBusy) && "pointer-events-none opacity-60"
-        )}>
-          <TooltipProvider>
-            <Tooltip delayDuration={300}>
-              <TooltipTrigger asChild>
-                <button className="flex h-8.5 w-8.5 shrink-0 cursor-help items-center justify-center border border-border bg-background text-muted-foreground hover:bg-muted/40 transition-colors shadow-xs rounded-none p-0">
-                  <Info className="h-4.5 w-4.5" weight="bold" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent
-                side="top"
-                className="text-right rounded-none border border-border bg-card/95 backdrop-blur-md text-foreground px-4 py-3 font-semibold shadow-xl"
-              >
-                <p className="text-sm leading-relaxed">
-                  הקפד להשתמש בסיווג החכם פעם בשבוע לשיפור הדיוק. ה-AI לומד את הרגלי
-                  הקנייה שלך ומשפר את הדיוק לאורך זמן.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <AiModelDropdownSelector
-            selectedProvider={classProvider}
-            setSelectedProvider={(p) => handleProviderChange(p as any)}
-            selectedModel={classModel}
-            setSelectedModel={handleModelChange}
-            modelsByProvider={MODELS_BY_PROVIDER}
-            providers={['gemini', 'openai', 'claude']}
-            isLoading={isAnnotatingWithAi || isWidgetBusy}
-            configuredProviders={configuredProviders}
-          />
-
-          <PremiumButton
-            type="button"
-            onClick={() => onAnnotateWithAi(classProvider, classModel)}
-            disabled={isAnnotatingWithAi || isWidgetBusy}
-            size="sm"
-            className="h-8.5 px-5 rounded-none border-none shadow-sm font-black text-xs min-w-[160px] cursor-pointer bg-primary text-primary-foreground hover:bg-primary/95"
-          >
-            {isAnnotatingWithAi ? (
-              <CircleNotch className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkle className="h-4 w-4" weight="fill" />
-            )}
-            <span>{isAnnotatingWithAi ? 'מסווג...' : 'סיווג חכם'}</span>
-          </PremiumButton>
-        </div>
+      {canUseAiAnnotation ? (
+        <PremiumButton
+          type="button"
+          onClick={() => setIsDialogOpen(true)}
+          disabled={isWidgetBusy || isAnnotatingSocket}
+          size="sm"
+          className="h-8.5 px-5 rounded-none border border-border/40 shadow-xs font-black text-xs min-w-[140px] cursor-pointer bg-primary text-primary-foreground hover:bg-primary/95"
+        >
+          <Sparkle className="h-4 w-4" weight="fill" />
+          <span>סיווג חכם</span>
+        </PremiumButton>
       ) : onGoToAiStudio ? (
-        <div className={cn(
-          "flex items-center gap-2 border border-border/80 bg-muted/30 p-1.5 rounded-none shadow-xs",
-          isWidgetBusy && "pointer-events-none opacity-60"
-        )}>
-          <TooltipProvider>
-            <Tooltip delayDuration={300}>
-              <TooltipTrigger asChild>
-                <button className="flex h-8.5 w-8.5 shrink-0 cursor-help items-center justify-center border border-border bg-background text-muted-foreground hover:bg-muted/40 transition-colors shadow-xs rounded-none p-0">
-                  <Info className="h-4.5 w-4.5" weight="bold" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent
-                side="top"
-                className="max-w-[280px] text-right rounded-none border border-border bg-card/95 backdrop-blur-md text-foreground px-4 py-3 font-semibold shadow-xl"
-              >
-                <p className="text-xs leading-relaxed">
-                  הקפד להשתמש בסיווג החכם פעם בשבוע לשיפור הדיוק. ה-AI לומד את הרגלי
-                  הקנייה שלך ומשפר את הדיוק לאורך זמן.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <button
-            type="button"
-            onClick={onGoToAiStudio}
-            className="inline-flex h-8.5 cursor-pointer items-center justify-center gap-2 border-none bg-primary px-5 text-xs font-black text-primary-foreground shadow-md transition-all hover:bg-primary/95 active:scale-95 rounded-none"
-          >
-            <Sparkle className="h-4 w-4" weight="fill" />
-            <span>הפעל עוזר AI</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onGoToAiStudio}
+          className="inline-flex h-8.5 cursor-pointer items-center justify-center gap-2 border-none bg-primary px-5 text-xs font-black text-primary-foreground shadow-md transition-all hover:bg-primary/95 active:scale-95 rounded-none"
+        >
+          <Sparkle className="h-4 w-4" weight="fill" />
+          <span>הפעל עוזר AI</span>
+        </button>
       ) : null}
     </div>
   ) : null;
@@ -488,9 +494,9 @@ export function SpendingCategories({
 
   return (
     <div className="space-y-6">
-      {(isWidgetBusy || isRefreshingScans) && !showShimmer ? (
+      {(isWidgetBusy || isRefreshingScans || isAnnotatingSocket) && !showShimmer ? (
         <div className="pointer-events-none fixed bottom-5 left-5 z-30 border border-border bg-background px-4 py-2 text-xs font-black text-foreground shadow-lg">
-          {isAnnotatingWithAi
+          {isAnnotatingSocket
             ? 'מסווג בתי עסק ומעדכן נתונים...'
             : 'מעדכן נתוני הוצאות...'}
         </div>
@@ -527,7 +533,7 @@ export function SpendingCategories({
             <div className="flex items-center gap-3 border border-border bg-background px-5 py-4 shadow-xl rounded-none">
               <CircleNotch className="h-5 w-5 animate-spin text-primary" />
               <span className="text-xs font-black text-foreground uppercase tracking-wider">
-                {isAnnotatingWithAi ? 'מבצע סיווג חכם...' : 'סנכרון נתונים פעיל...'}
+                {isAnnotatingSocket ? 'מבצע סיווג חכם...' : 'סנכרון נתונים פעיל...'}
               </span>
             </div>
           </div>
@@ -569,6 +575,131 @@ export function SpendingCategories({
         onToggleTransactionExcluded={toggleTransactionExcluded}
         getDisplayReason={getDisplayReason}
       />
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        if (!isAnnotatingSocket) {
+          setIsDialogOpen(open);
+        }
+      }}>
+        <DialogContent className="rounded-none border border-border bg-card text-foreground max-w-lg shadow-2xl p-6 text-right font-semibold" dir="rtl" showCloseButton={!isAnnotatingSocket}>
+          <DialogHeader className="text-right space-y-1.5 border-b border-border/40 pb-4">
+            <DialogTitle className="text-lg font-black tracking-tight flex items-center gap-2">
+              <Sparkle className="h-5 w-5 text-primary" weight="fill" />
+              סיווג עסקאות חכם (AI)
+            </DialogTitle>
+            <DialogDescription className="text-sm font-medium text-muted-foreground">
+              בחרו ספק, דגם וטווח תאריכים להפעלת סיווג אוטומטי של עסקאות לא מסווגות.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-4">
+
+            {/* AI Model Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground block">ספק ודגם AI</label>
+              <AiModelDropdownSelector
+                selectedProvider={classProvider}
+                setSelectedProvider={(p) => handleProviderChange(p as any)}
+                selectedModel={classModel}
+                setSelectedModel={handleModelChange}
+                modelsByProvider={MODELS_BY_PROVIDER}
+                providers={ALL_PROVIDERS}
+                isLoading={isAnnotatingSocket}
+                configuredProviders={configuredProviders}
+              />
+            </div>
+
+            {/* Date Range */}
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground block">טווח תאריכים לסיווג</label>
+              <div className="border border-border/60 bg-muted/5 px-3 py-2">
+                <DashboardRangePicker
+                  startDate={diagStartDate}
+                  endDate={diagEndDate}
+                  onStartDateChange={setDiagStartDate}
+                  onEndDateChange={setDiagEndDate}
+                  isBusy={isAnnotatingSocket}
+                />
+              </div>
+            </div>
+
+            <div className={cn(
+              "border p-4 rounded-none text-sm leading-relaxed",
+              isMerchantsLoading
+                ? "border-border/60 bg-muted/10 text-muted-foreground animate-pulse"
+                : uncategorizedCount === 0
+                  ? "border-border/60 bg-muted/10 text-muted-foreground"
+                  : "bg-primary/5 text-foreground border-primary/30"
+            )}>
+              {isMerchantsLoading ? (
+                <div className="flex items-center gap-2">
+                  <CircleNotch className="h-4 w-4 shrink-0 animate-spin" />
+                  <span>טוען נתונים לטווח התאריכים...</span>
+                </div>
+              ) : uncategorizedCount === 0 ? (
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 shrink-0 text-muted-foreground" weight="bold" />
+                  <span>אין ביתי עסק לא מסווגים בטווח זה. הכל מסווג!</span>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="font-black text-primary">נמצאו <span className="text-xl">{uncategorizedCount}</span> בתי עסק ייחודיים שטרם סווגו.</p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    עלות טוקנים מוערכת: <span className="font-bold text-foreground">{tokenEstimation.total.toLocaleString()} טוקנים</span>
+                    {' '}(~{tokenEstimation.input.toLocaleString()} קלט, ~{tokenEstimation.output.toLocaleString()} פלט ב-{tokenEstimation.batches} סבבים).
+                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    עלות כספית מוערכת:{' '}
+                    {classProvider === 'ollama' ? (
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">חינם (מקומי)</span>
+                    ) : tokenEstimation.estimatedUsd !== null ? (
+                      <span className="font-bold text-foreground" dir="ltr">
+                        ${tokenEstimation.estimatedUsd.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 4,
+                        })}
+                      </span>
+                    ) : (
+                      <span className="font-bold text-muted-foreground">עלות לא ידועה</span>
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {isAnnotatingSocket && (
+              <div className="flex items-center justify-center gap-3 border border-border/60 bg-muted/10 p-5 rounded-none">
+                <CircleNotch className="h-5 w-5 animate-spin text-primary" weight="bold" />
+                <span className="text-sm font-bold text-foreground">מבצע סיווג חכם... אנא המתן.</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-border/40 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsDialogOpen(false)}
+              disabled={isAnnotatingSocket}
+              className="inline-flex h-10 cursor-pointer items-center justify-center border border-border bg-background px-5 text-sm font-black text-foreground hover:bg-muted/40 transition-colors rounded-none"
+            >
+              ביטול
+            </button>
+            <PremiumButton
+              type="button"
+              onClick={handleRunClassification}
+              disabled={uncategorizedCount === 0 || isAnnotatingSocket || isMerchantsLoading}
+              className="h-10 px-6 rounded-none font-black text-sm"
+            >
+              {isAnnotatingSocket ? (
+                <CircleNotch className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkle className="h-4 w-4" weight="fill" />
+              )}
+              <span>הפעל סיווג</span>
+            </PremiumButton>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { DashboardMetricCard } from './DashboardMetricCard';
-import type { SpendingScansResponse } from '@/hooks/useAi';
+import type { SpendingScansResponse } from '@/hooks/useAiSpending';
 import type { BankAccount } from '@/hooks/useAccounts';
 import { getBankName } from '@money-up/common';
 

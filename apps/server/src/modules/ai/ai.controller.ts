@@ -95,7 +95,7 @@ export class AiController {
   }
 
   @Get()
-  async getAiGreeting(): Promise<string> {
+  getAiGreeting(): string {
     return 'AI gateway endpoint is ready';
   }
 
@@ -210,6 +210,6 @@ export class AiController {
           subscriber.error(err);
         }
       })();
-    }).pipe(map((obj) => ({ data: obj }) as MessageEvent));
+    }).pipe(map((obj) => ({ data: obj })));
   }
 }

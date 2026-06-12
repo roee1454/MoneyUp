@@ -6,7 +6,7 @@ import {
   useAccounts,
 } from '@/hooks/useAccounts';
 import { useUserProfile } from '@/hooks/useUsers';
-import { useAnnotateSpendingScans, useSpendingScans } from '@/hooks/useAi';
+import { useSpendingScans } from '@/hooks/useAiSpending';
 import { useAppStore } from '@/store';
 import { Button } from '@/components/ui/button';
 import { PremiumCard } from '@/components/ui/premium-card';
@@ -41,7 +41,7 @@ export default function Dashboard() {
   const [endDate, setEndDate] = useState(() => {
     return dashboardRange.endDate ?? getCurrentRange().endDate;
   });
-  const [isWidgetBusy, setIsWidgetBusy] = useState(false);
+  const isWidgetBusy = false;
   const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
   const [excludedExpenseAmount, setExcludedExpenseAmount] = useState(0);
 
@@ -105,7 +105,7 @@ export default function Dashboard() {
     };
   }, [rawScans]);
 
-  const annotateMutation = useAnnotateSpendingScans();
+
 
   const isSyncing =
     syncState.status === 'running' || syncState.status === 'reconnecting';
@@ -188,21 +188,7 @@ export default function Dashboard() {
     }
   }, [refetch, refetchScans, syncState.status]);
 
-  async function handleAnnotateWithAi(provider?: 'openai' | 'claude' | 'gemini', model?: string) {
-    setIsWidgetBusy(true);
-    try {
-      await annotateMutation.mutateAsync({
-        period: scanPeriod,
-        startDate,
-        endDate,
-        provider,
-        model,
-      });
-      await refetchScans();
-    } finally {
-      setIsWidgetBusy(false);
-    }
-  }
+
 
   const recentIncomeTransactions = useMemo(() => {
     return accounts
@@ -329,9 +315,7 @@ export default function Dashboard() {
           hasConnectedAccounts={hasCreditAccounts}
           canUseAiAnnotation={hasAiProvider}
           configuredProviders={(userProfile?.configuredProviders ?? []) as string[]}
-          isAnnotatingWithAi={annotateMutation.isPending}
           isWidgetBusy={isAnyActionBusy}
-          onAnnotateWithAi={handleAnnotateWithAi}
           onGoToAiStudio={() => navigate({ to: '/ai-studio' })}
           onExcludedExpensesChange={setExcludedExpenseAmount}
         />

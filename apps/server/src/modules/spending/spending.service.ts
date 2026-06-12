@@ -147,6 +147,7 @@ export class SpendingService {
     endDate?: string,
     overrideProvider?: AgentProvider,
     overrideModel?: string,
+    onProgress?: (info: { currentMerchant: string; progressPercent: number }) => void,
   ): Promise<SpendingScansResponse> {
     const response = await this.scraperService.getConnectedAccounts({
       userId,
@@ -170,6 +171,7 @@ export class SpendingService {
       unresolvedMerchants,
       overrideProvider,
       overrideModel,
+      onProgress,
     );
     if (aiCategoryAnnotations.length === 0) {
       return initial;
@@ -236,6 +238,7 @@ export class SpendingService {
     unresolved: Array<{ normalizedMerchant: string; displayMerchant: string }>,
     overrideProvider?: AgentProvider,
     overrideModel?: string,
+    onProgress?: (info: { currentMerchant: string; progressPercent: number }) => void,
   ): Promise<
     Array<{
       normalizedMerchant: string;
@@ -294,6 +297,13 @@ export class SpendingService {
 
     for (let i = 0; i < uniqueUnknowns.length; i += this.aiCategoryBatchSize) {
       const chunk = uniqueUnknowns.slice(i, i + this.aiCategoryBatchSize);
+      
+      if (onProgress) {
+        const percent = Math.min(100, Math.round((i / uniqueUnknowns.length) * 100));
+        const currentMerchant = chunk[0]?.displayMerchant || '';
+        onProgress({ currentMerchant, progressPercent: percent });
+      }
+
       const prompt = this.buildMerchantCategorizationPrompt(chunk);
 
       if (this.spendingScansDebugEnabled) {
@@ -332,6 +342,9 @@ export class SpendingService {
           });
         }
       }
+    }
+    if (onProgress && uniqueUnknowns.length > 0) {
+      onProgress({ currentMerchant: '', progressPercent: 100 });
     }
     return results;
   }

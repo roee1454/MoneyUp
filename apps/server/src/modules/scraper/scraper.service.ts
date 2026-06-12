@@ -279,7 +279,7 @@ export class ScraperService {
     }
   }
 
-  async getScraperStatus(data: { sessionId: string }): Promise<any> {
+  getScraperStatus(data: { sessionId: string }) {
     const session = this.sessionService.getSession(data.sessionId);
     if (!session) {
       const sanitized = buildSanitizedError('SESSION_EXPIRED');
@@ -301,10 +301,10 @@ export class ScraperService {
     };
   }
 
-  async submitChallenge(data: {
+  submitChallenge(data: {
     sessionId: string;
     code: string;
-  }): Promise<any> {
+  }) {
     const session = this.sessionService.getSession(data.sessionId);
     if (!session) {
       const sanitized = buildSanitizedError('SESSION_EXPIRED');

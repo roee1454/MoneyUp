@@ -13,6 +13,19 @@ type ScraperListItem = {
 import type { ScraperErrorCode } from '@money-up/types';
 export type { ScraperErrorCode };
 
+export type DetectChromiumResult = {
+  path: string | null;
+  version: string | null;
+  success: boolean;
+  availableBrowsers: Array<{
+    name: string;
+    version: string;
+    platform: string;
+    installed: boolean;
+    path: string | null;
+  }>;
+};
+
 /**
  * Fetches the list of supported financial institution scrapers.
  *
@@ -36,18 +49,7 @@ export function useDetectChromium() {
   return useQuery({
     queryKey: ['detect-chromium'],
     queryFn: () =>
-      api.get<{
-        path: string | null;
-        version: string | null;
-        success: boolean;
-        availableBrowsers: Array<{
-          name: string;
-          version: string;
-          platform: string;
-          installed: boolean;
-          path: string | null;
-        }>;
-      }>('/scrapers/detect'),
+      api.get<DetectChromiumResult>('/scrapers/detect'),
     enabled: false,
     staleTime: 0,
     gcTime: 0,
