@@ -9,20 +9,14 @@ import { useConversations, useDeleteConversation } from '@/hooks/useAi';
 import { Select, SelectItem } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { motion, useReducedMotion, type Variants } from 'motion/react';
 
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { DeleteConversationDialog } from '@/features/ai/components/DeleteConversationDialog';
 
 // Removed local model mappings since AI selector is localized now.
 
-export default function AiStudio() {
+export default function Agent() {
   const session = useAppStore((s) => s.session);
   const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
   const activeConversationId = useAppStore((s) => s.activeConversationId);
@@ -81,17 +75,49 @@ export default function AiStudio() {
   };
 
 
+  const shouldReduceMotion = useReducedMotion();
+  const isAnimated = !shouldReduceMotion;
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.05,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.4,
+        ease: [0.22, 1, 0.36, 1],
+      },
+    },
+  };
+
+  const LayoutContainer = isAnimated ? motion.div : 'div';
+  const MotionItem = isAnimated ? motion.div : 'div';
+
   return (
-    <div
-      className="text-right animate-in fade-in-50 duration-300 w-full h-full flex flex-col overflow-hidden"
+    <LayoutContainer
+      className="text-right w-full h-full flex flex-col overflow-hidden"
       dir="rtl"
+      {...(isAnimated ? { variants: containerVariants, initial: 'hidden', animate: 'visible' } : {})}
     >
       <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
-        
         {/* Main Chat Area */}
         <div className="flex-1 min-w-0 flex flex-col bg-background relative">
           {/* Unified Chat Header */}
-          <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-card/45 backdrop-blur-md gap-2 shrink-0 select-none">
+          <MotionItem
+            className="flex items-center justify-between border-b border-border px-6 py-4 bg-card/45 backdrop-blur-md gap-2 shrink-0 select-none"
+            {...(isAnimated ? { variants: itemVariants } : {})}
+          >
             {/* Right: Title on Desktop / Conversation Select on Mobile */}
             <div className="flex-1 min-w-0">
               <div className="hidden md:block">
@@ -141,14 +167,19 @@ export default function AiStudio() {
                 </Button>
               )}
             </div>
-          </div>
+          </MotionItem>
 
-          <AiConversation
-            userProfile={userProfile}
-            conversationId={activeConversationId}
-            onConversationCreated={(newId) => setActiveConversationId(newId)}
-            onConnectClick={() => setIsAiDialogOpen(true)}
-          />
+          <MotionItem
+            className="flex-1 min-h-0"
+            {...(isAnimated ? { variants: itemVariants } : {})}
+          >
+            <AiConversation
+              userProfile={userProfile}
+              conversationId={activeConversationId}
+              onConversationCreated={(newId) => setActiveConversationId(newId)}
+              onConnectClick={() => setIsAiDialogOpen(true)}
+            />
+          </MotionItem>
         </div>
       </div>
 
@@ -161,41 +192,14 @@ export default function AiStudio() {
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog
+      <DeleteConversationDialog
         open={!!conversationToDelete}
-        onOpenChange={(open) => !open && setConversationToDelete(null)}
-      >
-        <DialogContent
-          className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
-          dir="rtl"
-        >
-          <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
-            <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
-              מחיקת שיחה
-            </DialogTitle>
-            <DialogDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-widest leading-relaxed">
-              האם אתה בטוח שברצונך למחוק שיחה זו? פעולה זו היא סופית ולא ניתן
-              לבטלה.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="pt-4 flex flex-row justify-end gap-3">
-            <Button
-              variant="outline"
-              className="rounded-none font-bold text-xs h-10 border-border cursor-pointer uppercase tracking-widest"
-              onClick={() => setConversationToDelete(null)}
-            >
-              ביטול
-            </Button>
-            <Button
-              className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer uppercase tracking-widest px-6 shadow-lg shadow-destructive/20"
-              onClick={() => void confirmDelete()}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? 'מוחק...' : 'מחק לצמיתות'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        onOpenChange={(open) => {
+          if (!open) setConversationToDelete(null);
+        }}
+        isPending={deleteMutation.isPending}
+        onConfirm={() => void confirmDelete()}
+      />
+    </LayoutContainer>
   );
 }

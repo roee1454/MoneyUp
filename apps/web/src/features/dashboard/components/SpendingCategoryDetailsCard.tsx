@@ -184,7 +184,7 @@ export function SpendingCategoryDetailsCard({
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block text-right">מיין לפי</span>
+            <span className="text-[10px] font-black text-muted-foreground block text-right">מיין לפי</span>
             <Select
               value={sortBy}
               onValueChange={(val) => setSortBy(val as any)}
@@ -199,7 +199,7 @@ export function SpendingCategoryDetailsCard({
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block text-right">סטטוס תנועה</span>
+            <span className="text-[10px] font-black text-muted-foreground block text-right">סטטוס תנועה</span>
             <Select
               value={statusFilter}
               onValueChange={(val) => setStatusFilter(val as any)}
@@ -214,7 +214,7 @@ export function SpendingCategoryDetailsCard({
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block text-right">חשבון / כרטיס</span>
+            <span className="text-[10px] font-black text-muted-foreground block text-right">חשבון / כרטיס</span>
             <Select
               value={accountFilter}
               onValueChange={(val) => setAccountFilter(val)}
@@ -230,7 +230,7 @@ export function SpendingCategoryDetailsCard({
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block text-right">טווח סכום</span>
+            <span className="text-[10px] font-black text-muted-foreground block text-right">טווח סכום</span>
             <Select
               value={amountFilter}
               onValueChange={(val) => setAmountFilter(val)}
@@ -270,7 +270,7 @@ export function SpendingCategoryDetailsCard({
         ) : (
           <>
             <div className="mb-6 flex items-center justify-between border-b border-border/50 pb-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              <span className="text-[10px] font-black text-muted-foreground">
                 {isAnyFilterActive ? 'סה״כ הוצאה מסוננת (פעילה)' : 'סה״כ הוצאה בקטגוריה'}
               </span>
               <span
@@ -356,7 +356,7 @@ export function SpendingCategoryDetailsCard({
             {hasMore && (
               <button
                 onClick={() => setDisplayLimit((prev) => prev + 50)}
-                className="mb-4 w-full cursor-pointer border border-dashed border-border py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:text-primary"
+                className="mb-4 w-full cursor-pointer border border-dashed border-border py-6 text-[10px] font-black text-muted-foreground transition-colors hover:text-primary"
               >
                 טען עוד תנועות ({filteredAndSortedTransactions.length - displayLimit} נותרו)
               </button>

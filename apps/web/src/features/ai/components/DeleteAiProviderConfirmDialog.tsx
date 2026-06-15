@@ -43,14 +43,14 @@ export function DeleteAiProviderConfirmDialog({
         <DialogFooter className="pt-4 flex flex-row justify-end gap-3">
           <Button
             variant="outline"
-            className="rounded-none font-bold text-xs h-10 border-border cursor-pointer uppercase tracking-widest"
+            className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
             onClick={() => onOpenChange(false)}
             disabled={isPending}
           >
             ביטול
           </Button>
           <Button
-            className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer uppercase tracking-widest px-6 shadow-lg shadow-destructive/10"
+            className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer px-6 shadow-lg shadow-destructive/10"
             disabled={isPending}
             onClick={onConfirm}
           >

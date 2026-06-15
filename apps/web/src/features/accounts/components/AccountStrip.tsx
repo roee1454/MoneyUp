@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Warning, Trash, CircleNotch } from '@phosphor-icons/react';
+import { Warning, Trash, Info } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
@@ -75,20 +75,24 @@ export function AccountStrip({
   isRefreshingValues = false,
 }: AccountStripProps) {
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+  const [bankIdToDelete, setBankIdToDelete] = useState<string | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
   const disconnectAccount = useDisconnectAccount();
   const queryClient = useQueryClient();
 
   const handleDisconnect = async () => {
-    if (!selectedBankId) return;
+    if (!bankIdToDelete) return;
 
     setIsDisconnecting(true);
     try {
-      await disconnectAccount.mutateAsync(selectedBankId);
+      await disconnectAccount.mutateAsync(bankIdToDelete);
       void queryClient.invalidateQueries({ queryKey: ['connected-accounts'] });
       setShowConfirmDisconnect(false);
-      setSelectedBankId(null);
+      setBankIdToDelete(null);
+      if (selectedBankId === bankIdToDelete) {
+        setSelectedBankId(null);
+      }
     } finally {
       setIsDisconnecting(false);
     }
@@ -183,11 +187,10 @@ export function AccountStrip({
             })}`
           : 'טרם סונכרן';
 
-        return (
-          <button
+         return (
+          <div
             key={bankId}
-            onClick={() => setSelectedBankId(bankId)}
-            className="h-16 w-full border border-border bg-card hover:bg-accent px-5 py-2 rounded-none flex items-center justify-between transition-all cursor-pointer text-right group select-none"
+            className="relative h-16 w-full border border-border bg-card hover:bg-accent px-5 py-2 rounded-none flex items-center justify-between transition-all group select-none text-right"
           >
             <div className="flex items-center gap-2">
               <BankIcon bankId={bankId} size="sm" />
@@ -205,35 +208,70 @@ export function AccountStrip({
                 </p>
               </div>
             </div>
-            {isCard ? (
-              <div className="text-right leading-tight">
-                {isRefreshingValues ? (
-                  <div className="h-4 w-12 bg-muted animate-soft-shimmer" />
+
+            {/* Left side actions and values */}
+            <div className="relative flex items-center justify-end h-full">
+              {/* Balance / Transaction count info - hides on hover to make room for action buttons */}
+              <div className="group-hover:opacity-0 transition-opacity duration-150 text-left leading-tight">
+                {isCard ? (
+                  <>
+                    {isRefreshingValues ? (
+                      <div className="h-4 w-12 bg-muted animate-soft-shimmer" />
+                    ) : (
+                      <p className="text-xs md:text-sm font-black text-foreground/80">
+                        {transactionsCount.toLocaleString('he-IL')}
+                      </p>
+                    )}
+                    <p className="text-[9px] font-semibold text-muted-foreground">
+                      תנועות
+                    </p>
+                  </>
                 ) : (
-                  <p className="text-xs md:text-sm font-black text-foreground/80">
-                    {transactionsCount.toLocaleString('he-IL')}
-                  </p>
+                  <>
+                    {isRefreshingValues ? (
+                      <div className="h-4 w-20 bg-muted animate-soft-shimmer" />
+                    ) : (
+                      <div
+                        className={`text-xs md:text-sm font-black ${
+                          totalBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                        }`}
+                      >
+                        {formatBalance(totalBalance)}
+                      </div>
+                    )}
+                    <p className="text-[9px] font-semibold text-muted-foreground">
+                      יתרה
+                    </p>
+                  </>
                 )}
-                <p className="text-[9px] font-semibold text-muted-foreground">
-                  תנועות
-                </p>
               </div>
-            ) : (
-              <>
-                {isRefreshingValues ? (
-                  <div className="h-4 w-20 bg-muted animate-soft-shimmer" />
-                ) : (
-                  <div
-                    className={`text-right text-xs md:text-sm font-black leading-tight ${
-                      totalBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                    }`}
-                  >
-                    {formatBalance(totalBalance)}
-                  </div>
-                )}
-              </>
-            )}
-          </button>
+
+              {/* Action Buttons (Info & Trash) - visible only on hover */}
+              <div className="absolute left-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 rounded-none text-muted-foreground hover:text-foreground hover:bg-background/50 cursor-pointer"
+                  onClick={() => setSelectedBankId(bankId)}
+                  title="פרטי חשבון"
+                >
+                  <Info className="h-4 w-4" weight="bold" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 rounded-none text-muted-foreground/60 hover:text-rose-600 hover:bg-rose-500/5 cursor-pointer"
+                  onClick={() => {
+                    setBankIdToDelete(bankId);
+                    setShowConfirmDisconnect(true);
+                  }}
+                  title="נתק חיבור"
+                >
+                  <Trash className="h-4 w-4" weight="bold" />
+                </Button>
+              </div>
+            </div>
+          </div>
         );
       })}
 
@@ -246,7 +284,7 @@ export function AccountStrip({
           <DialogContent
             className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
             dir="rtl"
-            showCloseButton={false}
+            showCloseButton={true}
           >
             <DialogHeader className="pb-4 border-b border-border">
               <div className="flex items-center gap-3">
@@ -313,16 +351,10 @@ export function AccountStrip({
             <DialogFooter className="pt-4 border-t border-border flex flex-col gap-2">
               <Button
                 variant="outline"
-                className="w-full h-10 border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 font-bold transition-all flex items-center justify-center gap-2"
-                onClick={() => setShowConfirmDisconnect(true)}
-                disabled={isDisconnecting}
+                className="w-full h-10 border-border hover:bg-accent font-bold transition-all flex items-center justify-center rounded-none cursor-pointer"
+                onClick={() => setSelectedBankId(null)}
               >
-                {isDisconnecting ? (
-                  <CircleNotch className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash className="h-4 w-4" />
-                )}
-                <span>נתק חיבור זה ומחק נתונים</span>
+                <span>סגירה</span>
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -332,8 +364,11 @@ export function AccountStrip({
       {/* Confirmation Disconnect Dialog */}
       <DisconnectConfirmDialog
         open={showConfirmDisconnect}
-        onOpenChange={setShowConfirmDisconnect}
-        bankId={selectedBankId}
+        onOpenChange={(open) => {
+          setShowConfirmDisconnect(open);
+          if (!open) setBankIdToDelete(null);
+        }}
+        bankId={bankIdToDelete}
         isDisconnecting={isDisconnecting}
         onConfirm={handleDisconnect}
       />

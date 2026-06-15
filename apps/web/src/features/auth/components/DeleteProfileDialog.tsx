@@ -43,7 +43,7 @@ export function DeleteProfileDialog({
               הפרופיל נמחק בהצלחה
             </p>
             <Button
-              className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-10 uppercase tracking-widest"
+              className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-10"
               onClick={() => {
                 onClose();
                 setDeleteSuccess(false);
@@ -58,24 +58,24 @@ export function DeleteProfileDialog({
               <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
                 מחיקת פרופיל
               </DialogTitle>
-              <DialogDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                כדי למחוק את הפרופיל, הקלד את האימייל שלו בדיוק.
+              <DialogDescription className="text-xs font-semibold text-muted-foreground">
+                כדי למחוק את הפרופיל, הקלד את מזהה הפרופיל שלו בדיוק.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 pt-4 text-right">
               <p className="text-xs font-semibold text-muted-foreground tracking-tight">
                 הקלד:{' '}
-                <span className="font-black text-foreground underline underline-offset-4 decoration-destructive/40 normal-case">
-                  {target?.email}
+                <span className="font-black text-foreground underline underline-offset-4 decoration-destructive/40 normal-case select-all">
+                  {target?.id}
                 </span>
               </p>
               <PremiumInput
                 value={deleteConfirmation}
                 onChange={(e) => setDeleteConfirmation(e.target.value)}
-                placeholder="profile@email.com"
+                placeholder="מזהה פרופיל..."
                 className="w-full h-12 bg-muted/50 border border-border rounded-none"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && deleteConfirmation === target?.email) {
+                  if (e.key === 'Enter' && deleteConfirmation === target?.id) {
                     void onDelete();
                   }
                 }}
@@ -84,15 +84,15 @@ export function DeleteProfileDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-none font-bold text-xs h-10 border-border cursor-pointer uppercase tracking-widest"
+                  className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
                   onClick={onClose}
                 >
                   ביטול
                 </Button>
                 <Button
                   type="button"
-                  className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer uppercase tracking-widest px-6"
-                  disabled={deleteConfirmation !== target?.email || isPending}
+                  className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer px-6"
+                  disabled={deleteConfirmation !== target?.id || isPending}
                   onClick={() => void onDelete()}
                 >
                   {isPending ? 'מוחק...' : 'מחק פרופיל'}

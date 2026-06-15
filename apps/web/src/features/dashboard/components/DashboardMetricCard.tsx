@@ -55,13 +55,13 @@ export function DashboardMetricCard({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1 text-right">
             <div className="flex items-center gap-2">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              <p className="text-base sm:text-lg font-black text-foreground">
                 {title}
               </p>
               <DataSourceCard bankIds={sourceBankIds} />
             </div>
             {caption && (
-              <p className="text-[10px] font-bold text-muted-foreground/60 leading-tight">
+              <p className="text-xs font-bold text-muted-foreground/60 leading-tight">
                 {caption}
               </p>
             )}
@@ -100,7 +100,7 @@ export function DashboardMetricCard({
           ) : (
             <div
               className={cn(
-                'text-2xl font-black tracking-tight',
+                'text-sm sm:text-base font-bold tracking-tight',
                 iconToneClasses[tone],
               )}
               dir="ltr"
@@ -132,7 +132,7 @@ export function DashboardMetricCard({
         )}
       >
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground">
+          <p className="text-sm sm:text-base font-black text-foreground">
             {title}
           </p>
           <DataSourceCard bankIds={sourceBankIds} />
@@ -156,7 +156,7 @@ export function DashboardMetricCard({
           ) : (
             <div
               className={cn(
-                'text-2xl font-black tracking-tight',
+                'text-xs sm:text-sm font-bold tracking-tight',
                 iconToneClasses[tone],
               )}
               dir="ltr"
@@ -190,7 +190,7 @@ export function DashboardMetricCard({
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1 text-right">
             <div className="flex items-center gap-3">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="text-lg sm:text-xl font-black text-foreground">
                 {title}
               </p>
               <DataSourceCard bankIds={sourceBankIds} />
@@ -233,7 +233,13 @@ export function DashboardMetricCard({
               </Link>
             </div>
           ) : (
-            <div className="text-3xl font-black tracking-tight" dir="ltr">
+            <div
+              className={cn(
+                'text-sm sm:text-base font-bold tracking-tight',
+                iconToneClasses[tone],
+              )}
+              dir="ltr"
+            >
               {value}
             </div>
           )}

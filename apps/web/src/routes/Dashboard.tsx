@@ -11,7 +11,7 @@ import { useAppStore } from '@/store';
 import { Button } from '@/components/ui/button';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { ArrowLeft } from '@phosphor-icons/react';
-
+import { motion, useReducedMotion, type Variants } from 'motion/react';
 
 // Feature Components
 import { DashboardHeader } from '@/features/dashboard/components/DashboardHeader';
@@ -32,6 +32,9 @@ export default function Dashboard() {
   const syncState = useAppStore((s) => s.sync);
   const dashboardRange = useAppStore((s) => s.dashboardRange);
   const setDashboardRange = useAppStore((s) => s.setDashboardRange);
+
+  const shouldReduceMotion = useReducedMotion();
+  const isAnimated = !shouldReduceMotion;
 
   const [greeting, setGreeting] = useState('');
   const [scanPeriod] = useState<'current' | 'previous' | 'both'>('current');
@@ -229,97 +232,135 @@ export default function Dashboard() {
   const isNetSpendingLoading = isCreditExpensesLoading || isIncomeLoading;
   const isBalanceLoading = isIncomeLoading;
 
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.05,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.4,
+        ease: [0.22, 1, 0.36, 1],
+      },
+    },
+  };
+
+  const LayoutContainer = isAnimated ? motion.section : 'section';
+  const MotionItem = isAnimated ? motion.div : 'div';
+
   return (
-    <section className="space-y-7 py-8" dir="rtl">
-      <DashboardHeader
-        greeting={greeting}
-        username={session?.username}
-        controls={
-          <DashboardRangePicker
+    <LayoutContainer
+      className="space-y-7 py-8"
+      dir="rtl"
+      {...(isAnimated ? { variants: containerVariants, initial: 'hidden', animate: 'visible' } : {})}
+    >
+      <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
+        <DashboardHeader
+          greeting={greeting}
+          username={session?.username}
+          controls={
+            <DashboardRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              minStartDate={minStartDate}
+              maxEndDate={maxEndDate}
+              isBusy={isAnyActionBusy}
+              isLocked={!isInitialLoad && accounts.length === 0}
+              onStartDateChange={(v) => {
+                const clamped =
+                  minStartDate && v < minStartDate ? minStartDate : v;
+                if (clamped !== startDate) {
+                  setStartDate(clamped);
+                  if (endDate && clamped > endDate) setEndDate(clamped);
+                }
+              }}
+              onEndDateChange={(v) => {
+                let clamped = v > maxEndDate ? maxEndDate : v;
+                if (startDate && clamped < startDate) clamped = startDate;
+                if (clamped !== endDate) setEndDate(clamped);
+              }}
+            />
+          }
+        />
+      </MotionItem>
+
+      {accounts.length === 0 && !isLoadingAccounts && (
+        <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
+          <PremiumCard className="relative border border-dashed border-primary/40 bg-linear-to-br from-primary/5 via-background to-muted/20 p-6 md:p-8 text-right space-y-4 animate-in fade-in-50 duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-foreground flex items-center gap-2">
+                  <span>🚀 ברוך הבא ל-MoneyUp!</span>
+                </h3>
+                <p className="text-sm font-semibold text-muted-foreground leading-relaxed max-w-2xl">
+                  כדי שנוכל להתחיל לנתח את ההוצאות שלך, להפיק דוחות חכמים ולהפעיל את סוכן ה-AI,
+                  עליך לחבר תחילה את חשבון הבנק או כרטיס האשראי שלך.
+                </p>
+              </div>
+              <div className="shrink-0">
+                <Button
+                  onClick={() => navigate({ to: '/settings' })}
+                  className="rounded-none font-black text-xs h-11 bg-primary hover:bg-primary/90 text-primary-foreground uppercase tracking-widest shadow-lg shadow-primary/20 flex items-center gap-2"
+                >
+                  <span>חבר חשבון ראשון</span>
+                  <ArrowLeft className="h-4 w-4" weight="bold" />
+                </Button>
+              </div>
+            </div>
+          </PremiumCard>
+        </MotionItem>
+      )}
+
+      <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
+        <DashboardMetricsGrid
+          accounts={accounts}
+          scans={scans}
+          hasBankAccounts={hasBankAccounts}
+          hasCreditAccounts={hasCreditAccounts}
+          isCreditExpensesLoading={isCreditExpensesLoading}
+          isIncomeLoading={isIncomeLoading}
+          isNetSpendingLoading={isNetSpendingLoading}
+          isBalanceLoading={isBalanceLoading}
+          isSyncing={isSyncing}
+          excludedExpenseAmount={excludedExpenseAmount}
+          onShowIncomeClick={() => setIsIncomeDialogOpen(true)}
+        />
+      </MotionItem>
+
+      <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
+        <div className="space-y-8">
+          <SpendingCategories
+            scans={scans}
+            period={scanPeriod}
             startDate={startDate}
             endDate={endDate}
             minStartDate={minStartDate}
             maxEndDate={maxEndDate}
-            isBusy={isAnyActionBusy}
-            isLocked={!isInitialLoad && accounts.length === 0}
-            onStartDateChange={(v) => {
-              const clamped =
-                minStartDate && v < minStartDate ? minStartDate : v;
-              if (clamped !== startDate) {
-                setStartDate(clamped);
-                if (endDate && clamped > endDate) setEndDate(clamped);
-              }
-            }}
-            onEndDateChange={(v) => {
-              let clamped = v > maxEndDate ? maxEndDate : v;
-              if (startDate && clamped < startDate) clamped = startDate;
-              if (clamped !== endDate) setEndDate(clamped);
-            }}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            isLoadingScans={hasCreditAccounts && isLoadingScans}
+            isRefreshingScans={
+              hasCreditAccounts && isFetchingScans && !isLoadingScans
+            }
+            hasConnectedAccounts={hasCreditAccounts}
+            canUseAiAnnotation={hasAiProvider}
+            configuredProviders={(userProfile?.configuredProviders ?? []) as string[]}
+            isWidgetBusy={isAnyActionBusy}
+            onGoToAiStudio={() => navigate({ to: '/ai-studio' })}
+            onExcludedExpensesChange={setExcludedExpenseAmount}
           />
-        }
-      />
-
-      {accounts.length === 0 && !isLoadingAccounts && (
-        <PremiumCard className="relative border border-dashed border-primary/40 bg-linear-to-br from-primary/5 via-background to-muted/20 p-6 md:p-8 text-right space-y-4 animate-in fade-in-50 duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-2">
-              <h3 className="text-xl font-black text-foreground flex items-center gap-2">
-                <span>🚀 ברוך הבא ל-MoneyUp!</span>
-              </h3>
-              <p className="text-sm font-semibold text-muted-foreground leading-relaxed max-w-2xl">
-                כדי שנוכל להתחיל לנתח את ההוצאות שלך, להפיק דוחות חכמים ולהפעיל את סוכן ה-AI,
-                עליך לחבר תחילה את חשבון הבנק או כרטיס האשראי שלך.
-              </p>
-            </div>
-            <div className="shrink-0">
-              <Button
-                onClick={() => navigate({ to: '/settings' })}
-                className="rounded-none font-black text-xs h-11 bg-primary hover:bg-primary/90 text-primary-foreground uppercase tracking-widest shadow-lg shadow-primary/20 flex items-center gap-2"
-              >
-                <span>חבר חשבון ראשון</span>
-                <ArrowLeft className="h-4 w-4" weight="bold" />
-              </Button>
-            </div>
-          </div>
-        </PremiumCard>
-      )}
-
-      <DashboardMetricsGrid
-        accounts={accounts}
-        scans={scans}
-        hasBankAccounts={hasBankAccounts}
-        hasCreditAccounts={hasCreditAccounts}
-        isCreditExpensesLoading={isCreditExpensesLoading}
-        isIncomeLoading={isIncomeLoading}
-        isNetSpendingLoading={isNetSpendingLoading}
-        isBalanceLoading={isBalanceLoading}
-        isSyncing={isSyncing}
-        excludedExpenseAmount={excludedExpenseAmount}
-        onShowIncomeClick={() => setIsIncomeDialogOpen(true)}
-      />
-
-      <div className="space-y-8">
-        <SpendingCategories
-          scans={scans}
-          period={scanPeriod}
-          startDate={startDate}
-          endDate={endDate}
-          minStartDate={minStartDate}
-          maxEndDate={maxEndDate}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
-          isLoadingScans={hasCreditAccounts && isLoadingScans}
-          isRefreshingScans={
-            hasCreditAccounts && isFetchingScans && !isLoadingScans
-          }
-          hasConnectedAccounts={hasCreditAccounts}
-          canUseAiAnnotation={hasAiProvider}
-          configuredProviders={(userProfile?.configuredProviders ?? []) as string[]}
-          isWidgetBusy={isAnyActionBusy}
-          onGoToAiStudio={() => navigate({ to: '/ai-studio' })}
-          onExcludedExpensesChange={setExcludedExpenseAmount}
-        />
-      </div>
+        </div>
+      </MotionItem>
 
       <IncomeTransactionsSheet
         open={isIncomeDialogOpen}
@@ -327,6 +368,6 @@ export default function Dashboard() {
         transactions={recentIncomeTransactions}
         isLoading={isIncomeLoading}
       />
-    </section>
+    </LayoutContainer>
   );
 }

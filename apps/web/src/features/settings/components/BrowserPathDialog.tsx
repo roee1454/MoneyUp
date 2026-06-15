@@ -40,7 +40,7 @@ export function BrowserPathDialog({
           <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
             עדכון נתיב דפדפן
           </DialogTitle>
-          <DialogDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-widest leading-relaxed">
+          <DialogDescription className="text-xs font-semibold text-muted-foreground leading-relaxed">
             הזן את נתיב ההרצה המלא של דפדפן Chromium במערכת שלך.
           </DialogDescription>
         </DialogHeader>
@@ -56,13 +56,13 @@ export function BrowserPathDialog({
         <DialogFooter className="pt-4 flex flex-row justify-end gap-3">
           <Button
             variant="outline"
-            className="rounded-none font-bold text-xs h-10 border-border cursor-pointer uppercase tracking-widest"
+            className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
             onClick={() => onOpenChange(false)}
           >
             ביטול
           </Button>
           <Button
-            className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer uppercase tracking-widest px-6 shadow-lg shadow-primary/10"
+            className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-6 shadow-lg shadow-primary/10"
             onClick={() => {
               onSave(tempPath);
               onOpenChange(false);

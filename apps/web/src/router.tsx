@@ -10,7 +10,7 @@ import Dashboard from '@/routes/Dashboard';
 import Introduction from '@/routes/Introduction';
 import Login from '@/routes/Login';
 import Export from '@/routes/Export';
-import AiStudio from '@/routes/AiStudio';
+import Agent from '@/routes/Agent';
 import Settings from '@/routes/Settings';
 import AccountsSettings from '@/routes/settings/Accounts';
 import AiSettings from '@/routes/settings/Ai';
@@ -26,6 +26,8 @@ import { useGlobalSyncManager } from '@/hooks/useGlobalSync';
 import { GlobalSyncBubble } from '@/features/accounts/components/GlobalSyncBubble';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
+import { PremiumAnimatedBackground } from '@/components/ui/premium-animated-background';
+
 
 const privatePaths = [
   '/dashboard',
@@ -120,13 +122,19 @@ function AppLayout() {
       className={
         showNavbar
           ? 'flex h-dvh flex-col overflow-hidden bg-background text-foreground transition-colors duration-300'
-          : 'min-h-screen bg-background text-foreground transition-colors duration-300'
+          : 'min-h-screen bg-background text-foreground transition-colors duration-300 relative'
       }
     >
       {!showNavbar && (
         <div className="fixed top-4 left-4 z-50">
           <ThemeToggle />
         </div>
+      )}
+      {!showNavbar && (
+        <PremiumAnimatedBackground
+          count={5}
+          types={['circle', 'square', 'triangle', 'hexagon', 'pentagon']}
+        />
       )}
       {showNavbar && <Navbar />}
       {showNavbar ? (
@@ -150,7 +158,7 @@ function AppLayout() {
           </div>
         </div>
       ) : (
-        <div className="mx-auto max-w-7xl p-6">
+        <div className="mx-auto max-w-7xl p-6 relative z-10">
           <Outlet />
         </div>
       )}
@@ -196,7 +204,7 @@ const exportRoute = createRoute({
 const aiStudioRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ai-studio',
-  component: AiStudio,
+  component: Agent,
 });
 
 const settingsRoute = createRoute({

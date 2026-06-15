@@ -5,6 +5,7 @@ import { Gear, Trash } from '@phosphor-icons/react';
 import { AiProviderConfigDialog } from './AiProviderConfigDialog';
 import { useDeleteAiProvider } from '@/hooks/useAi';
 import { DeleteAiProviderConfirmDialog } from './DeleteAiProviderConfirmDialog';
+import { PremiumMotionCard } from '@/components/ui/premium-motion-card';
 
 interface AiProviderStripProps {
   configuredProviders: AiProvider[];
@@ -40,9 +41,9 @@ export function AiProviderStrip({
           }[config?.preset as string] || 'ברירת מחדל';
 
         return (
-          <div
+          <PremiumMotionCard
             key={provider}
-            className="h-16 w-full border border-border bg-card hover:bg-accent px-5 py-2 rounded-none flex items-center justify-between transition-all group select-none text-right"
+            className="h-16 w-full px-5 py-2 flex items-center justify-between group select-none text-right"
           >
             <div className="flex items-center gap-2">
               <AiIcon provider={provider} size="sm" />
@@ -76,7 +77,7 @@ export function AiProviderStrip({
                 <Trash className="h-4 w-4" weight="bold" />
               </Button>
             </div>
-          </div>
+          </PremiumMotionCard>
         );
       })}
 

@@ -147,7 +147,9 @@ export function AiConversation({
     return configs[agentProvider] || {};
   }, [configs, agentProvider]);
 
-  const { temperature, maxTokens, streaming } = providerConfig;
+  const { temperature, maxTokens, stream } = providerConfig;
+  const streaming = stream !== false;
+
 
   const [forceMarkdown, setForceMarkdown] = useState(
     userProfile?.forceMarkdown ?? true,

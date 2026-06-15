@@ -296,7 +296,7 @@ export function GlobalSyncBubble() {
             <DialogTitle className="text-xl font-black text-foreground">
               פרטי שגיאת סנכרון
             </DialogTitle>
-            <DialogDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-1">
+            <DialogDescription className="text-xs font-semibold text-muted-foreground mt-1">
               {jobId ? `מזהה סנכרון: ${jobId}` : 'הודעת השגיאה המלאה'}
             </DialogDescription>
           </DialogHeader>

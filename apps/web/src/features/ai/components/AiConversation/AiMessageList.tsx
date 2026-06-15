@@ -4,6 +4,8 @@ import { AiMessageBubble } from './AiMessageBubble';
 import type { LocalMessage } from './useAiStream';
 import { Sparkle } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
+import { motion, useReducedMotion, type Variants } from 'motion/react';
+import { PremiumMotionCard } from '@/components/ui/premium-motion-card';
 
 interface AiMessageListProps {
   messages: LocalMessage[];
@@ -16,6 +18,29 @@ interface AiMessageListProps {
   hasAiProvider?: boolean;
   onConnectClick?: () => void;
 }
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.4,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 /**
  * Renders the list of active messages in the AI conversation.
@@ -33,6 +58,7 @@ export function AiMessageList({
   onConnectClick,
 }: AiMessageListProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -55,6 +81,8 @@ export function AiMessageList({
   });
 
   const hasMessages = messages.length > 0;
+  const MotionContainer = shouldReduceMotion ? 'div' : motion.div;
+  const MotionItem = shouldReduceMotion ? 'div' : motion.div;
 
   return (
     <div
@@ -66,9 +94,15 @@ export function AiMessageList({
     >
       {!hasMessages ? (
         !hasAiProvider ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 animate-in fade-in-50 duration-300">
+          <MotionContainer
+            className="h-full flex flex-col items-center justify-center text-center p-4"
+            {...(!shouldReduceMotion ? { variants: containerVariants, initial: 'hidden', animate: 'visible' } : {})}
+          >
             {/* Glowing Animated AI Sparkle Orb in orange */}
-            <div className="relative mb-8 flex h-28 w-28 items-center justify-center select-none">
+            <MotionItem
+              className="relative mb-8 flex h-28 w-28 items-center justify-center select-none"
+              {...(!shouldReduceMotion ? { variants: itemVariants } : {})}
+            >
               {/* Outer Glow Ring */}
               <div className="absolute inset-0 rounded-full bg-radial-to-br from-amber-500/30 via-amber-500/5 to-transparent blur-md animate-pulse duration-[4s]" />
               {/* Orbit rings */}
@@ -91,9 +125,12 @@ export function AiMessageList({
                   weight="fill"
                 />
               </div>
-            </div>
+            </MotionItem>
 
-            <div className="mb-8 space-y-3.5 max-w-md mx-auto">
+            <MotionItem
+              className="mb-8 space-y-3.5 max-w-md mx-auto"
+              {...(!shouldReduceMotion ? { variants: itemVariants } : {})}
+            >
               <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">
                 נצל את כוחה של הבינה המלאכותית
               </h3>
@@ -110,12 +147,18 @@ export function AiMessageList({
                   <span>חבר ספק AI</span>
                 </Button>
               </div>
-            </div>
-          </div>
+            </MotionItem>
+          </MotionContainer>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4">
+          <MotionContainer
+            className="h-full flex flex-col items-center justify-center text-center p-4"
+            {...(!shouldReduceMotion ? { variants: containerVariants, initial: 'hidden', animate: 'visible' } : {})}
+          >
             {/* Glowing Animated AI Sparkle Orb */}
-            <div className="relative mb-8 flex h-28 w-28 items-center justify-center select-none">
+            <MotionItem
+              className="relative mb-8 flex h-28 w-28 items-center justify-center select-none"
+              {...(!shouldReduceMotion ? { variants: itemVariants } : {})}
+            >
               {/* Outer Glow Ring */}
               <div className="absolute inset-0 rounded-full bg-radial-to-br from-primary/30 via-primary/5 to-transparent blur-md animate-pulse duration-[4s]" />
               {/* Orbit rings */}
@@ -138,9 +181,12 @@ export function AiMessageList({
                   weight="fill"
                 />
               </div>
-            </div>
+            </MotionItem>
 
-            <div className="mb-8 space-y-2.5">
+            <MotionItem
+              className="mb-8 space-y-2.5"
+              {...(!shouldReduceMotion ? { variants: itemVariants } : {})}
+            >
               <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">
                 כיצד אוכל לסייע לך היום?
               </h3>
@@ -148,38 +194,48 @@ export function AiMessageList({
                 שאל אותי על הוצאות, הכנסות, מנויים מחזוריים או ניתוח מגמות
                 בחשבונות המחוברים שלך.
               </p>
-            </div>
+            </MotionItem>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-2xl">
+            <MotionItem
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-2xl"
+              {...(!shouldReduceMotion ? { variants: itemVariants } : {})}
+            >
               {defaultPrompts.map((p) => (
-                <button
+                <PremiumMotionCard
                   key={p}
                   onClick={() => onPromptClick(p)}
                   disabled={isLoading || !selectedModel}
-                  className="p-4 text-right border border-border bg-card hover:bg-muted/50 hover:border-foreground/30 transition-all rounded-none text-xs font-bold text-foreground/80 hover:text-foreground group cursor-pointer shadow-xs active:scale-[0.99]"
+                  className="p-4 text-xs font-bold text-foreground/80 hover:text-foreground group active:scale-[0.99]"
                 >
                   {p}
                   <div className="mt-2 text-[10px] text-primary font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
                     שלח שאלה זו ←
                   </div>
-                </button>
+                </PremiumMotionCard>
               ))}
-            </div>
-          </div>
+            </MotionItem>
+          </MotionContainer>
         )
       ) : (
         <div className="max-w-5xl mx-auto w-full space-y-6 flex flex-col px-3 md:px-5">
           {visibleMessages.map((message, index) => {
             const isLast = index === visibleMessages.length - 1;
             return (
-              <AiMessageBubble
+              <motion.div
                 key={message.id}
-                message={message}
-                isLoading={isLoading}
-                isLast={isLast}
-                toolStatus={toolStatus}
-                onEditSubmit={onEditSubmit}
-              />
+                initial={shouldReduceMotion ? {} : { opacity: 0, y: 12 }}
+                animate={shouldReduceMotion ? {} : { opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className="w-full animate-none"
+              >
+                <AiMessageBubble
+                  message={message}
+                  isLoading={isLoading}
+                  isLast={isLast}
+                  toolStatus={toolStatus}
+                  onEditSubmit={onEditSubmit}
+                />
+              </motion.div>
             );
           })}
         </div>

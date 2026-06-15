@@ -194,7 +194,7 @@ export function IncomeTransactionsDetailsCard({
         {/* Form Controls Grid */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block text-right">מיין לפי</span>
+            <span className="text-[10px] font-black text-muted-foreground block text-right">מיין לפי</span>
             <Select
               value={sortBy}
               onValueChange={(val) => setSortBy(val as any)}
@@ -209,7 +209,7 @@ export function IncomeTransactionsDetailsCard({
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block text-right">סטטוס תנועה</span>
+            <span className="text-[10px] font-black text-muted-foreground block text-right">סטטוס תנועה</span>
             <Select
               value={statusFilter}
               onValueChange={(val) => setStatusFilter(val as any)}
@@ -224,7 +224,7 @@ export function IncomeTransactionsDetailsCard({
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block text-right">חשבון / כרטיס</span>
+            <span className="text-[10px] font-black text-muted-foreground block text-right">חשבון / כרטיס</span>
             <Select
               value={accountFilter}
               onValueChange={(val) => setAccountFilter(val)}
@@ -240,7 +240,7 @@ export function IncomeTransactionsDetailsCard({
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block text-right">טווח סכום</span>
+            <span className="text-[10px] font-black text-muted-foreground block text-right">טווח סכום</span>
             <Select
               value={amountFilter}
               onValueChange={(val) => setAmountFilter(val)}
@@ -265,7 +265,7 @@ export function IncomeTransactionsDetailsCard({
                 setAccountFilter('all');
                 setAmountFilter('all');
               }}
-              className="text-[9px] font-black uppercase text-rose-500 hover:text-rose-600 transition-colors flex items-center gap-1 border border-rose-500/20 bg-rose-500/5 px-2 py-0.5"
+              className="text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-1 border border-destructive/20 bg-destructive/5 px-2 py-0.5"
             >
               אפס מסננים
             </button>
@@ -283,7 +283,7 @@ export function IncomeTransactionsDetailsCard({
         ) : (
           <>
             <div className="mb-6 flex items-center justify-between border-b border-border/50 pb-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              <span className="text-[10px] font-black text-muted-foreground">
                 {isAnyFilterActive ? 'סה״כ הכנסות מסוננות' : 'סה״כ הכנסות בטווח'}
               </span>
               <span
@@ -309,7 +309,7 @@ export function IncomeTransactionsDetailsCard({
                         className={cn(
                           'text-sm font-black leading-tight text-foreground',
                           txn.isDuplicate &&
-                            'line-through decoration-rose-500/40',
+                            'line-through decoration-destructive/40',
                         )}
                       >
                         {txn.description}
@@ -342,7 +342,7 @@ export function IncomeTransactionsDetailsCard({
                         'h-7 cursor-pointer border px-3 text-[10px] font-black uppercase transition-all active:scale-95 shadow-xs',
                         txn.isDuplicate
                           ? 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
-                          : 'border-rose-500/20 bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white',
+                          : 'border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive hover:text-destructive-foreground',
                       )}
                     >
                       {txn.isDuplicate ? 'בטל כפילות' : 'סמן ככפול'}
@@ -360,7 +360,7 @@ export function IncomeTransactionsDetailsCard({
             {hasMore && (
               <button
                 onClick={() => setDisplayLimit((prev) => prev + 50)}
-                className="mb-4 w-full cursor-pointer border border-dashed border-border py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:text-primary"
+                className="mb-4 w-full cursor-pointer border border-dashed border-border py-6 text-[10px] font-black text-muted-foreground transition-colors hover:text-primary"
               >
                 טען עוד תנועות ({filteredAndSortedTransactions.length - displayLimit} נותרו)
               </button>

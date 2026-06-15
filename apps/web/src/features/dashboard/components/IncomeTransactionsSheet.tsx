@@ -48,7 +48,7 @@ export function IncomeTransactionsSheet({
                 </span>
                 <span>הכנסות אחרונות</span>
               </SheetTitle>
-              <SheetDescription className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em]">
+              <SheetDescription className="text-[11px] font-black text-muted-foreground">
                 תנועות חיוביות מחשבונות בנק • החרגת כפילויות
               </SheetDescription>
             </div>

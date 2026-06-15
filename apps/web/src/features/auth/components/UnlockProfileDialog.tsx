@@ -36,7 +36,7 @@ export function UnlockProfileDialog({
           <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
             פרופיל נעול
           </DialogTitle>
-          <DialogDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          <DialogDescription className="text-xs font-semibold text-muted-foreground">
             הזן קוד פתיחה עבור {target?.username}
           </DialogDescription>
         </DialogHeader>
@@ -60,14 +60,14 @@ export function UnlockProfileDialog({
             <Button
               type="button"
               variant="outline"
-              className="rounded-none font-bold text-xs h-10 border-border cursor-pointer uppercase tracking-widest"
+              className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
               onClick={onClose}
             >
               ביטול
             </Button>
             <Button
               type="button"
-              className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer uppercase tracking-widest px-6"
+              className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-6"
               onClick={() => void onUnlock()}
               disabled={isPending}
             >

@@ -13,7 +13,6 @@ export const loginPayloadSchema = z.object({
 
 export const profileCreationSchema = z.object({
   username: z.string().min(3, 'שם המשתמש חייב להכיל לפחות 3 תווים'),
-  email: z.string().email('כתובת אימייל לא תקינה'),
   lockProfile: z.boolean().optional(),
   unlockKey: z.string().min(4, 'קוד פתיחה חייב להכיל לפחות 4 תווים').optional(),
 }).superRefine((data, ctx) => {
@@ -28,7 +27,7 @@ export const profileCreationSchema = z.object({
 
 export const profileDeleteSchema = z.object({
   userId: z.string().uuid(),
-  confirmationEmail: z.string().email(),
+  confirmationUserId: z.string().uuid(),
 });
 
 export const profileUnlockSchema = z.object({

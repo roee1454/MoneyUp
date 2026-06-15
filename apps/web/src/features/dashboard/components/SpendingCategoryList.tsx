@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { CaretLeft } from '@phosphor-icons/react';
 import type { SpendingCategoryItem } from '../types';
+import { PremiumMotionCard } from '@/components/ui/premium-motion-card';
 
 interface SpendingCategoryListProps {
   categories: SpendingCategoryItem[];
@@ -41,17 +42,17 @@ export function SpendingCategoryList({
   return (
     <div className="space-y-3">
       {allExpensesCategory && (
-        <button
+        <PremiumMotionCard
           onClick={() => onCategorySelect(allExpensesCategory)}
           className={cn(
-            'group w-full flex items-center gap-4 p-4 border transition-all duration-300 hover:-translate-y-0.5 shadow-xs hover:shadow-md text-right cursor-pointer bg-linear-to-br from-primary/5 via-card to-muted/25 border-dashed border-border/80 hover:border-primary/30',
+            'group w-full flex items-center gap-4 p-4 bg-linear-to-br from-primary/5 via-card to-muted/25 border-dashed border-border/80',
           )}
         >
           <div className="h-11 w-11 shrink-0 border border-border/80 flex items-center justify-center bg-card text-2xl shadow-xs transition-transform duration-300 group-hover:scale-105 group-hover:border-primary/20">
             {allExpensesCategory.emoji}
           </div>
 
-          <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex-1 min-w-0 space-y-2 text-right">
             <div className="flex items-center justify-between">
               <span className="text-sm font-black text-foreground tracking-tight">
                 {allExpensesCategory.name}
@@ -75,25 +76,25 @@ export function SpendingCategoryList({
             </div>
           </div>
           <CaretLeft className="h-4 w-4 text-muted-foreground/40 transition-all duration-300 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 shrink-0" />
-        </button>
+        </PremiumMotionCard>
       )}
 
       {categories.map((category) => {
         const percentage = (category.amount / maxAmount) * 100;
 
         return (
-          <button
+          <PremiumMotionCard
             key={category.name}
             onClick={() => onCategorySelect(category)}
             className={cn(
-              'group w-full flex items-center gap-4 p-4 border border-border/80 bg-card transition-all duration-300 hover:-translate-y-0.5 shadow-xs hover:shadow-sm hover:border-primary/10 text-right cursor-pointer',
+              'group w-full flex items-center gap-4 p-4 border-border/80',
             )}
           >
             <div className="h-11 w-11 shrink-0 border border-border/80 flex items-center justify-center bg-linear-to-br from-card to-muted/25 text-2xl shadow-xs transition-transform duration-300 group-hover:scale-105 group-hover:border-primary/20">
               {category.emoji}
             </div>
 
-            <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex-1 min-w-0 space-y-2 text-right">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-black text-foreground tracking-tight">
                   {category.name}
@@ -125,7 +126,7 @@ export function SpendingCategoryList({
               </div>
             </div>
             <CaretLeft className="h-4 w-4 text-muted-foreground/40 transition-all duration-300 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 shrink-0" />
-          </button>
+          </PremiumMotionCard>
         );
       })}
     </div>

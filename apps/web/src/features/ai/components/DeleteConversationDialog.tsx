@@ -8,23 +8,20 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { getBankName } from '@money-up/common';
 
-interface DisconnectConfirmDialogProps {
+interface DeleteConversationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  bankId: string | null;
-  isDisconnecting: boolean;
+  isPending: boolean;
   onConfirm: () => void;
 }
 
-export function DisconnectConfirmDialog({
+export function DeleteConversationDialog({
   open,
   onOpenChange,
-  bankId,
-  isDisconnecting,
+  isPending,
   onConfirm,
-}: DisconnectConfirmDialogProps) {
+}: DeleteConversationDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -34,10 +31,10 @@ export function DisconnectConfirmDialog({
       >
         <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
           <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
-            ניתוק חיבור פיננסי
+            מחיקת שיחה
           </DialogTitle>
           <DialogDescription className="text-xs font-semibold text-muted-foreground leading-relaxed">
-            האם אתה בטוח שברצונך לנתק את החיבור ל-{bankId ? getBankName(bankId) : ''}? כל הנתונים השמורים, החשבונות וכרטיסי האשראי המשויכים אליו יוסרו מהמערכת לצמיתות.
+            האם אתה בטוח שברצונך למחוק שיחה זו? פעולה זו היא סופית ולא ניתן לבטלה.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="pt-4 flex flex-row justify-end gap-3">
@@ -45,19 +42,19 @@ export function DisconnectConfirmDialog({
             variant="outline"
             className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
             onClick={() => onOpenChange(false)}
-            disabled={isDisconnecting}
+            disabled={isPending}
           >
             ביטול
           </Button>
           <Button
             className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer px-6 shadow-lg shadow-destructive/10"
-            disabled={isDisconnecting}
+            disabled={isPending}
             onClick={onConfirm}
           >
-            {isDisconnecting ? (
+            {isPending ? (
               <CircleNotch className="h-4 w-4 animate-spin" />
             ) : (
-              'נתק ומחק נתונים'
+              'מחק לצמיתות'
             )}
           </Button>
         </DialogFooter>

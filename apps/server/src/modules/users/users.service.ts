@@ -26,25 +26,17 @@ export class UsersService {
 
   /**
    * Creates a new user profile with optional security locking.
-   * Checks for duplicate usernames and emails.
+   * Checks for duplicate usernames.
    *
-   * @param data Details including username, email, optional lock profile settings, and unlockKey passcode.
+   * @param data Details including username, optional lock profile settings, and unlockKey passcode.
    * @returns Promise<User> The created user entity.
-   * @throws Error if email or username is already taken, or if passcode requirements are not met.
+   * @throws Error if username is already taken, or if passcode requirements are not met.
    */
   async create(data: {
     username: string;
-    email: string;
     lockProfile?: boolean;
     unlockKey?: string;
   }): Promise<User> {
-    const existingEmail = await this.userRepository.findOneBy({
-      email: data.email,
-    });
-    if (existingEmail) {
-      throw new Error('אימייל זה כבר רשום במערכת');
-    }
-
     const existingUsername = await this.userRepository.findOneBy({
       username: data.username,
     });
@@ -68,7 +60,6 @@ export class UsersService {
 
     const user = this.userRepository.create({
       username: data.username,
-      email: data.email,
       isLocked,
       unlockKeySalt: salt,
       unlockKeyHash: hash,
@@ -126,7 +117,6 @@ export class UsersService {
     id: string,
     data: Partial<{
       username: string;
-      email: string;
       scraperTimeoutRetryCount: number;
       scraperAutoSyncCooldownSeconds: number;
     }>,
@@ -151,21 +141,21 @@ export class UsersService {
   }
 
   /**
-   * Deletes a user profile with email validation protection.
+   * Deletes a user profile with user ID validation protection.
    *
    * @param id User ID to delete.
-   * @param confirmationEmail Confirmation text representing the user email.
+   * @param confirmationUserId Confirmation text representing the user ID.
    * @returns Promise<{ deleted: boolean }>
-   * @throws NotFoundException if user is not found, or Error if email confirmation mismatch.
+   * @throws NotFoundException if user is not found, or Error if ID confirmation mismatch.
    */
   async deleteWithConfirmation(
     id: string,
-    confirmationEmail: string,
+    confirmationUserId: string,
   ): Promise<{ deleted: boolean }> {
     const user = await this.findOne(id);
     if (!user) throw new NotFoundException('User not found');
-    if (user.email !== confirmationEmail) {
-      throw new Error('Confirmation text does not match profile email');
+    if (user.id !== confirmationUserId) {
+      throw new Error('Confirmation text does not match profile ID');
     }
     await this.userRepository.delete(id);
     return { deleted: true };

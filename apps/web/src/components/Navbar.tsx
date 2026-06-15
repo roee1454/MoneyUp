@@ -4,6 +4,7 @@ import { List, CaretDown, Plus, Trash, ChatCircle } from '@phosphor-icons/react'
 import { Link, useRouterState } from '@tanstack/react-router';
 import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
+import { DeleteConversationDialog } from '@/features/ai/components/DeleteConversationDialog';
 import { useConversations, useDeleteConversation } from '@/hooks/useAi';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -26,9 +27,9 @@ import { SyncStatusCard } from '@/components/SyncStatusCard';
 
 const NAV_ITEMS = [
   { label: 'בית', to: '/dashboard' },
-  { label: 'השקעות וטיווח', to: '/investments' },
-  { label: 'ייעוץ עם סוכן', to: '/ai-studio' },
-  { label: 'ייצוא נתונים', to: '/export' },
+  { label: 'סוכן AI', to: '/ai-studio' },
+  { label: 'השקעות', to: '/investments' },
+  { label: 'ייצוא דוחות', to: '/export' },
 ];
 
 const SETTINGS_SUB_ITEMS = [
@@ -64,19 +65,21 @@ function SidebarContent({
   const deleteMutation = useDeleteConversation();
   const queryClient = useQueryClient();
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (window.confirm('האם אתה בטוח שברצונך למחוק שיחה זו?')) {
-      try {
-        await deleteMutation.mutateAsync(id);
-        toast.success('השיחה נמחקה בהצלחה');
-        await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
-        if (activeConversationId === id) {
-          setActiveConversationId(null);
-        }
-      } catch (err) {
-        toast.error('מחיקת השיחה נכשלה');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteMutation.mutateAsync(deleteId);
+      toast.success('השיחה נמחקה בהצלחה');
+      await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
+      if (activeConversationId === deleteId) {
+        setActiveConversationId(null);
       }
+    } catch (err) {
+      toast.error('מחיקת השיחה נכשלה');
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -226,7 +229,8 @@ function SidebarContent({
                     </div>
                     <button
                       onClick={(e) => {
-                        void handleDelete(conv.id, e);
+                        e.stopPropagation();
+                        setDeleteId(conv.id);
                       }}
                       className={cn(
                         'shrink-0 h-5 w-5 flex items-center justify-center rounded-none text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors outline-none cursor-pointer',
@@ -246,6 +250,15 @@ function SidebarContent({
         /* Empty space holder to push bottom section down naturally if not on AI Studio */
         <div className="flex-1" />
       )}
+
+      <DeleteConversationDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null);
+        }}
+        isPending={deleteMutation.isPending}
+        onConfirm={handleConfirmDelete}
+      />
 
       {/* Bottom Section: System info */}
       <div className="shrink-0 px-1 pb-2 pt-4 space-y-3 bg-background/50 border-t border-border/50">

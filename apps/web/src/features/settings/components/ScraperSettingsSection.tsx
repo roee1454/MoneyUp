@@ -184,7 +184,7 @@ export function ScraperSettingsSection({
   };
 
   return (
-    <section className="space-y-4">
+    <section className="w-full space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-none bg-primary flex items-center justify-center">

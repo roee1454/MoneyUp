@@ -70,7 +70,6 @@ export function toPublicUser(user: UserPayload) {
   return {
     id: user.id,
     username: user.username,
-    email: user.email,
     isLocked: user.isLocked ?? false,
     activeAiProvider: user.activeAiProvider ?? null,
     preferredModel: user.preferredModel ?? null,

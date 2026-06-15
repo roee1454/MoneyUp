@@ -14,7 +14,6 @@ export type AiProviderConfigs = Record<
 export type UserPayload = {
   id: string;
   username: string;
-  email: string;
   isLocked?: boolean;
   activeAiProvider?: AiProvider | null;
   preferredModel?: string | null;

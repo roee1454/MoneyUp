@@ -1,6 +1,7 @@
 import { Trash, Lock } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import type { User } from '@/hooks/useUsers';
+import { PremiumMotionCard } from '@/components/ui/premium-motion-card';
 
 const avatarGrays = [
   'bg-primary text-primary-foreground border-border',
@@ -27,36 +28,38 @@ export function ProfileCard({
 }: ProfileCardProps) {
   return (
     <div className="group relative">
+      {/* Delete Profile Button */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onDeleteClick();
         }}
-        className="absolute -top-2 -left-2 z-20 h-8 w-8 rounded-none border border-destructive/20 bg-background text-destructive opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive hover:text-white flex items-center justify-center cursor-pointer shadow-sm"
+        className="absolute -top-2 -left-2 z-20 h-8 w-8 rounded-none border border-destructive/30 bg-background text-destructive opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive hover:text-white flex items-center justify-center cursor-pointer shadow-sm"
         aria-label={`Delete ${user.username}`}
       >
         <Trash className="h-4 w-4" weight="bold" />
       </button>
 
-      <button
-        className={cn(
-          'w-full text-right transition-all duration-300 cursor-pointer outline-none border border-border bg-card p-5 flex flex-col justify-between h-44 hover:border-foreground/20 hover:shadow-xl active:scale-95',
-          isSelected &&
-            'border-primary ring-1 ring-primary/20 bg-primary/5 shadow-lg shadow-primary/5',
-        )}
+      {/* Main Profile Interactive Card */}
+      <PremiumMotionCard
         onClick={onSelect}
+        className={cn(
+          'w-full flex flex-col justify-between h-44',
+          isSelected &&
+            'border-primary bg-primary/5 shadow-[6px_6px_0px_0px_var(--color-primary)]',
+        )}
       >
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start w-full">
           <div
             className={cn(
-              'h-12 w-12 border border-border flex items-center justify-center text-xl font-black shadow-sm',
+              'h-12 w-12 border border-border flex items-center justify-center text-xl font-black shadow-sm rounded-none',
               avatarGrays[index % avatarGrays.length],
             )}
           >
             {user.username.slice(0, 1).toUpperCase()}
           </div>
           {user.isLocked && (
-            <div className="bg-muted p-1.5 border border-border shadow-xs">
+            <div className="bg-muted p-1.5 border border-border shadow-xs rounded-none">
               <Lock
                 className="h-3.5 w-3.5 text-muted-foreground"
                 weight="bold"
@@ -65,7 +68,7 @@ export function ProfileCard({
           )}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1 text-right w-full">
           <p className="text-lg font-black text-foreground uppercase truncate">
             {user.username}
           </p>
@@ -73,7 +76,7 @@ export function ProfileCard({
             פרופיל מקומי
           </p>
         </div>
-      </button>
+      </PremiumMotionCard>
     </div>
   );
 }

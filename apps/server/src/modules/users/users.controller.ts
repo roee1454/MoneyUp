@@ -32,7 +32,6 @@ export class UsersController {
     @Body()
     payload: {
       username: string;
-      email: string;
       lockProfile?: boolean;
       unlockKey?: string;
     },
@@ -118,7 +117,6 @@ export class UsersController {
     @Body()
     data: {
       username?: string;
-      email?: string;
       scraperTimeoutRetryCount?: number;
       scraperAutoSyncCooldownMinutes?: number;
     },
@@ -176,11 +174,11 @@ export class UsersController {
   @Post(':id/delete-confirm')
   async deleteUserConfirmed(
     @Param('id') id: string,
-    @Body() payload: { confirmationEmail: string },
+    @Body() payload: { confirmationUserId: string },
   ) {
     return this.usersService.deleteWithConfirmation(
       id,
-      payload.confirmationEmail,
+      payload.confirmationUserId,
     );
   }
 }

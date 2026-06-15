@@ -50,7 +50,7 @@ export function CategoryDetailsSheet({
                 </span>
                 <span>{category?.name}</span>
               </SheetTitle>
-              <SheetDescription className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em]">
+              <SheetDescription className="text-[11px] font-black text-muted-foreground">
                 פירוט תנועות והוצאות מהכרטיסים
               </SheetDescription>
             </div>

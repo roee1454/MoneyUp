@@ -12,12 +12,12 @@ export function DashboardHeader({
   controls,
 }: DashboardHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 border border-border bg-card/30 p-6 md:flex-row md:items-center md:justify-between rounded-none text-right" dir="rtl">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-black tracking-tight text-foreground">
-          {greeting}, <span className="text-muted-foreground">{username}</span> ✌️
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between text-right py-2" dir="rtl">
+      <div className="space-y-2">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground">
+          {greeting}, <span className="text-primary">{username}</span> ✌️
         </h1>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">
+        <p className="text-xs sm:text-sm font-bold text-muted-foreground/80 uppercase tracking-wide leading-relaxed">
           מבט פיננסי מהיר על החשבונות וההוצאות שלך
         </p>
       </div>

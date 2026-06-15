@@ -1,6 +1,6 @@
 import { Plus } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { PremiumCard } from '@/components/ui/premium-card';
+
 import { profileCreationSchema } from '@money-up/types';
 import {
   useCreateUser,
@@ -13,11 +13,35 @@ import { CreateProfileForm } from '@/features/auth/components/CreateProfileForm'
 import { ProfileCard } from '@/features/auth/components/ProfileCard';
 import { UnlockProfileDialog } from '@/features/auth/components/UnlockProfileDialog';
 import { DeleteProfileDialog } from '@/features/auth/components/DeleteProfileDialog';
+import { motion, AnimatePresence, type Variants } from 'motion/react';
+import { PremiumMotionCard } from '@/components/ui/premium-motion-card';
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.12,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 export default function Login() {
   const [selectedId, setSelectedId] = useState('');
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -45,11 +69,9 @@ export default function Login() {
     setError('');
     setFieldErrors({});
     const normalizedUsername = username.trim();
-    const normalizedEmail = email.trim().toLowerCase();
 
     const validation = profileCreationSchema.safeParse({
       username: normalizedUsername,
-      email: normalizedEmail,
       lockProfile,
       unlockKey: lockProfile ? unlockKey : undefined,
     });
@@ -67,12 +89,10 @@ export default function Login() {
     try {
       await createUserMutation.mutateAsync({
         username: normalizedUsername,
-        email: normalizedEmail,
         lockProfile,
         unlockKey: lockProfile ? unlockKey : undefined,
       });
       setUsername('');
-      setEmail('');
       setUnlockKey('');
       setLockProfile(false);
       setShowForm(false);
@@ -123,7 +143,8 @@ export default function Login() {
       setUnlockTarget(null);
       setUnlockInput('');
     } catch (err: any) {
-      setUnlockError(err.message || 'קוד פתיחה שגוי');
+      const isInvalidKey = err.message?.toLowerCase() === 'invalid unlocking key';
+      setUnlockError(isInvalidKey ? 'קוד פתיחה שגוי' : (err.message || 'קוד פתיחה שגוי'));
     }
   }
 
@@ -132,7 +153,7 @@ export default function Login() {
     try {
       await deleteUserMutation.mutateAsync({
         userId: deleteTarget.id,
-        confirmationEmail: deleteConfirmation,
+        confirmationUserId: deleteConfirmation,
       });
       setDeleteSuccess(true);
       if (selectedId === deleteTarget.id) setSelectedId('');
@@ -141,97 +162,164 @@ export default function Login() {
     }
   }
 
-  if (usersQuery.isLoading) {
-    return (
-      <div
-        className="flex min-h-[calc(100vh-140px)] items-center justify-center px-4"
-        dir="rtl"
-      >
-        <PremiumCard className="w-full max-w-md border-border bg-card shadow-sm rounded-none">
-          <div className="py-12 text-center text-sm font-semibold text-muted-foreground">
-            טוען פרופילים במערכת...
-          </div>
-        </PremiumCard>
-      </div>
-    );
-  }
+
 
   return (
     <section
-      className="flex min-h-[calc(100vh-140px)] items-center justify-center px-4"
+      className="relative flex min-h-[calc(100vh-140px)] items-center justify-center px-4 overflow-hidden bg-transparent"
       dir="rtl"
     >
-      <div className="w-full max-w-5xl py-8">
+
+      <div className="relative z-10 w-full max-w-5xl py-8">
         {error ? (
-          <div className="mx-auto mb-6 max-w-md rounded-none border border-border bg-muted/50 p-4 text-center text-sm font-bold text-foreground">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-auto mb-6 max-w-md rounded-none border border-border bg-muted/50 p-4 text-center text-sm font-bold text-foreground"
+          >
             {error}
-          </div>
+          </motion.div>
         ) : null}
 
-        {shouldShowForm ? (
-          <CreateProfileForm
-            username={username}
-            setUsername={setUsername}
-            email={email}
-            setEmail={setEmail}
-            lockProfile={lockProfile}
-            setLockProfile={setLockProfile}
-            unlockKey={unlockKey}
-            setUnlockKey={setUnlockKey}
-            fieldErrors={fieldErrors}
-            onSave={() => void createProfile()}
-            onCancel={() => setShowForm(false)}
-            showCancelButton={profiles.length > 0}
-          />
-        ) : (
-          <div className="mx-auto flex flex-col items-center justify-center space-y-12 max-w-4xl">
-            <div className="text-center space-y-3">
-              <h1 className="text-5xl font-black tracking-tight text-foreground uppercase">
-                מי מתחבר?
-              </h1>
-              <p className="text-muted-foreground font-black text-xs uppercase tracking-[0.2em]">
-                בחר פרופיל על מנת להיכנס לדשבורד
-              </p>
-            </div>
+        <AnimatePresence mode="wait">
+          {usersQuery.isLoading ? (
+            <motion.div
+              key="loading"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              className="mx-auto flex flex-col items-center justify-center space-y-12 max-w-4xl"
+            >
+              <div className="text-center space-y-3">
+                <motion.h1
+                  variants={itemVariants}
+                  className="text-5xl font-black tracking-tight text-foreground uppercase opacity-20"
+                >
+                  מי מתחבר?
+                </motion.h1>
+                <motion.p
+                  variants={itemVariants}
+                  className="text-muted-foreground font-black text-xs uppercase tracking-[0.2em] opacity-20 animate-pulse"
+                >
+                  טוען פרופילים במערכת...
+                </motion.p>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full">
-              {profiles.map((user, index) => (
-                <ProfileCard
-                  key={user.id}
-                  user={user}
-                  index={index}
-                  isSelected={selectedId === user.id}
-                  onSelect={() => {
-                    setSelectedId(user.id);
-                    void login(user.id);
-                  }}
-                  onDeleteClick={() => {
-                    setDeleteTarget(user);
-                    setDeleteSuccess(false);
-                    setDeleteConfirmation('');
-                  }}
-                />
-              ))}
-
-              <button
-                onClick={() => setShowForm(true)}
-                className="group w-full text-center transition-all duration-300 cursor-pointer outline-none border border-dashed border-border bg-muted/5 p-5 flex flex-col items-center justify-center gap-4 h-44 hover:bg-muted/10 hover:border-foreground/40 active:scale-95"
+              <motion.div
+                variants={itemVariants}
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full"
               >
-                <div className="h-12 w-12 rounded-none bg-background border border-border flex items-center justify-center transition-all group-hover:scale-110 group-hover:shadow-md">
-                  <Plus
-                    className="h-6 w-6 text-muted-foreground transition-colors group-hover:text-primary"
-                    weight="bold"
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="w-full flex flex-col justify-between h-44 border border-border/30 bg-card/20 p-5 rounded-none animate-pulse"
+                  >
+                    <div className="flex justify-between items-start w-full">
+                      <div className="h-12 w-12 border border-border bg-muted/40 rounded-none" />
+                    </div>
+                    <div className="space-y-2 text-right w-full flex flex-col items-end">
+                      <div className="h-5 bg-muted/40 w-24 rounded-none" />
+                      <div className="h-3 bg-muted/30 w-16 rounded-none" />
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            </motion.div>
+          ) : shouldShowForm ? (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full"
+            >
+              <CreateProfileForm
+                username={username}
+                setUsername={(val) => {
+                  setUsername(val);
+                  if (fieldErrors.username) {
+                    setFieldErrors((prev) => ({ ...prev, username: '' }));
+                  }
+                }}
+                lockProfile={lockProfile}
+                setLockProfile={setLockProfile}
+                unlockKey={unlockKey}
+                setUnlockKey={setUnlockKey}
+                fieldErrors={fieldErrors}
+                onSave={() => void createProfile()}
+                onCancel={() => setShowForm(false)}
+                showCancelButton={profiles.length > 0}
+                isPending={createUserMutation.isPending}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="list"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              className="mx-auto flex flex-col items-center justify-center space-y-12 max-w-4xl"
+            >
+              <div className="text-center space-y-3">
+                <motion.h1
+                  variants={itemVariants}
+                  className="text-5xl font-black tracking-tight text-foreground uppercase"
+                >
+                  מי מתחבר?
+                </motion.h1>
+                <motion.p
+                  variants={itemVariants}
+                  className="text-muted-foreground font-black text-xs uppercase tracking-[0.2em]"
+                >
+                  בחר פרופיל על מנת להיכנס לדשבורד
+                </motion.p>
+              </div>
+
+              <motion.div
+                variants={itemVariants}
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full"
+              >
+                {profiles.map((user, index) => (
+                  <ProfileCard
+                    key={user.id}
+                    user={user}
+                    index={index}
+                    isSelected={selectedId === user.id}
+                    onSelect={() => {
+                      setSelectedId(user.id);
+                      void login(user.id);
+                    }}
+                    onDeleteClick={() => {
+                      setDeleteTarget(user);
+                      setDeleteSuccess(false);
+                      setDeleteConfirmation('');
+                    }}
                   />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-black text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-tight">
-                    הוסף פרופיל
-                  </p>
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
+                ))}
+
+                <PremiumMotionCard
+                  onClick={() => setShowForm(true)}
+                  className="group w-full text-center border-dashed border-border p-5 flex flex-col items-center justify-center gap-4 h-44"
+                >
+                  <div className="h-12 w-12 rounded-none bg-background border border-border flex items-center justify-center transition-all group-hover:scale-110 group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground">
+                    <Plus
+                      className="h-6 w-6 text-muted-foreground transition-colors group-hover:text-primary-foreground"
+                      weight="bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-black text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-tight">
+                      הוסף פרופיל
+                    </p>
+                  </div>
+                </PremiumMotionCard>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <UnlockProfileDialog

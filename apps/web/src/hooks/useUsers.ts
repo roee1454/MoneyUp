@@ -41,7 +41,6 @@ export function useCreateUser() {
   return useMutation({
     mutationFn: (payload: {
       username: string;
-      email: string;
       lockProfile?: boolean;
       unlockKey?: string;
     }) => api.post('/users', payload),
@@ -52,7 +51,7 @@ export function useCreateUser() {
 }
 
 /**
- * Deletes a user account after validating the confirmation email, and invalidates the users list.
+ * Deletes a user account after validating the confirmation user ID, and invalidates the users list.
  *
  * @returns The React Query mutation object for user deletion.
  */
@@ -60,9 +59,9 @@ export function useDeleteUserConfirmed() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: { userId: string; confirmationEmail: string }) =>
+    mutationFn: (payload: { userId: string; confirmationUserId: string }) =>
       api.post(`/users/${payload.userId}/delete-confirm`, {
-        confirmationEmail: payload.confirmationEmail,
+        confirmationUserId: payload.confirmationUserId,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['users'] });
