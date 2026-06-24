@@ -1,5 +1,4 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { Module, forwardRef } from '@nestjs/common';
 import { ScraperService } from './scraper.service';
 import { ScraperFactory } from './scraper-factory.service';
 import { HapoalimScraper } from './scrapers/banks/hapoalim';
@@ -9,37 +8,26 @@ import { MaxScraper } from './scrapers/credit/max';
 import { IsracardScraper } from './scrapers/credit/isracard';
 import { CalScraper } from './scrapers/credit/cal';
 
-// New Services
-import { BrowserService } from './browser/browser.service';
+// Local Services
 import { SessionService } from './session/session.service';
-import { CredentialsService } from './credentials/credentials.service';
 import { SyncService } from './sync/sync.service';
-import { CacheService } from './cache/cache.service';
-import { CoverageService } from './coverage/coverage.service';
-import { ScansService } from './scans/scans.service';
 
-// Entities
-import { VaultEntity } from './entities/vault.entity';
-import { ScrapedCacheEntity } from './entities/cache.entity';
-import { MerchantAnnotationEntity } from './entities/merchant-annotation.entity';
-import { TransactionEntity } from './entities/transaction.entity';
-import { ScrapedCoverageEntity } from './entities/coverage.entity';
-
-// API/WS controllers
-import { UsersModule } from '../users/users.module';
+// API/WS controllers and Gateways
 import { ScraperController } from './scraper.controller';
 import { ScraperSocketGateway } from './scraper-socket.gateway';
 
+// Imported Modules
+import { UsersModule } from '../users/users.module';
+import { ChromiumModule } from '../chromium/chromium.module';
+import { AccountsModule } from '../accounts/accounts.module';
+import { SettingsModule } from '../settings/settings.module';
+
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      VaultEntity,
-      ScrapedCacheEntity,
-      MerchantAnnotationEntity,
-      TransactionEntity,
-      ScrapedCoverageEntity,
-    ]),
-    UsersModule,
+    ChromiumModule,
+    forwardRef(() => AccountsModule),
+    forwardRef(() => UsersModule),
+    forwardRef(() => SettingsModule),
   ],
   controllers: [ScraperController],
   providers: [
@@ -52,28 +40,15 @@ import { ScraperSocketGateway } from './scraper-socket.gateway';
     IsracardScraper,
     CalScraper,
     // Domain Services
-    BrowserService,
     SessionService,
-    CredentialsService,
     SyncService,
-    CacheService,
-    CoverageService,
-    ScansService,
     ScraperSocketGateway,
   ],
   exports: [
     ScraperService,
     SyncService,
-    CacheService,
-    ScansService,
-    BrowserService,
-    CredentialsService,
     SessionService,
-    CoverageService,
     ScraperFactory,
   ],
 })
-/**
- * NestJS Module configuring declarations and providers for Scraper.
- */
 export class ScraperModule {}

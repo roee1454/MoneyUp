@@ -144,9 +144,7 @@ export class OpenAIProvider extends AIProvider {
       throw new Error('OpenAI stream response body is empty');
     }
 
-    return this.createSseObservable(
-      res.body as ReadableStream<Uint8Array<ArrayBuffer>>,
-    );
+    return this.createSseObservable(res.body);
   }
 
   private createSseObservable(

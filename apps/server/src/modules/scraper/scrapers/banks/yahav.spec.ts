@@ -1,5 +1,5 @@
-jest.mock('../../browser/browser.service', () => ({
-  BrowserService: class {
+jest.mock('../../../chromium/chromium.service', () => ({
+  ChromiumService: class {
     getCommonBrowserArgs() {
       return ['--no-sandbox'];
     }
@@ -29,7 +29,7 @@ describe('YahavScraper', () => {
         YahavScraper,
         { provide: ConfigService, useValue: mockConfigService },
         { 
-          provide: require('../../browser/browser.service').BrowserService, 
+          provide: require('../../../chromium/chromium.service').ChromiumService, 
           useValue: { getCommonBrowserArgs: () => ['--no-sandbox'] } 
         },
       ],

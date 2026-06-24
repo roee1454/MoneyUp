@@ -32,15 +32,9 @@ const MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
     'mistral',
     'gemma2',
   ],
-  openrouter: [
-    'meta-llama/llama-3.1-8b-instruct:free',
-    'google/gemini-2.5-flash',
-    'deepseek/deepseek-chat',
-    'anthropic/claude-3.5-sonnet',
-  ],
 };
 
-const ALL_PROVIDERS: AiProvider[] = ['openai', 'claude', 'gemini', 'ollama', 'openrouter'];
+const ALL_PROVIDERS: AiProvider[] = ['openai', 'claude', 'gemini', 'ollama'];
 
 export function AiGlobalSwitcher() {
   const session = useAppStore((s) => s.session);

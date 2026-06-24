@@ -1,100 +1,312 @@
+import React, { useState } from 'react';
 import { toast } from 'sonner';
-import {
-  DownloadSimple,
-  FileText,
-  Database,
-  FileXls,
-} from '@phosphor-icons/react';
-import { PremiumCard } from '@/components/ui/premium-card';
-import { Button } from '@/components/ui/button';
+import { Warning } from '@phosphor-icons/react';
+import { useAccounts, isCreditCompanyBankId } from '@/hooks/useAccounts';
+import { toDateInputValue } from '@money-up/common';
+import { format, parseISO } from 'date-fns';
+import { motion, useReducedMotion, type Variants } from 'motion/react';
+import { useMutation } from '@tanstack/react-query';
+import { useSpendingScans } from '@/hooks/useAiSpending';
+
+import { api } from '@/lib/api';
+
+// Child components
+import { ExportHeader } from '@/features/export/components/ExportHeader';
+import { ExportMetricsGrid } from '@/features/export/components/ExportMetricsGrid';
+import { ExportActionsGrid } from '@/features/export/components/ExportActionsGrid';
+import { PrintableReportTemplate } from '@/features/export/components/PrintableReportTemplate';
 
 export default function Export() {
-  function handleExport(format: string) {
-    toast.success(
-      `ייצוא הנתונים בפורמט ${format} הושלם בהצלחה! ההורדה תתחיל בקרוב.`,
-    );
-  }
+  const shouldReduceMotion = useReducedMotion();
+  const isAnimated = !shouldReduceMotion;
+
+  // Default range: from 1st of current month until today
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return toDateInputValue(d);
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return toDateInputValue(new Date());
+  });
+
+  const { data: accounts = [], isLoading, isFetching } = useAccounts({
+    startDate,
+    endDate,
+  });
+
+  const { data: rawScans, isLoading: isLoadingScans } = useSpendingScans({
+    period: 'current',
+    startDate,
+    endDate,
+  });
+
+  // Filter out bank accounts, keeping only credit company (expense) accounts
+  const creditAccounts = React.useMemo(() => {
+    return accounts.filter((acc) => isCreditCompanyBankId(acc.bankId));
+  }, [accounts]);
+
+  // Calculate totals
+  const totalTransactions = React.useMemo(() => {
+    return creditAccounts.reduce((acc, curr) => acc + (curr.transactions?.length || 0), 0);
+  }, [creditAccounts]);
+
+  const totalExpensesAmount = React.useMemo(() => {
+    if (!rawScans) return 0;
+    let total = 0;
+    for (const catName in rawScans.categoryTransactions) {
+      const txns = rawScans.categoryTransactions[catName].filter((t) =>
+        isCreditCompanyBankId(t.bankId),
+      );
+      if (txns.length > 0) {
+        total += txns.reduce((sum, t) => sum + t.amount, 0);
+      }
+    }
+    return total;
+  }, [rawScans]);
+
+  const creditAccountIds = React.useMemo(() => {
+    return [...new Set(creditAccounts.map((a) => a.bankId))];
+  }, [creditAccounts]);
+
+  // Mutation for unified file saving with abort checks & web fallbacks
+  const saveFileMutation = useMutation({
+    mutationFn: async ({
+      content,
+      suggestedName,
+      mimeType,
+      extension,
+    }: {
+      content: string;
+      suggestedName: string;
+      mimeType: string;
+      extension: string;
+    }) => {
+      try {
+        const res = await api.post<{ success: boolean; filepath?: string; aborted?: boolean; error?: string }>('/export/save', {
+          content,
+          filename: suggestedName,
+          extension,
+        });
+
+        if (res.aborted) {
+          return { aborted: true };
+        }
+
+        if (res.success && res.filepath) {
+          return { success: true, filepath: res.filepath };
+        }
+      } catch (err) {
+        console.warn('Backend saving failed, running browser fallback:', err);
+      }
+
+        // Web Fallback
+        if (extension.toLowerCase() === 'pdf') {
+          const originalTitle = document.title;
+          document.title = suggestedName.replace(/\.pdf$/i, '');
+          window.print();
+          document.title = originalTitle;
+          return { success: true, fallback: true, isPdf: true };
+        }
+
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = suggestedName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return { success: true, fallback: true };
+      },
+      onSuccess: (data: any) => {
+        if (data?.aborted) {
+          toast.info('שמירת הקובץ בוטלה על ידי המשתמש');
+          return;
+        }
+        if (data?.fallback) {
+          if (data.isPdf) {
+            toast.success('דוח PDF מוכן להדפסה!');
+          } else {
+            toast.success('קובץ הורד בהצלחה בדפדפן!');
+          }
+        } else if (data?.success && data?.filepath) {
+          toast.success(`הקובץ נשמר בהצלחה בנתיב: ${data.filepath}`);
+        }
+      },
+      onError: (error: any) => {
+        toast.error(`שגיאה בשמירת הקובץ: ${error.message}`);
+      },
+  });
+
+  const handleExportCSV = () => {
+    const headers = ['בית עסק', 'תאריך', 'סכום לחיוב', 'מטבע', 'סוג תנועה'].join(',');
+    const rows: string[] = [];
+
+    for (const account of creditAccounts) {
+       for (const txn of account.transactions || []) {
+         const merchant = txn.description || 'עסקה ללא שם';
+         const formattedDate = txn.date ? format(parseISO(txn.date), 'dd/MM/yyyy') : '';
+         const amount = txn.chargedAmount != null ? txn.chargedAmount : txn.amount;
+         const currency = txn.originalCurrency || 'ILS';
+         const type = txn.type === 'installments' ? 'תשלומים' : 'רגיל';
+
+         const escapedMerchant = `"${merchant.replace(/"/g, '""')}"`;
+         rows.push([escapedMerchant, formattedDate, amount, currency, type].join(','));
+       }
+    }
+
+    const csvContent = '\uFEFF' + headers + '\r\n' + rows.join('\r\n');
+    const filename = `MoneyUp_Export_${startDate}_to_${endDate}.csv`;
+    saveFileMutation.mutate({
+      content: csvContent,
+      suggestedName: filename,
+      mimeType: 'text/csv;charset=utf-8;',
+      extension: 'csv',
+    });
+  };
+
+  const handleExportJSON = () => {
+    const dataToExport = creditAccounts.map((acc) => ({
+      bankId: acc.bankId,
+      accountNumber: acc.accountNumber,
+      balance: acc.balance,
+      lastScrapedAt: acc.lastScrapedAt,
+      transactions: (acc.transactions || []).map((txn) => ({
+        id: txn.id,
+        date: txn.date,
+        processedDate: txn.processedDate,
+        amount: txn.amount,
+        chargedAmount: txn.chargedAmount,
+        description: txn.description,
+        memo: txn.memo,
+        originalCurrency: txn.originalCurrency,
+        isDuplicate: txn.isDuplicate,
+        type: txn.type,
+        identifier: txn.identifier,
+        originalAmount: txn.originalAmount,
+        chargedCurrency: txn.chargedCurrency,
+        status: txn.status,
+        installmentNumber: txn.installmentNumber,
+        installmentTotal: txn.installmentTotal,
+      })),
+    }));
+
+    const jsonContent = JSON.stringify(dataToExport, null, 2);
+    const filename = `MoneyUp_Backup_${startDate}_to_${endDate}.json`;
+    saveFileMutation.mutate({
+      content: jsonContent,
+      suggestedName: filename,
+      mimeType: 'application/json',
+      extension: 'json',
+    });
+  };
+
+  const handleExportPDF = () => {
+    const printElement = document.querySelector('.print-area');
+    if (!printElement) {
+      toast.error('שגיאה: רכיב ההדפסה לא נמצא בדף');
+      return;
+    }
+
+    const htmlContent = printElement.outerHTML;
+    const filename = `MoneyUp_Report_${startDate}_to_${endDate}.pdf`;
+    saveFileMutation.mutate({
+      content: htmlContent,
+      suggestedName: filename,
+      mimeType: 'application/pdf',
+      extension: 'pdf',
+    });
+  };
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.05,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.4,
+        ease: [0.22, 1, 0.36, 1],
+      },
+    },
+  };
+
+  const LayoutContainer = isAnimated ? motion.div : 'div';
+  const MotionItem = isAnimated ? motion.div : 'div';
+
+  const isBusy = isLoading || isFetching || isLoadingScans;
 
   return (
-    <div
-      className="space-y-6 text-right animate-in fade-in-50 duration-300"
+    <LayoutContainer
+      className="space-y-7 py-8 text-right select-none"
       dir="rtl"
+      {...(isAnimated ? { variants: containerVariants, initial: 'hidden', animate: 'visible' } : {})}
     >
-      <div>
-        <h1 className="text-3xl font-black text-foreground leading-tight">
-          ייצוא נתונים
-        </h1>
-        <p className="mt-1 text-sm font-semibold text-muted-foreground">
-          בחר את פורמט ייצוא הנתונים הפיננסיים שלך. תוכל להוריד דוח מלא של כל
-          הפעילויות, חשבונות הבנק וההוצאות.
-        </p>
-      </div>
+      <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
+        <ExportHeader
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          isBusy={isBusy}
+        />
+      </MotionItem>
 
-      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-        <PremiumCard className="p-5 flex flex-col justify-between h-48 border border-border bg-card">
-          <div>
-            <div className="h-10 w-10 rounded-none bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4">
-              <FileXls className="h-5 w-5" weight="duotone" />
-            </div>
-            <h3 className="text-sm font-bold text-foreground">
-              קובץ Excel / CSV
-            </h3>
-            <p className="text-[11px] font-semibold text-muted-foreground mt-1">
-              מתאים לעבודה ב-Google Sheets או Excel. כולל את כל הפעילויות
-              הפיננסיות.
+      <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
+        <ExportMetricsGrid
+          creditAccountsCount={creditAccounts.length}
+          totalTransactions={totalTransactions}
+          totalExpensesAmount={totalExpensesAmount}
+          creditAccountIds={creditAccountIds}
+          isBusy={isBusy}
+        />
+      </MotionItem>
+
+      <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
+        <ExportActionsGrid
+          onExportCSV={handleExportCSV}
+          onExportPDF={handleExportPDF}
+          onExportJSON={handleExportJSON}
+          totalTransactions={totalTransactions}
+          creditAccountsCount={creditAccounts.length}
+          isBusy={isBusy}
+          isExporting={saveFileMutation.isPending ? saveFileMutation.variables?.extension.toUpperCase() || null : null}
+        />
+      </MotionItem>
+
+      {totalTransactions === 0 && !isLoading && !isFetching && (
+        <MotionItem
+          className="bg-amber-500/10 border border-amber-500/20 p-4 text-right flex gap-3 items-start rounded-none animate-in fade-in-50 duration-300"
+          {...(isAnimated ? { variants: itemVariants } : {})}
+        >
+          <Warning className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" weight="fill" />
+          <div className="space-y-1">
+            <h4 className="text-xs font-black text-foreground">לא נמצאו תנועות לטווח שנבחר</h4>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              אנא בחר טווח תאריכים אחר שבו קיימת פעילות פיננסית, או בצע סנכרון מחדש מול המוסדות הפיננסיים בדף הבית.
             </p>
           </div>
-          <Button
-            onClick={() => handleExport('CSV')}
-            className="w-full h-9 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-none flex items-center justify-center gap-1.5 mt-4"
-          >
-            <span>הורד CSV</span>
-            <DownloadSimple className="h-3.5 w-3.5" weight="duotone" />
-          </Button>
-        </PremiumCard>
+        </MotionItem>
+      )}
 
-        <PremiumCard className="p-5 flex flex-col justify-between h-48 border border-border bg-card">
-          <div>
-            <div className="h-10 w-10 rounded-none bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-4">
-              <FileText className="h-5 w-5" weight="duotone" />
-            </div>
-            <h3 className="text-sm font-bold text-foreground">דוח PDF מעוצב</h3>
-            <p className="text-[11px] font-semibold text-muted-foreground mt-1">
-              דוח מסכם מעוצב המציג את מצב ההוצאות החודשי, חלוקה לקטגוריות
-              ויתרות.
-            </p>
-          </div>
-          <Button
-            onClick={() => handleExport('PDF')}
-            className="w-full h-9 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-none flex items-center justify-center gap-1.5 mt-4"
-          >
-            <span>הורד PDF</span>
-            <DownloadSimple className="h-3.5 w-3.5" weight="duotone" />
-          </Button>
-        </PremiumCard>
-
-        <PremiumCard className="p-5 flex flex-col justify-between h-48 border border-border bg-card">
-          <div>
-            <div className="h-10 w-10 rounded-none bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4">
-              <Database className="h-5 w-5" weight="duotone" />
-            </div>
-            <h3 className="text-sm font-bold text-foreground">
-              גיבוי מלא JSON
-            </h3>
-            <p className="text-[11px] font-semibold text-muted-foreground mt-1">
-              קובץ נתונים מובנה המכיל את כל פרטי החשבון והגדרות ה-AI שלך לצורכי
-              גיבוי.
-            </p>
-          </div>
-          <Button
-            onClick={() => handleExport('JSON')}
-            className="w-full h-9 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-none flex items-center justify-center gap-1.5 mt-4"
-          >
-            <span>הורד JSON</span>
-            <DownloadSimple className="h-3.5 w-3.5" weight="duotone" />
-          </Button>
-        </PremiumCard>
-      </div>
-    </div>
+      <PrintableReportTemplate
+        startDate={startDate}
+        endDate={endDate}
+        creditAccounts={creditAccounts}
+        totalTransactions={totalTransactions}
+      />
+    </LayoutContainer>
   );
 }

@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -44,12 +47,6 @@ const MODELS_BY_PROVIDER: Record<AiProvider, string[]> = {
     'mistral',
     'gemma2',
   ],
-  openrouter: [
-    'meta-llama/llama-3.1-8b-instruct:free',
-    'google/gemini-2.5-flash',
-    'deepseek/deepseek-chat',
-    'anthropic/claude-3.5-sonnet',
-  ],
 };
 
 const PRESETS = {
@@ -74,6 +71,15 @@ const PRESETS = {
   custom: { label: 'מותאם אישית', desc: 'הגדר פרמטרים באופן ידני' },
 };
 
+const aiConfigFormSchema = z.object({
+  preset: z.enum(['accurate', 'moderate', 'save_tokens', 'custom']),
+  temperature: z.number().min(0).max(1),
+  maxTokens: z.number().int().min(1).max(32000),
+  stream: z.boolean(),
+});
+
+type AiConfigFormValues = z.infer<typeof aiConfigFormSchema>;
+
 export function AiProviderConfigDialog({
   provider,
   open,
@@ -81,38 +87,53 @@ export function AiProviderConfigDialog({
   currentConfig,
 }: AiProviderConfigDialogProps) {
   const model = currentConfig?.model || MODELS_BY_PROVIDER[provider][0];
-  const [preset, setPreset] = useState<
-    'accurate' | 'moderate' | 'save_tokens' | 'custom'
-  >(currentConfig?.preset || 'moderate');
-  const [temperature, setTemperature] = useState(
-    currentConfig?.temperature ?? 0.5,
-  );
-  const [maxTokens, setMaxTokens] = useState(currentConfig?.maxTokens ?? 2048);
-  const [stream, setStream] = useState(currentConfig?.stream ?? true);
   const forceMarkdown = true;
 
   const saveAiConfig = useSaveAiConfig();
 
-  useEffect(() => {
-    if (preset !== 'custom') {
-      const p = PRESETS[preset as keyof typeof PRESETS] as any;
-      setTemperature(p.temp);
-      setMaxTokens(p.tokens);
-    }
-  }, [preset]);
+  const { control, handleSubmit, setValue, watch, reset } = useForm<AiConfigFormValues>({
+    resolver: zodResolver(aiConfigFormSchema),
+    defaultValues: {
+      preset: 'moderate',
+      temperature: 0.5,
+      maxTokens: 2048,
+      stream: true,
+    },
+  });
 
-  const handleSave = () => {
+  const preset = watch('preset');
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        preset: currentConfig?.preset || 'moderate',
+        temperature: currentConfig?.temperature ?? 0.5,
+        maxTokens: currentConfig?.maxTokens ?? 2048,
+        stream: currentConfig?.stream ?? true,
+      });
+    }
+  }, [open, currentConfig, reset]);
+
+  useEffect(() => {
+    if (preset && preset !== 'custom') {
+      const p = PRESETS[preset] as any;
+      setValue('temperature', p.temp);
+      setValue('maxTokens', p.tokens);
+    }
+  }, [preset, setValue]);
+
+  const handleSave = (values: AiConfigFormValues) => {
     saveAiConfig.mutate(
       {
         provider,
-        apiKey: '***', // Backend will use existing key if this is placeholder
+        apiKey: '***',
         preferredModel: model,
         config: {
           model,
-          preset,
-          temperature,
-          maxTokens,
-          stream,
+          preset: values.preset,
+          temperature: values.temperature,
+          maxTokens: values.maxTokens,
+          stream: values.stream,
           forceMarkdown,
         },
       },
@@ -149,10 +170,10 @@ export function AiProviderConfigDialog({
           </div>
         </DialogHeader>
 
-        <div className="py-6 space-y-6">
+        <form onSubmit={handleSubmit(handleSave)} className="py-6 space-y-6">
           {/* Preset Selection */}
           <div className="space-y-2.5">
-            <label className="text-xs font-black text-foreground">
+            <label className="text-xs font-black text-foreground block text-right">
               פרופיל עבודה (Preset)
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -160,9 +181,10 @@ export function AiProviderConfigDialog({
                 (key) => (
                   <button
                     key={key}
-                    onClick={() => setPreset(key)}
+                    type="button"
+                    onClick={() => setValue('preset', key)}
                     className={cn(
-                      'relative flex flex-col p-3 text-right border transition-all group',
+                      'relative flex flex-col p-3 text-right border transition-all group cursor-pointer',
                       preset === key
                         ? 'border-border bg-primary/10 ring-1 ring-primary/20'
                         : 'border-border bg-card hover:border-foreground/20',
@@ -180,10 +202,10 @@ export function AiProviderConfigDialog({
                     </span>
 
                     {/* Tooltip on hover */}
-                    <div className="absolute bottom-full left-0 right-0 mb-2 p-2 bg-foreground text-background text-[9px] font-bold rounded-none opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl">
+                    <div className="absolute bottom-full left-0 right-0 mb-2 p-2 bg-foreground text-background text-[9px] font-bold rounded-none opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl text-right">
                       {PRESETS[key].desc}
                       {key !== 'custom' && (
-                        <div className="mt-1 flex gap-2 border-t border-background/20 pt-1 text-background/80">
+                        <div className="mt-1 flex gap-2 border-t border-background/20 pt-1 text-background/80 justify-end">
                           <span>Temp: {(PRESETS[key] as any).temp}</span>
                           <span>Tokens: {(PRESETS[key] as any).tokens}</span>
                         </div>
@@ -198,31 +220,43 @@ export function AiProviderConfigDialog({
           {/* Custom Settings */}
           {preset === 'custom' && (
             <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="space-y-2">
+              <div className="space-y-2 text-right">
                 <label className="text-[10px] font-black text-muted-foreground uppercase">
                   טמפרטורה (0-1)
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={temperature}
-                  onChange={(e) => setTemperature(Number(e.target.value))}
-                  className="h-10 w-full border border-border bg-background/50 px-3 text-xs font-bold focus:bg-background focus:outline-none transition-all rounded-none text-foreground"
+                <Controller
+                  name="temperature"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <input
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={value}
+                      onChange={(e) => onChange(Number(e.target.value))}
+                      className="h-10 w-full border border-border bg-background/50 px-3 text-xs font-bold focus:bg-background focus:outline-none transition-all rounded-none text-foreground"
+                    />
+                  )}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 text-right">
                 <label className="text-[10px] font-black text-muted-foreground uppercase">
                   טוקנים מקסימליים
                 </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="32000"
-                  value={maxTokens}
-                  onChange={(e) => setMaxTokens(Number(e.target.value))}
-                  className="h-10 w-full border border-border bg-background/50 px-3 text-xs font-bold focus:bg-background focus:outline-none transition-all rounded-none text-foreground"
+                <Controller
+                  name="maxTokens"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <input
+                      type="number"
+                      min="1"
+                      max="32000"
+                      value={value}
+                      onChange={(e) => onChange(Number(e.target.value))}
+                      className="h-10 w-full border border-border bg-background/50 px-3 text-xs font-bold focus:bg-background focus:outline-none transition-all rounded-none text-foreground"
+                    />
+                  )}
                 />
               </div>
             </div>
@@ -238,13 +272,17 @@ export function AiProviderConfigDialog({
                 הצג תשובות בזמן אמת ככל שהן נוצרות
               </p>
             </div>
-            <Switch checked={stream} onCheckedChange={setStream} />
+            <Controller
+              name="stream"
+              control={control}
+              render={({ field: { value, onChange } }) => (
+                <Switch checked={value} onCheckedChange={onChange} />
+              )}
+            />
           </div>
 
-
-
           <Button
-            onClick={handleSave}
+            type="submit"
             disabled={saveAiConfig.isPending}
             className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground rounded-none font-black text-xs transition-all shadow-xl shadow-primary/10"
           >
@@ -254,7 +292,7 @@ export function AiProviderConfigDialog({
               'שמור הגדרות'
             )}
           </Button>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

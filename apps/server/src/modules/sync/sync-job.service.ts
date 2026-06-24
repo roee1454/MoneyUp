@@ -110,6 +110,11 @@ export class SyncJobService {
     startDate?: string,
     endDate?: string,
   ): boolean {
+    const currentJob = this.syncJobs.get(userId);
+    if (currentJob && currentJob.status === 'failed') {
+      return false;
+    }
+
     const key = this.buildInitialAutoSyncKey(userId, startDate, endDate);
     const blockedUntil = this.initialAutoSyncBlockedUntil.get(key);
     if (!blockedUntil) return true;
@@ -156,7 +161,7 @@ export class SyncJobService {
     startDate?: string,
     endDate?: string,
   ): string {
-    return `${userId}|${startDate ?? ''}|${endDate ?? ''}`;
+    return userId;
   }
 
   /**
@@ -450,10 +455,6 @@ export class SyncJobService {
       });
 
       const profile = await this.usersService.findOne(userId);
-      const timeoutRetryCount = Math.max(
-        0,
-        Math.min(5, Number(profile?.scraperTimeoutRetryCount ?? 1)),
-      );
       initialAutoSyncCooldownMs = Math.max(
         0,
         Math.min(
@@ -476,7 +477,6 @@ export class SyncJobService {
           mode: syncSource,
           startDate: latest?.startDate,
           endDate: latest?.endDate,
-          timeoutRetryCount,
           showBrowser: profile?.scraperShowBrowser,
           loginTimeoutSeconds: profile?.scraperLoginTimeoutSeconds,
           defaultTimeoutSeconds: profile?.scraperDefaultTimeoutSeconds,

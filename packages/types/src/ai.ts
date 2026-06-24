@@ -1,4 +1,4 @@
-export type AiProvider = 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+export type AiProvider = 'openai' | 'claude' | 'gemini' | 'ollama';
 
 export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 

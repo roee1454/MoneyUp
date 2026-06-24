@@ -34,7 +34,12 @@ describe('AuthController', () => {
         clearCookie: jest.fn(),
       } as any;
       expect(authServiceController.logout(mockResponse)).toEqual({ success: true });
-      expect(mockResponse.clearCookie).toHaveBeenCalledWith('moneyup_session');
+      expect(mockResponse.clearCookie).toHaveBeenCalledWith('moneyup_session', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+      });
     });
   });
 });

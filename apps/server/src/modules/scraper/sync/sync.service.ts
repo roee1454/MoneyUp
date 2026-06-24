@@ -2,10 +2,10 @@ import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SCRAPERS, ScraperCredentials } from 'israeli-bank-scrapers';
 import { ScraperFactory } from '../scraper-factory.service';
-import { BrowserService } from '../browser/browser.service';
-import { CredentialsService } from '../credentials/credentials.service';
-import { CacheService } from '../cache/cache.service';
-import { CoverageService } from '../coverage/coverage.service';
+import { ChromiumService } from '../../chromium/chromium.service';
+import { CredentialsService } from '../../accounts/services/credentials.service';
+import { CacheService } from '../../accounts/services/cache.service';
+import { CoverageService } from '../../accounts/services/coverage.service';
 import { SessionService } from '../session/session.service';
 import {
   getTodayUtcDateString,
@@ -16,6 +16,7 @@ import {
 } from '@money-up/common';
 import puppeteer from 'puppeteer';
 import { UnifiedAccount } from 'packages/types/dist';
+import { decryptVault } from '../../../utils/crypto.utils';
 
 
 
@@ -34,7 +35,7 @@ export class SyncService implements OnModuleDestroy {
 
   constructor(
     private readonly scraperFactory: ScraperFactory,
-    private readonly browserService: BrowserService,
+    private readonly browserService: ChromiumService,
     private readonly credentialsService: CredentialsService,
     private readonly cacheService: CacheService,
     private readonly coverageService: CoverageService,
@@ -253,13 +254,13 @@ export class SyncService implements OnModuleDestroy {
         conn.bankId,
         minDateStr,
       );
-      const credentials = await this.credentialsService.getCredentials(
-        userId,
-        conn.bankId,
-      );
-      if (!credentials) {
+      let credentials: Record<string, string> | null = null;
+      try {
+        const decrypted = decryptVault(conn.encryptedCredentials);
+        credentials = JSON.parse(decrypted) as Record<string, string>;
+      } catch (err) {
         console.warn(
-          `[SyncService] No credentials found for ${conn.bankId} (User: ${userId})`,
+          `[SyncService] Failed to decrypt credentials for connection ${conn.id} (${conn.bankId})`,
         );
         continue;
       }

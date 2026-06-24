@@ -40,12 +40,12 @@ const PremiumMotionCard = React.forwardRef<HTMLElement, PremiumMotionCardProps>(
     return (
       <Component
         ref={ref as any}
-        whileHover={shouldReduceMotion || disabled || !isInteractive ? {} : { y: -4, x: -4 }}
+        whileHover={shouldReduceMotion || disabled || !isInteractive ? {} : { y: -4 }}
         whileTap={shouldReduceMotion || disabled || !isInteractive ? {} : { scale: 0.98 }}
         transition={{ type: 'spring', stiffness: 350, damping: 22 }}
         className={cn(
           'text-right border border-border bg-card p-5 transition-[background-color,border-color,box-shadow] duration-200 rounded-none shadow-sm',
-          isInteractive && !disabled && 'cursor-pointer hover:border-primary hover:shadow-[6px_6px_0px_0px_var(--color-primary)]',
+          isInteractive && !disabled && 'cursor-pointer hover:border-primary hover:shadow-lg hover:shadow-primary/10',
           disabled && 'opacity-60 cursor-not-allowed',
           className,
         )}

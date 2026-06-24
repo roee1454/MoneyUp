@@ -5,23 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { HelpTooltip } from './HelpTooltip';
+import { Controller } from 'react-hook-form';
 
 interface ScraperSettingsCardProps {
+  control: any;
   scraperChromiumPath: string;
-  scraperShowBrowser: boolean;
-  setScraperShowBrowser: (show: boolean) => void;
   showAdvancedScraper: boolean;
   setShowAdvancedScraper: (show: boolean) => void;
-  scraperTimeoutRetryCount: number;
-  setScraperTimeoutRetryCount: (val: number) => void;
-  cooldownValue: number;
-  setCooldownValue: (val: number) => void;
-  cooldownUnit: 'seconds' | 'minutes' | 'hours';
-  setCooldownUnit: (val: 'seconds' | 'minutes' | 'hours') => void;
-  scraperLoginTimeoutSeconds: number;
-  setScraperLoginTimeoutSeconds: (val: number) => void;
-  scraperDefaultTimeoutSeconds: number;
-  setScraperDefaultTimeoutSeconds: (val: number) => void;
   isDetecting: boolean;
   onDetect: () => void;
   onSaveAll: () => void;
@@ -30,21 +20,10 @@ interface ScraperSettingsCardProps {
 }
 
 export function ScraperSettingsCard({
+  control,
   scraperChromiumPath,
-  scraperShowBrowser,
-  setScraperShowBrowser,
   showAdvancedScraper,
   setShowAdvancedScraper,
-  scraperTimeoutRetryCount,
-  setScraperTimeoutRetryCount,
-  cooldownValue,
-  setCooldownValue,
-  cooldownUnit,
-  setCooldownUnit,
-  scraperLoginTimeoutSeconds,
-  setScraperLoginTimeoutSeconds,
-  scraperDefaultTimeoutSeconds,
-  setScraperDefaultTimeoutSeconds,
   isDetecting,
   onDetect,
   onSaveAll,
@@ -92,9 +71,15 @@ export function ScraperSettingsCard({
                 הצגת תהליך הסריקה בחלון נפרד (שימושי לצורך פתרון בעיות)
               </p>
             </div>
-            <Switch
-              checked={scraperShowBrowser}
-              onCheckedChange={setScraperShowBrowser}
+            <Controller
+              name="scraperShowBrowser"
+              control={control}
+              render={({ field: { value, onChange } }) => (
+                <Switch
+                  checked={value}
+                  onCheckedChange={onChange}
+                />
+              )}
             />
           </div>
         </div>
@@ -124,18 +109,22 @@ export function ScraperSettingsCard({
                   <span className="text-xs font-black text-foreground">ניסיונות סריקה חוזרים</span>
                   <HelpTooltip content="מספר הניסיונות שהסורק יבצע במידה והסנכרון נכשל בשל בעיות תקשורת או שגיאה זמנית באתר הבנק." />
                 </div>
-                <Select
-                  value={String(scraperTimeoutRetryCount)}
-                  onValueChange={(val) =>
-                    setScraperTimeoutRetryCount(Number(val))
-                  }
-                  className="h-10 text-xs font-bold px-3"
-                >
-                  <SelectItem value="0">ללא ניסיונות חוזרים</SelectItem>
-                  <SelectItem value="1">ניסיון אחד נוסף</SelectItem>
-                  <SelectItem value="2">2 ניסיונות נוספים</SelectItem>
-                  <SelectItem value="3">3 ניסיונות נוספים</SelectItem>
-                </Select>
+                <Controller
+                  name="scraperTimeoutRetryCount"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <Select
+                      value={String(value)}
+                      onValueChange={(val) => onChange(Number(val))}
+                      className="h-10 text-xs font-bold px-3"
+                    >
+                      <SelectItem value="0">ללא ניסיונות חוזרים</SelectItem>
+                      <SelectItem value="1">ניסיון אחד נוסף</SelectItem>
+                      <SelectItem value="2">2 ניסיונות נוספים</SelectItem>
+                      <SelectItem value="3">3 ניסיונות נוספים</SelectItem>
+                    </Select>
+                  )}
+                />
               </div>
 
               {/* Cooldown time between syncs */}
@@ -145,21 +134,33 @@ export function ScraperSettingsCard({
                   <HelpTooltip content="תקופת הצינון הנדרשת בין סנכרונים ידניים עוקבים כדי למנוע חסימת החשבון ע'י מערכות האבטחה של הבנק." />
                 </div>
                 <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={cooldownValue}
-                    onChange={(e) => setCooldownValue(Number(e.target.value))}
-                    className="h-10 w-24 border border-border bg-muted/30 px-3 text-xs font-bold focus:bg-card focus:outline-none transition-all rounded-none text-foreground text-center shrink-0"
+                  <Controller
+                    name="cooldownValue"
+                    control={control}
+                    render={({ field: { value, onChange } }) => (
+                      <input
+                        type="number"
+                        value={value}
+                        onChange={(e) => onChange(Number(e.target.value))}
+                        className="h-10 w-24 border border-border bg-muted/30 px-3 text-xs font-bold focus:bg-card focus:outline-none transition-all rounded-none text-foreground text-center shrink-0"
+                      />
+                    )}
                   />
-                  <Select
-                    value={cooldownUnit}
-                    onValueChange={(val: any) => setCooldownUnit(val)}
-                    className="h-10 text-xs font-bold px-3 flex-1"
-                  >
-                    <SelectItem value="seconds">שניות</SelectItem>
-                    <SelectItem value="minutes">דקות</SelectItem>
-                    <SelectItem value="hours">שעות</SelectItem>
-                  </Select>
+                  <Controller
+                    name="cooldownUnit"
+                    control={control}
+                    render={({ field: { value, onChange } }) => (
+                      <Select
+                        value={value}
+                        onValueChange={onChange}
+                        className="h-10 text-xs font-bold px-3 flex-1"
+                      >
+                        <SelectItem value="seconds">שניות</SelectItem>
+                        <SelectItem value="minutes">דקות</SelectItem>
+                        <SelectItem value="hours">שעות</SelectItem>
+                      </Select>
+                    )}
+                  />
                 </div>
               </div>
 
@@ -169,13 +170,17 @@ export function ScraperSettingsCard({
                   <span className="text-xs font-black text-foreground">זמן התחברות (שניות)</span>
                   <HelpTooltip content="הזמן המקסימלי (בשניות) שהמערכת תמתין לטעינת דף ההתחברות של הבנק או כרטיס האשראי." />
                 </div>
-                <input
-                  type="number"
-                  value={scraperLoginTimeoutSeconds}
-                  onChange={(e) =>
-                    setScraperLoginTimeoutSeconds(Number(e.target.value))
-                  }
-                  className="h-10 w-full border border-border bg-muted/30 px-3 text-xs font-bold focus:bg-card focus:outline-none transition-all rounded-none text-foreground"
+                <Controller
+                  name="scraperLoginTimeoutSeconds"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => onChange(Number(e.target.value))}
+                      className="h-10 w-full border border-border bg-muted/30 px-3 text-xs font-bold focus:bg-card focus:outline-none transition-all rounded-none text-foreground"
+                    />
+                  )}
                 />
               </div>
 
@@ -185,13 +190,17 @@ export function ScraperSettingsCard({
                   <span className="text-xs font-black text-foreground">זמן סריקה (שניות)</span>
                   <HelpTooltip content="הזמן המקסימלי (בשניות) שהמערכת תמתין לטעינת נתוני העובר ושב או העסקאות בתוך החשבון." />
                 </div>
-                <input
-                  type="number"
-                  value={scraperDefaultTimeoutSeconds}
-                  onChange={(e) =>
-                    setScraperDefaultTimeoutSeconds(Number(e.target.value))
-                  }
-                  className="h-10 w-full border border-border bg-muted/30 px-3 text-xs font-bold focus:bg-card focus:outline-none transition-all rounded-none text-foreground"
+                <Controller
+                  name="scraperDefaultTimeoutSeconds"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => onChange(Number(e.target.value))}
+                      className="h-10 w-full border border-border bg-muted/30 px-3 text-xs font-bold focus:bg-card focus:outline-none transition-all rounded-none text-foreground"
+                    />
+                  )}
                 />
               </div>
 

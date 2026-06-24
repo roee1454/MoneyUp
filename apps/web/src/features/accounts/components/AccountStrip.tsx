@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DisconnectConfirmDialog } from './DisconnectConfirmDialog';
+import { PremiumMotionCard } from '@/components/ui/premium-motion-card';
 
 interface AccountStripProps {
   accounts: BankAccount[];
@@ -188,9 +189,9 @@ export function AccountStrip({
           : 'טרם סונכרן';
 
          return (
-          <div
+          <PremiumMotionCard
             key={bankId}
-            className="relative h-16 w-full border border-border bg-card hover:bg-accent px-5 py-2 rounded-none flex items-center justify-between transition-all group select-none text-right"
+            className="h-16 w-full px-5 py-2 flex items-center justify-between group select-none text-right"
           >
             <div className="flex items-center gap-2">
               <BankIcon bankId={bankId} size="sm" />
@@ -210,9 +211,9 @@ export function AccountStrip({
             </div>
 
             {/* Left side actions and values */}
-            <div className="relative flex items-center justify-end h-full">
-              {/* Balance / Transaction count info - hides on hover to make room for action buttons */}
-              <div className="group-hover:opacity-0 transition-opacity duration-150 text-left leading-tight">
+            <div className="flex items-center gap-3">
+              {/* Balance / Transaction count info */}
+              <div className="text-left leading-tight">
                 {isCard ? (
                   <>
                     {isRefreshingValues ? (
@@ -246,8 +247,8 @@ export function AccountStrip({
                 )}
               </div>
 
-              {/* Action Buttons (Info & Trash) - visible only on hover */}
-              <div className="absolute left-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              {/* Action Buttons (Info & Trash) */}
+              <div className="flex items-center gap-1">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -271,7 +272,7 @@ export function AccountStrip({
                 </Button>
               </div>
             </div>
-          </div>
+          </PremiumMotionCard>
         );
       })}
 

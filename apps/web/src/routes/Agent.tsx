@@ -1,18 +1,26 @@
 import { Trash } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useState, Suspense, lazy } from 'react';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
 import { AiConversation } from '@/features/ai/components/AiConversation';
 import { Button } from '@/components/ui/button';
-import { AddAiProviderDialog } from '@/features/ai/components/AddAiProviderDialog';
 import { useConversations, useDeleteConversation } from '@/hooks/useAi';
 import { Select, SelectItem } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { motion, useReducedMotion, type Variants } from 'motion/react';
 
+const AddAiProviderDialog = lazy(() =>
+  import('@/features/ai/components/AddAiProviderDialog').then((module) => ({
+    default: module.AddAiProviderDialog,
+  }))
+);
 
-import { DeleteConversationDialog } from '@/features/ai/components/DeleteConversationDialog';
+const DeleteConversationDialog = lazy(() =>
+  import('@/features/ai/components/DeleteConversationDialog').then((module) => ({
+    default: module.DeleteConversationDialog,
+  }))
+);
 
 // Removed local model mappings since AI selector is localized now.
 
@@ -36,13 +44,15 @@ export default function Agent() {
   const { data: conversations = [], isLoading: isConversationsLoading } =
     useConversations();
   const deleteMutation = useDeleteConversation();
+  const shouldReduceMotion = useReducedMotion();
+  const isAnimated = !shouldReduceMotion;
 
   // Decoupled activeProvider. We now use configuredProviders list.
 
   if (isProfileLoading || isConversationsLoading) {
     return (
       <div
-        className="h-[60vh] flex items-center justify-center text-center"
+        className="w-full h-full flex-1 flex items-center justify-center text-center bg-background"
         dir="rtl"
       >
         <span className="text-sm font-semibold text-muted-foreground animate-pulse">
@@ -74,50 +84,26 @@ export default function Agent() {
     }
   };
 
-
-  const shouldReduceMotion = useReducedMotion();
-  const isAnimated = !shouldReduceMotion;
-
-  const containerVariants: Variants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.05,
-      },
-    },
-  };
-
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 15 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
         duration: 0.4,
-        ease: [0.22, 1, 0.36, 1],
+        ease: 'easeOut',
       },
     },
   };
 
-  const LayoutContainer = isAnimated ? motion.div : 'div';
-  const MotionItem = isAnimated ? motion.div : 'div';
+  const ChatMotionContainer = isAnimated ? motion.div : 'div';
 
   return (
-    <LayoutContainer
-      className="text-right w-full h-full flex flex-col overflow-hidden"
-      dir="rtl"
-      {...(isAnimated ? { variants: containerVariants, initial: 'hidden', animate: 'visible' } : {})}
-    >
+    <div className="text-right w-full h-full flex flex-col overflow-hidden" dir="rtl">
       <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
         {/* Main Chat Area */}
         <div className="flex-1 min-w-0 flex flex-col bg-background relative">
-          {/* Unified Chat Header */}
-          <MotionItem
-            className="flex items-center justify-between border-b border-border px-6 py-4 bg-card/45 backdrop-blur-md gap-2 shrink-0 select-none"
-            {...(isAnimated ? { variants: itemVariants } : {})}
-          >
+          {/* Unified Chat Header (Static) */}
+          <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-card/45 backdrop-blur-md gap-2 shrink-0 select-none">
             {/* Right: Title on Desktop / Conversation Select on Mobile */}
             <div className="flex-1 min-w-0">
               <div className="hidden md:block">
@@ -167,11 +153,11 @@ export default function Agent() {
                 </Button>
               )}
             </div>
-          </MotionItem>
+          </div>
 
-          <MotionItem
+          <ChatMotionContainer
             className="flex-1 min-h-0"
-            {...(isAnimated ? { variants: itemVariants } : {})}
+            {...(isAnimated ? { variants: itemVariants, initial: 'hidden', animate: 'visible' } : {})}
           >
             <AiConversation
               userProfile={userProfile}
@@ -179,27 +165,29 @@ export default function Agent() {
               onConversationCreated={(newId) => setActiveConversationId(newId)}
               onConnectClick={() => setIsAiDialogOpen(true)}
             />
-          </MotionItem>
+          </ChatMotionContainer>
         </div>
       </div>
 
-      <AddAiProviderDialog
-        open={isAiDialogOpen}
-        onOpenChange={setIsAiDialogOpen}
-        onSuccess={() => {
-          void refetchProfile();
-        }}
-      />
+      <Suspense fallback={null}>
+        <AddAiProviderDialog
+          open={isAiDialogOpen}
+          onOpenChange={setIsAiDialogOpen}
+          onSuccess={() => {
+            void refetchProfile();
+          }}
+        />
 
-      {/* Delete Confirmation Dialog */}
-      <DeleteConversationDialog
-        open={!!conversationToDelete}
-        onOpenChange={(open) => {
-          if (!open) setConversationToDelete(null);
-        }}
-        isPending={deleteMutation.isPending}
-        onConfirm={() => void confirmDelete()}
-      />
-    </LayoutContainer>
+        {/* Delete Confirmation Dialog */}
+        <DeleteConversationDialog
+          open={!!conversationToDelete}
+          onOpenChange={(open) => {
+            if (!open) setConversationToDelete(null);
+          }}
+          isPending={deleteMutation.isPending}
+          onConfirm={() => void confirmDelete()}
+        />
+      </Suspense>
+    </div>
   );
 }

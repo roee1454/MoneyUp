@@ -1,6 +1,10 @@
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const rootDir = path.join(__dirname, '..');
 const desktopResourcesDir = path.join(rootDir, 'apps/desktop/resources');
@@ -56,11 +60,9 @@ function main() {
   fs.mkdirSync(binDir, { recursive: true });
   fs.mkdirSync(serverDestDir, { recursive: true });
 
-  // 1. Build workspace packages, client and server
-  console.log('📦 Building packages and applications...');
-  execSync('pnpm packages:build', { cwd: rootDir, stdio: 'inherit' });
-  execSync('pnpm client:build', { cwd: rootDir, stdio: 'inherit' });
-  execSync('pnpm server:build', { cwd: rootDir, stdio: 'inherit' });
+  // 1. Build workspace packages, client and server concurrently via Turborepo
+  console.log('📦 Building packages and applications via Turborepo...');
+  execSync('pnpm build', { cwd: rootDir, stdio: 'inherit' });
 
   // 2. Pack workspace packages into tarballs in the root directory
   console.log('📦 Packing local dependencies to tarballs...');
@@ -94,8 +96,8 @@ function main() {
   
   fs.writeFileSync(destPkgPath, JSON.stringify(pkg, null, 2));
 
-  // 6. Run production npm install in resources directory
-  console.log('🚚 Installing flat production dependencies via npm...');
+  // 6. Run production install in resources directory using npm to ensure a flat, physical directory structure with no symlinks
+  console.log('🚚 Installing production dependencies via npm...');
   execSync('npm install --omit=dev --no-audit --no-fund', {
     cwd: serverDestDir,
     stdio: 'inherit',

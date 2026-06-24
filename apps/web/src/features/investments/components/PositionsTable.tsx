@@ -7,7 +7,7 @@ import { PremiumButton } from '@/components/ui/premium-button';
 import { useAppStore } from '@/store';
 import { useUserProfile } from '@/hooks/useUsers';
 import { api } from '@/lib/api';
-import { OpenAiModels, GeminiModels } from '@money-up/common';
+import { OpenAiModels, GeminiModels, resolveAutoModel } from '@money-up/common';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
 import ReactMarkdown from 'react-markdown';
@@ -108,9 +108,13 @@ For each ticker, provide a brief (2-3 sentences max) technical and fundamental o
 Return the result strictly as a JSON object where the keys are the tickers and the values are the opinion strings in Hebrew (עברית). Do not include any markdown formatting around the JSON (like \`\`\`json). Just the raw JSON object.
 `;
 
+      const activeModel = classModel === 'auto'
+        ? resolveAutoModel(classProvider, 'investments')
+        : classModel;
+
       const response = await api.post<{ text: string }>('/ai/prompt', {
         provider: classProvider,
-        model: classModel,
+        model: activeModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
         maxTokens: 1024,

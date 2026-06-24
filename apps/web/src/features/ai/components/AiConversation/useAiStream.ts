@@ -4,6 +4,7 @@ import { api, API_BASE } from '@/lib/api';
 import { useCreateConversation, useAddMessage, useTruncateConversationMutation } from '@/hooks/useAi';
 import type { AiProvider } from '../AiIcon';
 import { getFriendlyErrorMessage } from '@/lib/error-formatter';
+import { resolveAutoModel } from '@money-up/common';
 
 export type LocalMessage = {
   id: string;
@@ -88,6 +89,10 @@ export function useAiStream({
     const trimmedPrompt = textToSubmit.trim();
     if (!trimmedPrompt || !selectedModel || isLoading) return;
 
+    const activeModel = selectedModel === 'auto'
+      ? resolveAutoModel(provider, 'chat')
+      : selectedModel;
+
     let targetConvId = activeConversationIdRef.current;
 
     // Auto-create conversation if this is the first message
@@ -165,7 +170,7 @@ export function useAiStream({
           },
           body: JSON.stringify({
             provider,
-            model: selectedModel,
+            model: activeModel,
             messages: messagesToSend,
             conversationId: targetConvId,
             temperature,
@@ -298,7 +303,7 @@ export function useAiStream({
     try {
       const response = await api.post<{ text: string }>('/ai/prompt', {
         provider,
-        model: selectedModel,
+        model: activeModel,
         messages: messagesToSend,
         conversationId: targetConvId,
         temperature,

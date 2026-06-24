@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { CaretLeft } from '@phosphor-icons/react';
 import type { SpendingCategoryItem } from '../types';
 import { PremiumMotionCard } from '@/components/ui/premium-motion-card';
+import { motion, useReducedMotion } from 'motion/react';
 
 interface SpendingCategoryListProps {
   categories: SpendingCategoryItem[];
@@ -17,6 +18,8 @@ export function SpendingCategoryList({
   isLoading = false,
 }: SpendingCategoryListProps) {
   const maxAmount = Math.max(...categories.map((c) => c.amount), 1);
+  const shouldReduceMotion = useReducedMotion();
+  const isAnimated = !shouldReduceMotion;
 
   if (isLoading && categories.length === 0) {
     return (
@@ -44,6 +47,8 @@ export function SpendingCategoryList({
       {allExpensesCategory && (
         <PremiumMotionCard
           onClick={() => onCategorySelect(allExpensesCategory)}
+          whileHover={{}}
+          whileTap={{}}
           className={cn(
             'group w-full flex items-center gap-4 p-4 bg-linear-to-br from-primary/5 via-card to-muted/25 border-dashed border-border/80',
           )}
@@ -63,9 +68,12 @@ export function SpendingCategoryList({
             </div>
 
             <div className="relative h-1.5 w-full bg-muted/40 overflow-hidden">
-              <div
-                className="absolute top-0 right-0 h-full bg-gradient-to-l from-primary/60 to-primary/30 shadow-[0_0_8px_rgba(var(--primary),0.15)] transition-all duration-700 ease-out"
-                style={{ width: '100%' }}
+              <motion.div
+                className="absolute top-0 right-0 h-full bg-gradient-to-l from-primary/60 to-primary/30 shadow-[0_0_8px_rgba(var(--primary),0.15)] rounded-full"
+                initial={isAnimated ? { width: 0 } : { width: '100%' }}
+                whileInView={isAnimated ? { width: '100%' } : {}}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
               />
             </div>
 
@@ -86,6 +94,8 @@ export function SpendingCategoryList({
           <PremiumMotionCard
             key={category.name}
             onClick={() => onCategorySelect(category)}
+            whileHover={{}}
+            whileTap={{}}
             className={cn(
               'group w-full flex items-center gap-4 p-4 border-border/80',
             )}
@@ -108,9 +118,12 @@ export function SpendingCategoryList({
               </div>
 
               <div className="relative h-1.5 w-full bg-muted/40 overflow-hidden">
-                <div
-                  className="absolute top-0 right-0 h-full bg-gradient-to-l from-rose-500/80 to-rose-400/40 shadow-[0_0_8px_rgba(244,63,94,0.15)] transition-all duration-700 ease-out"
-                  style={{ width: `${percentage}%` }}
+                <motion.div
+                  className="absolute top-0 right-0 h-full bg-gradient-to-l from-rose-500/80 to-rose-400/40 shadow-[0_0_8px_rgba(244,63,94,0.15)] rounded-full"
+                  initial={isAnimated ? { width: 0 } : { width: `${percentage}%` }}
+                  whileInView={isAnimated ? { width: `${percentage}%` } : {}}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
                 />
               </div>
 

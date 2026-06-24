@@ -56,6 +56,16 @@ export class ScraperController {
       .pipe(map((data) => ({ data }) as MessageEvent));
   }
 
+  @Get('check-sync-needed')
+  async checkSyncNeeded(@Req() request: Request) {
+    const sessionToken = request.cookies?.moneyup_session;
+    if (!sessionToken) {
+      throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
+    }
+    const user = verifyJwtToken(sessionToken);
+    return this.scraperService.checkSyncNeeded(user.userId);
+  }
+
   @Get('accounts')
   async getConnectedAccounts(
     @Req() request: Request,
@@ -77,17 +87,10 @@ export class ScraperController {
       endDate,
     });
 
-    if (forceFresh || !response.isCovered) {
-      const source: 'manual' | 'initial' = forceFresh ? 'manual' : 'initial';
-      const canAutoStartInitial =
-        source !== 'initial' ||
-        this.syncJobService.canAutoStartInitial(
-          user.userId,
-          startDate,
-          endDate,
-        );
+    if (forceFresh) {
+      const source = 'manual';
 
-      if (!this.syncJobService.isRunning(user.userId) && canAutoStartInitial) {
+      if (!this.syncJobService.isRunning(user.userId)) {
         this.syncJobService.startOrReuseSyncJob(
           user.userId,
           source,

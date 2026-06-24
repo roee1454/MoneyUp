@@ -8,42 +8,109 @@ import { AiMessage, StructuredResponse } from '@money-up/types';
  */
 export class OllamaProvider extends AIProvider {
   private readonly baseUrl: string;
+  private readonly nativeUrl: string;
 
   constructor(apiKey: string) {
-    // Treat apiKey as baseUrl if it starts with http(s)://, otherwise default to localhost
     super(apiKey);
     const cleaned = (apiKey || '').trim();
+    let url = '';
     if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
-      this.baseUrl = cleaned.endsWith('/') ? cleaned.slice(0, -1) : cleaned;
+      url = cleaned.endsWith('/') ? cleaned.slice(0, -1) : cleaned;
     } else {
-      this.baseUrl = 'http://localhost:11434/v1';
+      url = 'http://localhost:11434';
+    }
+
+    if (url.endsWith('/v1')) {
+      this.baseUrl = url;
+      this.nativeUrl = url.slice(0, -3);
+    } else {
+      this.baseUrl = `${url}/v1`;
+      this.nativeUrl = url;
     }
   }
 
   async verifyConnection(): Promise<boolean> {
     try {
-      // Direct healthcheck or models check
-      const res = await fetch(`${this.baseUrl}/models`);
-      return res.ok;
+      // 1. Try native root endpoint (usually returns "Ollama is running")
+      try {
+        const res = await fetch(`${this.nativeUrl}`);
+        if (res.ok) {
+          const text = await res.text();
+          if (text.includes('Ollama is running')) {
+            return true;
+          }
+        }
+      } catch {
+        // ignore and fallback
+      }
+
+      // 2. Try native tags endpoint
+      try {
+        const res = await fetch(`${this.nativeUrl}/api/tags`);
+        if (res.ok) {
+          return true;
+        }
+      } catch {
+        // ignore and fallback
+      }
+
+      // 3. Try OpenAI compatibility endpoint
+      try {
+        const res = await fetch(`${this.baseUrl}/models`);
+        if (res.ok) {
+          return true;
+        }
+      } catch {
+        // ignore and fallback
+      }
+
+      return false;
     } catch {
-      // Silently pass, as Ollama might be offline but configured
       return false;
     }
   }
 
   async listModels(): Promise<string[]> {
+    const modelsSet = new Set<string>();
+
+    // 1. Try native tags endpoint
+    try {
+      const res = await fetch(`${this.nativeUrl}/api/tags`);
+      if (res.ok) {
+        const json = (await res.json()) as {
+          models?: Array<{ name: string; model?: string }>;
+        };
+        if (json.models && json.models.length > 0) {
+          for (const m of json.models) {
+            const name = m.name || m.model;
+            if (name) {
+              modelsSet.add(name);
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore and fallback
+    }
+
+    // 2. Try OpenAI compatibility models endpoint as fallback
     try {
       const res = await fetch(`${this.baseUrl}/models`);
       if (res.ok) {
         const json = (await res.json()) as { data?: Array<{ id: string }> };
         if (json.data && json.data.length > 0) {
-          return json.data.map((m) => m.id);
+          for (const m of json.data) {
+            if (m.id) {
+              modelsSet.add(m.id);
+            }
+          }
         }
       }
     } catch {
       // ignore
     }
-    return [];
+
+    return Array.from(modelsSet);
   }
 
   async prompt(
@@ -51,6 +118,13 @@ export class OllamaProvider extends AIProvider {
     messages: AiMessage[],
     options?: PromptOptions,
   ): Promise<StructuredResponse | Observable<StructuredResponse>> {
+    // Ensure the model is loaded in memory before prompting
+    const loaded = await this.getLoadedModels();
+    const isRunning = loaded.includes(modelName) || loaded.some(r => r.startsWith(modelName + ':') || modelName.startsWith(r + ':'));
+    if (!isRunning) {
+      throw new Error(`מודל Ollama "${modelName}" אינו טעון בזיכרון. אנא הפעל אותו תחילה.`);
+    }
+
     const stream = !!options?.stream;
 
     const openAiMessages = messages.map((m) => {
@@ -265,5 +339,58 @@ export class OllamaProvider extends AIProvider {
         void reader.cancel().catch(() => undefined);
       };
     });
+  }
+
+  async getLoadedModels(): Promise<string[]> {
+    try {
+      const res = await fetch(`${this.nativeUrl}/api/ps`);
+      if (res.ok) {
+        const json = (await res.json()) as {
+          models?: Array<{ name: string; model?: string }>;
+        };
+        if (json.models) {
+          return json.models
+            .map((m) => m.name || m.model || '')
+            .filter(Boolean);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  }
+
+  async startModel(modelName: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.nativeUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: modelName,
+          prompt: '',
+          keep_alive: -1, // pre-load and keep loaded indefinitely
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async stopModel(modelName: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.nativeUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: modelName,
+          prompt: '',
+          keep_alive: 0, // unload immediately
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 }

@@ -5,12 +5,14 @@ import {
   useConversation,
   useSaveAiConfig,
 } from '@/hooks/useAi';
+import { useOllamaRunningModels, useStartOllamaModel } from '@/hooks/useAiConfig';
 import { useAiStream } from './AiConversation/useAiStream';
 import { AiMessageList } from './AiConversation/AiMessageList';
 import { AiInputPanel } from './AiConversation/AiInputPanel';
-import { OpenAiModels, GeminiModels, AgentProvider, ClaudeModels } from '@money-up/common';
+import { OpenAiModels, GeminiModels, AgentProvider, ClaudeModels, resolveAutoModel } from '@money-up/common';
 import { toast } from 'sonner';
 import { useNavigate } from '@tanstack/react-router';
+import { useAiStore } from '@/store/aiStore';
 
 interface AiConversationProps {
   userProfile?: {
@@ -28,9 +30,7 @@ const ModelsByProvider: Record<string, string[]> = {
   claude: ClaudeModels,
   gemini: GeminiModels,
   ollama: [],
-  openrouter: [],
 };
-
 
 export function AiConversation({
   userProfile,
@@ -38,8 +38,19 @@ export function AiConversation({
   onConversationCreated,
   onConnectClick,
 }: AiConversationProps) {
-  const [prompt, setPrompt] = useState('');
   const navigate = useNavigate();
+
+  const {
+    setPromptDraft: setPrompt,
+    agentProvider,
+    setAgentProvider,
+    agentModel,
+    setAgentModel,
+    setIsStartingModel,
+  } = useAiStore();
+
+  const { data: runningOllamaModels = [] } = useOllamaRunningModels(agentProvider === 'ollama');
+  const startOllamaModel = useStartOllamaModel();
 
   const configuredProviders = useMemo(() => {
     return (userProfile?.configuredProviders ?? []) as AgentProvider[];
@@ -51,21 +62,27 @@ export function AiConversation({
 
   const currentProvider = configuredProviders[0] || AgentProvider.Gemini;
 
-  const [agentProvider, setAgentProvider] = useState<AgentProvider>(() => {
+  useEffect(() => {
     const saved = localStorage.getItem('moneyup_studio_provider') as AgentProvider | null;
-    if (saved && configuredProviders.includes(saved)) return saved;
-    return currentProvider || AgentProvider.Gemini;
-  });
+    if (saved && configuredProviders.includes(saved)) {
+      setAgentProvider(saved);
+    } else if (currentProvider) {
+      setAgentProvider(currentProvider);
+    }
+  }, [configuredProviders, currentProvider, setAgentProvider]);
 
-  const [agentModel, setAgentModel] = useState<string>(() => {
+  useEffect(() => {
     const saved = localStorage.getItem('moneyup_studio_model');
-    if (saved) return saved;
-    return (
-      configs[currentProvider]?.model ||
-      ModelsByProvider[currentProvider]?.[0] ||
-      'gemini-2.5-flash'
-    );
-  });
+    if (saved) {
+      setAgentModel(saved);
+    } else {
+      setAgentModel(
+        configs[currentProvider]?.model ||
+        ModelsByProvider[currentProvider]?.[0] ||
+        'gemini-2.5-flash'
+      );
+    }
+  }, [currentProvider, configs, setAgentModel]);
 
   const { data: conversationDetail, isLoading: isLoadingHistory } =
     useConversation(conversationId);
@@ -84,7 +101,7 @@ export function AiConversation({
           'gemini-2.5-flash',
       );
     }
-  }, [configuredProviders]);
+  }, [configuredProviders, agentProvider, setAgentProvider, setAgentModel, configs]);
 
   const handleAgentProviderChange = (
     provider: AgentProvider,
@@ -100,7 +117,6 @@ export function AiConversation({
     }
 
     setAgentProvider(provider);
-    localStorage.setItem('moneyup_studio_provider', provider);
     const config = configs[provider] || {
       model: ModelsByProvider[provider][0],
       preset: 'moderate',
@@ -122,7 +138,6 @@ export function AiConversation({
 
   const handleAgentModelChange = (model: string) => {
     setAgentModel(model);
-    localStorage.setItem('moneyup_studio_model', model);
     const config = configs[agentProvider] || {
       model,
       preset: 'moderate',
@@ -150,11 +165,9 @@ export function AiConversation({
   const { temperature, maxTokens, stream } = providerConfig;
   const streaming = stream !== false;
 
-
   const [forceMarkdown, setForceMarkdown] = useState(
     userProfile?.forceMarkdown ?? true,
   );
-
 
   const modelsQuery = useFetchAiModels(agentProvider);
   const availableModels = useMemo(
@@ -169,6 +182,33 @@ export function AiConversation({
       ''
     );
   }, [agentModel, availableModels]);
+
+  const resolvedModel = useMemo(() => {
+    if (selectedModel === 'auto') {
+      return resolveAutoModel(agentProvider, 'chat', availableModels);
+    }
+    return selectedModel;
+  }, [agentProvider, selectedModel, availableModels]);
+
+  const isModelLoaded = useMemo(() => {
+    if (agentProvider !== 'ollama') return true;
+    if (!resolvedModel) return false;
+    return runningOllamaModels.includes(resolvedModel) ||
+      runningOllamaModels.some(r => r.startsWith(resolvedModel + ':') || resolvedModel.startsWith(r + ':'));
+  }, [agentProvider, resolvedModel, runningOllamaModels]);
+
+  const handleStartModel = async () => {
+    if (agentProvider !== 'ollama' || !resolvedModel) return;
+    setIsStartingModel(true);
+    try {
+      await startOllamaModel.mutateAsync({ model: resolvedModel });
+      toast.success(`מודל ${resolvedModel} נטען בהצלחה לזיכרון!`);
+    } catch (err: any) {
+      toast.error(`שגיאה בטעינת המודל: ${err.message || err}`);
+    } finally {
+      setIsStartingModel(false);
+    }
+  };
 
   useEffect(() => {
     if (userProfile?.forceMarkdown !== undefined) {
@@ -205,13 +245,29 @@ export function AiConversation({
   ];
 
   const handlePromptClick = (text: string) => {
+    if (!isModelLoaded) {
+      toast.error('לא ניתן לשלוח הודעה מכיוון שהמודל אינו טעון בזיכרון.');
+      return;
+    }
     processSubmit(text);
   };
 
   const handleSubmitPrompt = (promptValue: string) => {
     if (!promptValue.trim() || isLoading) return;
+    if (!isModelLoaded) {
+      toast.error('לא ניתן לשלוח הודעה מכיוון שהמודל אינו טעון בזיכרון.');
+      return;
+    }
     processSubmit(promptValue);
     setPrompt('');
+  };
+
+  const handleProcessEdit = (messageId: string, newText: string) => {
+    if (!isModelLoaded) {
+      toast.error('לא ניתן לשלוח הודעה מכיוון שהמודל אינו טעון בזיכרון.');
+      return;
+    }
+    processEdit(messageId, newText);
   };
 
   if (isLoadingHistory && conversationId && messages.length === 0) {
@@ -231,7 +287,7 @@ export function AiConversation({
         defaultPrompts={defaultPrompts}
         selectedModel={selectedModel}
         onPromptClick={handlePromptClick}
-        onEditSubmit={processEdit}
+        onEditSubmit={handleProcessEdit}
         hasAiProvider={configuredProviders.length > 0}
         onConnectClick={onConnectClick}
       />
@@ -247,8 +303,6 @@ export function AiConversation({
 
       <div className="max-w-5xl mx-auto w-full px-3 md:px-5 pb-2 shrink-0">
         <AiInputPanel
-          prompt={prompt}
-          setPrompt={setPrompt}
           onSubmit={handleSubmitPrompt}
           isLoading={isLoading}
           selectedModel={configuredProviders.length > 0 ? selectedModel : ''}
@@ -259,6 +313,8 @@ export function AiConversation({
           setAgentModel={handleAgentModelChange}
           modelsByProvider={ModelsByProvider}
           configuredProviders={userProfile?.configuredProviders ?? undefined}
+          isModelLoaded={isModelLoaded}
+          onStartModel={handleStartModel}
         />
       </div>
     </div>

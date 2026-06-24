@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Label } from '@/components/ui/label';
 import { PremiumInput } from '@/components/ui/premium-input';
 import { PremiumButton } from '@/components/ui/premium-button';
@@ -7,29 +10,16 @@ import { Switch } from '@/components/ui/switch';
 import { ArrowLeft, CircleNotch } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { profileCreationSchema, type ProfileCreationInput } from '@money-up/types';
 
 interface CreateProfileFormProps {
-  username: string;
-  setUsername: (v: string) => void;
-  lockProfile: boolean;
-  setLockProfile: (v: boolean) => void;
-  unlockKey: string;
-  setUnlockKey: (v: string) => void;
-  fieldErrors: Record<string, string>;
-  onSave: () => void;
+  onSave: (data: ProfileCreationInput) => void;
   onCancel: () => void;
   showCancelButton: boolean;
   isPending?: boolean;
 }
 
 export function CreateProfileForm({
-  username,
-  setUsername,
-  lockProfile,
-  setLockProfile,
-  unlockKey,
-  setUnlockKey,
-  fieldErrors,
   onSave,
   onCancel,
   showCancelButton,
@@ -37,13 +27,35 @@ export function CreateProfileForm({
 }: CreateProfileFormProps) {
   const shouldReduceMotion = useReducedMotion();
 
+  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<ProfileCreationInput>({
+    resolver: zodResolver(profileCreationSchema),
+    defaultValues: {
+      username: '',
+      lockProfile: false,
+      unlockKey: '',
+    },
+  });
+
+  const lockProfile = watch('lockProfile');
+
+  // Clear unlockKey if lockProfile is unchecked
+  useEffect(() => {
+    if (!lockProfile) {
+      setValue('unlockKey', '');
+    }
+  }, [lockProfile, setValue]);
+
+  const onSubmit = (data: ProfileCreationInput) => {
+    onSave(data);
+  };
+
   return (
     <div className="mx-auto flex max-w-md items-center justify-center w-full">
       <PremiumCard className="w-full border-border bg-card shadow-md rounded-none overflow-hidden">
-        {/* Form Container: Staggered entrance via hardware-accelerated CSS animation */}
-        <div className="space-y-6 w-full animate-in fade-in duration-300">
+        {/* Form Container */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full animate-in fade-in duration-300">
           
-          {/* Header (Delay 0ms) */}
+          {/* Header */}
           <div className="space-y-1 text-right w-full animate-in fade-in slide-in-from-bottom-3 duration-300">
             <h2 className="text-2xl font-black tracking-tight text-foreground uppercase">
               הוסף פרופיל חדש
@@ -57,61 +69,67 @@ export function CreateProfileForm({
 
           {/* Form Fields */}
           <div className="space-y-5 w-full">
-            {/* Username Field with Shake Error (Delay 75ms) */}
+            {/* Username Field with Shake Error */}
             <motion.div
-              animate={fieldErrors.username ? { x: [-6, 6, -6, 6, -3, 3, 0] } : {}}
+              animate={errors.username ? { x: [-6, 6, -6, 6, -3, 3, 0] } : {}}
               transition={{ duration: 0.4 }}
               className="space-y-2 text-right animate-in fade-in slide-in-from-bottom-3 duration-300 delay-75"
             >
               <Label
                 htmlFor="username"
-                className="text-xs font-black uppercase tracking-widest text-muted-foreground"
+                className="text-xs font-black uppercase tracking-widest text-muted-foreground block"
               >
                 שם משתמש
               </Label>
-              <PremiumInput
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="הכנס שם משתמש..."
-                disabled={isPending}
-                className={cn(
-                  fieldErrors.username &&
-                    'border-destructive focus-visible:ring-destructive',
-                  'transition-all duration-200 focus-visible:scale-[1.01]'
+              <Controller
+                name="username"
+                control={control}
+                render={({ field }) => (
+                  <PremiumInput
+                    {...field}
+                    id="username"
+                    placeholder="הכנס שם משתמש..."
+                    disabled={isPending}
+                    className={cn(
+                      errors.username && 'border-destructive focus-visible:ring-destructive',
+                      'transition-all duration-200 focus-visible:scale-[1.01]'
+                    )}
+                  />
                 )}
               />
-              {fieldErrors.username && (
+              {errors.username && (
                 <p className="text-[10px] font-bold text-destructive mt-1 uppercase">
-                  {fieldErrors.username}
+                  {errors.username.message}
                 </p>
               )}
             </motion.div>
 
-
-
-            {/* Switch Section for Locking Profile (Delay 150ms) */}
+            {/* Switch Section for Locking Profile */}
             <div className="space-y-2 border border-border/60 p-4 bg-muted/10 transition-colors duration-250 hover:bg-muted/15 animate-in fade-in slide-in-from-bottom-3 duration-300 delay-150">
               <div className="flex items-center justify-between cursor-pointer select-none">
                 <span className="text-[11px] font-black uppercase tracking-widest text-foreground/80">
                   לנעול את הפרופיל?
                 </span>
                 
-                {/* Regular shadcn Switch */}
-                <Switch
-                  checked={lockProfile}
-                  onCheckedChange={(checked) => {
-                    if (isPending) return;
-                    setLockProfile(checked);
-                    if (!checked) setUnlockKey('');
-                  }}
-                  className="scale-90"
+                <Controller
+                  name="lockProfile"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <Switch
+                      checked={!!value}
+                      onCheckedChange={(checked) => {
+                        if (isPending) return;
+                        onChange(checked);
+                      }}
+                      className="scale-90"
+                    />
+                  )}
                 />
               </div>
 
-              {/* Collapsible Key Fields (No-snap padding-isolated container) */}
+              {/* Collapsible Key Fields */}
               <AnimatePresence initial={false}>
-                {lockProfile && (
+                {!!lockProfile && (
                   <motion.div
                     initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -122,25 +140,29 @@ export function CreateProfileForm({
                     <div className="space-y-1.5 pt-3 border-t border-border/40 mt-3 text-right">
                       <Label
                         htmlFor="unlockKey"
-                        className="text-[10px] font-black uppercase tracking-widest text-muted-foreground"
+                        className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block"
                       >
                         קוד פתיחה זמני
                       </Label>
-                      <PremiumInput
-                        id="unlockKey"
-                        isPassword
-                        value={unlockKey}
-                        onChange={(e) => setUnlockKey(e.target.value)}
-                        placeholder="הזן קוד פתיחה"
-                        disabled={isPending}
-                        className={cn(
-                          fieldErrors.unlockKey &&
-                            'border-destructive focus-visible:ring-destructive',
+                      <Controller
+                        name="unlockKey"
+                        control={control}
+                        render={({ field }) => (
+                          <PremiumInput
+                            {...field}
+                            id="unlockKey"
+                            isPassword
+                            placeholder="הזן קוד פתיחה"
+                            disabled={isPending}
+                            className={cn(
+                              errors.unlockKey && 'border-destructive focus-visible:ring-destructive',
+                            )}
+                          />
                         )}
                       />
-                      {fieldErrors.unlockKey && (
+                      {errors.unlockKey && (
                         <p className="text-[10px] font-bold text-destructive mt-1 uppercase">
-                          {fieldErrors.unlockKey}
+                          {errors.unlockKey.message}
                         </p>
                       )}
                     </div>
@@ -149,13 +171,13 @@ export function CreateProfileForm({
               </AnimatePresence>
             </div>
 
-            {/* Save Button (Delay 200ms) */}
+            {/* Save Button */}
             <div className="pt-2 animate-in fade-in slide-in-from-bottom-3 duration-300 delay-200">
               <PremiumButton
+                type="submit"
                 variant="default"
                 size="default"
                 className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
-                onClick={onSave}
                 disabled={isPending}
               >
                 {isPending ? (
@@ -169,11 +191,12 @@ export function CreateProfileForm({
               </PremiumButton>
             </div>
 
-            {/* Cancel Button (Delay 250ms) */}
+            {/* Cancel Button */}
             {showCancelButton ? (
               <div className="space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-300 delay-250">
                 <Separator className="my-1 bg-border/40" />
                 <PremiumButton
+                  type="button"
                   variant="ghost"
                   size="default"
                   className="w-full h-12 font-black text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground flex items-center justify-center gap-2"
@@ -186,7 +209,7 @@ export function CreateProfileForm({
               </div>
             ) : null}
           </div>
-        </div>
+        </form>
       </PremiumCard>
     </div>
   );

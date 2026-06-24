@@ -1,9 +1,0 @@
-[[permission]]
-identifier = "allow-get-server-port"
-description = "Allows the frontend to query the active NestJS server port."
-
-[commands]
-allow = [
-  "get_server_port"
-]
-

@@ -68,20 +68,6 @@ export class SpendingService {
         endDate,
       });
       accounts = response.accounts;
-
-      if (!response.isCovered) {
-        if (
-          !this.syncJobService.isRunning(userId) &&
-          this.syncJobService.canAutoStartInitial(userId, startDate, endDate)
-        ) {
-          this.syncJobService.startOrReuseSyncJob(
-            userId,
-            'initial',
-            startDate,
-            endDate,
-          );
-        }
-      }
     }
 
     if (this.spendingScansDebugEnabled) {
