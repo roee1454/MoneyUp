@@ -7,7 +7,11 @@ import { ScraperModule } from '../scraper/scraper.module';
 import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [forwardRef(() => AiModule), ScraperModule, UsersModule],
+  imports: [
+    forwardRef(() => AiModule),
+    ScraperModule,
+    forwardRef(() => UsersModule),
+  ],
   controllers: [SpendingController],
   providers: [SpendingService, SpendingSocketGateway],
   exports: [SpendingService],

@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 // Mock browser service and factory to prevent Jest loading the ESM @puppeteer/browsers dependencies
-jest.mock('./browser/browser.service', () => ({
-  BrowserService: jest.fn().mockImplementation(() => ({
+jest.mock('../chromium/chromium.service', () => ({
+  ChromiumService: jest.fn().mockImplementation(() => ({
     detectChromium: jest.fn(),
     installChromium: jest.fn(),
     installChromiumStream: jest.fn(),

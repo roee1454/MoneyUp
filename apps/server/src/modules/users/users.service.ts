@@ -1,12 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from './entities/user.entity';
-import { ConversationEntity } from './entities/conversation.entity';
-import { MessageEntity, MessageRole } from './entities/message.entity';
-import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
-import { encryptUserConfig as encrypt, decryptUserConfig as decrypt } from '../../utils/crypto.utils';
+import { ConversationEntity } from '../conversations/entities/conversation.entity';
+import { MessageEntity, MessageRole } from '../conversations/entities/message.entity';
+import { VaultEntity } from '../accounts/entities/vault.entity';
+import { ScrapedCacheEntity } from '../accounts/entities/cache.entity';
+import { ScrapedCoverageEntity } from '../accounts/entities/coverage.entity';
+import { TransactionEntity } from '../accounts/entities/transaction.entity';
+import { randomBytes, scryptSync } from 'crypto';
 import { AgentProvider } from '@money-up/common';
+import { AiSettingsService } from '../settings/services/ai-settings.service';
+import { ScraperSettingsService } from '../settings/services/scraper-settings.service';
+import { AccountSettingsService } from '../settings/services/account-settings.service';
 
 /**
  * Service managing user profiles, configurations, and chat session histories.
@@ -22,15 +28,22 @@ export class UsersService {
     private readonly conversationRepository: Repository<ConversationEntity>,
     @InjectRepository(MessageEntity)
     private readonly messageRepository: Repository<MessageEntity>,
+    @InjectRepository(VaultEntity)
+    private readonly vaultRepository: Repository<VaultEntity>,
+    @InjectRepository(ScrapedCacheEntity)
+    private readonly cacheRepository: Repository<ScrapedCacheEntity>,
+    @InjectRepository(ScrapedCoverageEntity)
+    private readonly coverageRepository: Repository<ScrapedCoverageEntity>,
+    @InjectRepository(TransactionEntity)
+    private readonly transactionRepository: Repository<TransactionEntity>,
+    private readonly aiSettings: AiSettingsService,
+    private readonly scraperSettings: ScraperSettingsService,
+    private readonly accountSettings: AccountSettingsService,
   ) {}
 
   /**
    * Creates a new user profile with optional security locking.
    * Checks for duplicate usernames.
-   *
-   * @param data Details including username, optional lock profile settings, and unlockKey passcode.
-   * @returns Promise<User> The created user entity.
-   * @throws Error if username is already taken, or if passcode requirements are not met.
    */
   async create(data: {
     username: string;
@@ -60,58 +73,73 @@ export class UsersService {
 
     const user = this.userRepository.create({
       username: data.username,
-      isLocked,
-      unlockKeySalt: salt,
-      unlockKeyHash: hash,
-      openaiKeyEncrypted: null,
-      claudeKeyEncrypted: null,
-      geminiKeyEncrypted: null,
-      ollamaKeyEncrypted: null,
-      openrouterKeyEncrypted: null,
-      preferredModel: null,
-      activeAiProvider: null,
     });
-    return this.userRepository.save(user);
+    const savedUser = await this.userRepository.save(user);
+
+    // Save account lock settings
+    await this.accountSettings.updateLockSettings(savedUser.id, isLocked, hash, salt);
+
+    return {
+      ...savedUser,
+      isLocked,
+    } as any;
   }
 
   /**
    * Fetches all registered users from the database.
-   *
-   * @returns Promise<User[]> Array of user entities.
    */
   async findAll(): Promise<User[]> {
-    return this.userRepository.find();
+    const users = await this.userRepository.find();
+    return Promise.all(
+      users.map(async (user) => {
+        const account = await this.accountSettings.getOrCreate(user.id);
+        return {
+          ...user,
+          isLocked: account.isLocked,
+        } as any;
+      }),
+    );
   }
 
   /**
-   * Finds a single user by ID and calculates their configured AI providers.
-   *
-   * @param id The user ID to retrieve.
-   * @returns Promise<User & { configuredProviders: string[] }> The user details with configured provider flags, or null if not found.
+   * Finds a single user by ID and decorates it with settings from separate tables.
    */
   async findOne(
     id: string,
-  ): Promise<(User & { configuredProviders: string[] }) | null> {
+  ): Promise<(User & Record<string, any>) | null> {
     const user = await this.userRepository.findOneBy({ id });
     if (!user) return null;
 
-    const configuredProviders: string[] = [];
-    if (user.openaiKeyEncrypted) configuredProviders.push('openai');
-    if (user.claudeKeyEncrypted) configuredProviders.push('claude');
-    if (user.geminiKeyEncrypted) configuredProviders.push('gemini');
-    if (user.ollamaKeyEncrypted) configuredProviders.push('ollama');
-    if (user.openrouterKeyEncrypted) configuredProviders.push('openrouter');
+    const [ai, scraper, account] = await Promise.all([
+      this.aiSettings.getOrCreate(id),
+      this.scraperSettings.getOrCreate(id),
+      this.accountSettings.getOrCreate(id),
+    ]);
 
-    return { ...user, configuredProviders };
+    const configuredProviders: string[] = [];
+    if (ai.openaiKeyEncrypted) configuredProviders.push('openai');
+    if (ai.claudeKeyEncrypted) configuredProviders.push('claude');
+    if (ai.geminiKeyEncrypted) configuredProviders.push('gemini');
+    if (ai.ollamaKeyEncrypted) configuredProviders.push('ollama');
+
+    return {
+      ...user,
+      isLocked: account.isLocked,
+      activeAiProvider: ai.activeAiProvider,
+      preferredModel: ai.preferredModel,
+      configuredProviders,
+      aiProviderConfigs: ai.aiProviderConfigs,
+      scraperTimeoutRetryCount: scraper.scraperTimeoutRetryCount,
+      scraperAutoSyncCooldownSeconds: scraper.scraperAutoSyncCooldownSeconds,
+      scraperShowBrowser: scraper.scraperShowBrowser,
+      scraperLoginTimeoutSeconds: scraper.scraperLoginTimeoutSeconds,
+      scraperDefaultTimeoutSeconds: scraper.scraperDefaultTimeoutSeconds,
+      scraperChromiumPath: scraper.scraperChromiumPath,
+    };
   }
 
   /**
    * Updates partial metadata fields on the user profile.
-   *
-   * @param id User ID to update.
-   * @param data Configuration overrides (e.g., scraper retry limits, cooldown).
-   * @returns Promise<User> The updated user entity.
-   * @throws NotFoundException if user is not found.
    */
   async update(
     id: string,
@@ -121,7 +149,15 @@ export class UsersService {
       scraperAutoSyncCooldownSeconds: number;
     }>,
   ): Promise<User> {
-    await this.userRepository.update(id, data);
+    if (data.username !== undefined) {
+      await this.userRepository.update(id, { username: data.username });
+    }
+    if (data.scraperTimeoutRetryCount !== undefined || data.scraperAutoSyncCooldownSeconds !== undefined) {
+      await this.scraperSettings.saveScraperSettings(id, {
+        scraperTimeoutRetryCount: data.scraperTimeoutRetryCount!,
+        scraperAutoSyncCooldownSeconds: data.scraperAutoSyncCooldownSeconds,
+      });
+    }
     const updated = await this.findOne(id);
     if (!updated) {
       throw new NotFoundException('User not found');
@@ -131,22 +167,37 @@ export class UsersService {
 
   /**
    * Deletes a user by ID.
-   *
-   * @param id User ID to remove.
-   * @returns Promise<{ deleted: boolean }>
    */
   async remove(id: string): Promise<{ deleted: boolean }> {
+    // 1. Delete all messages for user conversations
+    const userConversations = await this.conversationRepository.find({
+      where: { userId: id },
+      select: ['id'],
+    });
+    const conversationIds = userConversations.map((c) => c.id);
+    if (conversationIds.length > 0) {
+      await this.messageRepository.delete({ conversationId: In(conversationIds) });
+      await this.conversationRepository.delete({ id: In(conversationIds) });
+    }
+
+    // 2. Delete all scraper credentials and data
+    await this.vaultRepository.delete({ userId: id });
+    await this.cacheRepository.delete({ userId: id });
+    await this.coverageRepository.delete({ userId: id });
+    await this.transactionRepository.delete({ userId: id });
+
+    // 3. Delete user settings
+    await this.aiSettings.deleteForUser(id);
+    await this.scraperSettings.deleteForUser(id);
+    await this.accountSettings.deleteForUser(id);
+
+    // 4. Delete user profile
     await this.userRepository.delete(id);
     return { deleted: true };
   }
 
   /**
    * Deletes a user profile with user ID validation protection.
-   *
-   * @param id User ID to delete.
-   * @param confirmationUserId Confirmation text representing the user ID.
-   * @returns Promise<{ deleted: boolean }>
-   * @throws NotFoundException if user is not found, or Error if ID confirmation mismatch.
    */
   async deleteWithConfirmation(
     id: string,
@@ -157,42 +208,46 @@ export class UsersService {
     if (user.id !== confirmationUserId) {
       throw new Error('Confirmation text does not match profile ID');
     }
+
+    // 1. Delete all messages for user conversations
+    const userConversations = await this.conversationRepository.find({
+      where: { userId: id },
+      select: ['id'],
+    });
+    const conversationIds = userConversations.map((c) => c.id);
+    if (conversationIds.length > 0) {
+      await this.messageRepository.delete({ conversationId: In(conversationIds) });
+      await this.conversationRepository.delete({ id: In(conversationIds) });
+    }
+
+    // 2. Delete all scraper credentials and data
+    await this.vaultRepository.delete({ userId: id });
+    await this.cacheRepository.delete({ userId: id });
+    await this.coverageRepository.delete({ userId: id });
+    await this.transactionRepository.delete({ userId: id });
+
+    // 3. Delete user settings
+    await this.aiSettings.deleteForUser(id);
+    await this.scraperSettings.deleteForUser(id);
+    await this.accountSettings.deleteForUser(id);
+
+    // 4. Delete user profile
     await this.userRepository.delete(id);
     return { deleted: true };
   }
 
   /**
    * Verifies the user unlock key (passcode) using timing-safe scrypt validation.
-   *
-   * @param id User ID.
-   * @param unlockKey Raw passcode string to test.
-   * @returns Promise<{ valid: boolean }>
    */
   async verifyUnlockKey(
     id: string,
     unlockKey: string,
   ): Promise<{ valid: boolean }> {
-    const user = await this.findOne(id);
-    if (!user || !user.isLocked || !user.unlockKeyHash || !user.unlockKeySalt) {
-      return { valid: false };
-    }
-
-    const derived = scryptSync(unlockKey, user.unlockKeySalt, 64).toString(
-      'hex',
-    );
-    const left = Buffer.from(user.unlockKeyHash, 'hex');
-    const right = Buffer.from(derived, 'hex');
-    if (left.length !== right.length) return { valid: false };
-    return { valid: timingSafeEqual(left, right) };
+    return this.accountSettings.verifyUnlockKey(id, unlockKey);
   }
 
   /**
    * Saves or updates an AI configuration block for the user.
-   * Automatically encrypts the API key before DB storage.
-   *
-   * @param id User ID.
-   * @param data Provider details, api keys, and preset configurations.
-   * @returns Promise<User> The updated user entity.
    */
   async saveAiConfig(
     id: string,
@@ -211,79 +266,27 @@ export class UsersService {
       };
     },
   ): Promise<User> {
-    const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (data.apiKey && data.apiKey !== '***') {
-      const encrypted = encrypt(data.apiKey);
-      if (data.provider === 'openai') user.openaiKeyEncrypted = encrypted;
-      if (data.provider === 'claude') user.claudeKeyEncrypted = encrypted;
-      if (data.provider === 'gemini') user.geminiKeyEncrypted = encrypted;
-      if (data.provider === 'ollama') user.ollamaKeyEncrypted = encrypted;
-      if (data.provider === 'openrouter') user.openrouterKeyEncrypted = encrypted;
-    }
-
-    if (data.activeProvider) {
-      user.activeAiProvider = data.activeProvider;
-    } else if (!user.activeAiProvider) {
-      user.activeAiProvider = data.provider;
-    }
-
-    user.preferredModel = data.preferredModel;
-
-    if (data.config) {
-      const configs = user.aiProviderConfigs || {};
-      configs[data.provider] = data.config;
-      user.aiProviderConfigs = configs;
-    }
-
-    return this.userRepository.save(user);
+    await this.aiSettings.saveAiConfig(id, data);
+    const updated = await this.findOne(id);
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
   }
 
   /**
    * Deletes the configured AI provider credentials and keys for a user.
-   *
-   * @param id User ID.
-   * @param provider The target AI provider to wipe.
-   * @returns Promise<User> The updated user entity.
    */
   async deleteAiProvider(
     id: string,
     provider: AgentProvider,
   ): Promise<User> {
-    const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (provider === 'openai') user.openaiKeyEncrypted = null;
-    if (provider === 'claude') user.claudeKeyEncrypted = null;
-    if (provider === 'gemini') user.geminiKeyEncrypted = null;
-    if (provider === 'ollama') user.ollamaKeyEncrypted = null;
-    if (provider === 'openrouter') user.openrouterKeyEncrypted = null;
-
-    if (user.activeAiProvider === provider) {
-      user.activeAiProvider = null;
-    }
-
-    if (user.aiProviderConfigs && user.aiProviderConfigs[provider]) {
-      const configs = { ...user.aiProviderConfigs };
-      delete configs[provider];
-      user.aiProviderConfigs = configs;
-    }
-
-    return this.userRepository.save(user);
+    await this.aiSettings.deleteAiProvider(id, provider);
+    const updated = await this.findOne(id);
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
   }
 
   /**
    * Retrieves the decrypted AI configurations and API keys for a user.
-   * Wipes temporary or dummy keys ('***') from display results.
-   *
-   * @param id User ID.
-   * @returns AI configurations, preferred model name, active provider, and decrypted API keys dictionary.
-   * @throws NotFoundException if user is not found.
    */
   async getAiConfig(id: string): Promise<{
     activeAiProvider: AgentProvider | null;
@@ -294,102 +297,21 @@ export class UsersService {
     decryptedApiKey: string | null;
     decryptedApiKeys: Record<string, string | null>;
   }> {
-    const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const configuredProviders: Array<AgentProvider> = [];
-    const decryptedApiKeys: Record<string, string | null> = {};
-    let decryptedApiKey: string | null = null;
-
-    if (user.openaiKeyEncrypted) {
-      configuredProviders.push('openai');
-      decryptedApiKeys.openai = decrypt(user.openaiKeyEncrypted);
-      if (user.activeAiProvider === 'openai') {
-        decryptedApiKey = decryptedApiKeys.openai;
-      }
-    }
-    if (user.claudeKeyEncrypted) {
-      configuredProviders.push('claude');
-      decryptedApiKeys.claude = decrypt(user.claudeKeyEncrypted);
-      if (user.activeAiProvider === 'claude') {
-        decryptedApiKey = decryptedApiKeys.claude;
-      }
-    }
-    if (user.geminiKeyEncrypted) {
-      configuredProviders.push('gemini');
-      decryptedApiKeys.gemini = decrypt(user.geminiKeyEncrypted);
-      if (user.activeAiProvider === 'gemini') {
-        decryptedApiKey = decryptedApiKeys.gemini;
-      }
-    }
-    if (user.ollamaKeyEncrypted) {
-      configuredProviders.push('ollama');
-      decryptedApiKeys.ollama = decrypt(user.ollamaKeyEncrypted);
-      if (user.activeAiProvider === 'ollama') {
-        decryptedApiKey = decryptedApiKeys.ollama;
-      }
-    }
-    if (user.openrouterKeyEncrypted) {
-      configuredProviders.push('openrouter');
-      decryptedApiKeys.openrouter = decrypt(user.openrouterKeyEncrypted);
-      if (user.activeAiProvider === 'openrouter') {
-        decryptedApiKey = decryptedApiKeys.openrouter;
-      }
-    }
-
-    if (decryptedApiKey === '***') {
-      decryptedApiKey = null;
-    }
-
-    // Strip placeholder values
-    for (const key in decryptedApiKeys) {
-      if (decryptedApiKeys[key] === '***') {
-        decryptedApiKeys[key] = null;
-      }
-    }
-
-    return {
-      activeAiProvider:
-        (user.activeAiProvider as AgentProvider | null) ??
-        null,
-      preferredModel: user.preferredModel,
-      configuredProviders,
-      aiProviderConfigs: user.aiProviderConfigs,
-      forceMarkdown: user.aiProviderConfigs?.forceMarkdown !== false,
-      decryptedApiKey,
-      decryptedApiKeys,
-    };
+    return this.aiSettings.getAiConfig(id);
   }
 
   /**
    * Toggles the force markdown flag inside user AI settings.
-   *
-   * @param id User ID.
-   * @param forceMarkdown Set true to mandate markdown response format.
-   * @returns Promise<User> The updated user entity.
    */
   async updateAiSettings(id: string, forceMarkdown: boolean): Promise<User> {
-    const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const configs = user.aiProviderConfigs || {};
-    configs.forceMarkdown = forceMarkdown;
-    user.aiProviderConfigs = configs;
-
-    return this.userRepository.save(user);
+    await this.aiSettings.updateAiSettings(id, forceMarkdown);
+    const updated = await this.findOne(id);
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
   }
 
   /**
    * Saves scraper operational configurations for the user.
-   * Imposes safe min/max bounds on retry counts and cooldown ranges.
-   *
-   * @param id User ID.
-   * @param data Retry limits, auto sync cooldown periods, and timeout parameters.
-   * @returns Promise<User> The updated user entity.
    */
   async saveScraperSettings(
     id: string,
@@ -402,209 +324,9 @@ export class UsersService {
       scraperChromiumPath?: string;
     },
   ): Promise<User> {
-    const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const retryCount = Number.isFinite(data.scraperTimeoutRetryCount)
-      ? Math.max(0, Math.min(5, Math.floor(data.scraperTimeoutRetryCount)))
-      : 1;
-    const cooldownSeconds = Number.isFinite(data.scraperAutoSyncCooldownSeconds)
-      ? Math.max(
-          0,
-          Math.min(86400, Math.floor(data.scraperAutoSyncCooldownSeconds!)),
-        )
-      : 1800;
-
-    user.scraperTimeoutRetryCount = retryCount;
-    user.scraperAutoSyncCooldownSeconds = cooldownSeconds;
-
-    if (typeof data.scraperShowBrowser === 'boolean') {
-      user.scraperShowBrowser = data.scraperShowBrowser;
-    }
-
-    if (data.scraperChromiumPath !== undefined) {
-      user.scraperChromiumPath = data.scraperChromiumPath;
-    }
-
-    if (Number.isFinite(data.scraperLoginTimeoutSeconds)) {
-      user.scraperLoginTimeoutSeconds = Math.max(
-        10,
-        Math.min(300, Math.floor(data.scraperLoginTimeoutSeconds!)),
-      );
-    }
-
-    if (Number.isFinite(data.scraperDefaultTimeoutSeconds)) {
-      user.scraperDefaultTimeoutSeconds = Math.max(
-        10,
-        Math.min(300, Math.floor(data.scraperDefaultTimeoutSeconds!)),
-      );
-    }
-
-    return this.userRepository.save(user);
-  }
-
-  /**
-   * Fetches all chat conversations belonging to a user, sorted by update date descending.
-   *
-   * @param userId User ID.
-   * @returns Promise<ConversationEntity[]> List of conversations.
-   */
-  async getConversations(userId: string): Promise<ConversationEntity[]> {
-    return this.conversationRepository.find({
-      where: { userId },
-      order: { updatedAt: 'DESC' },
-    });
-  }
-
-  /**
-   * Retrieves a single conversation metadata along with its chronological messages list.
-   *
-   * @param userId User ID.
-   * @param conversationId Target conversation ID.
-   * @returns Promise with conversation details and messages.
-   * @throws NotFoundException if the conversation does not exist or belong to the user.
-   */
-  async getConversation(
-    userId: string,
-    conversationId: string,
-  ): Promise<{ conversation: ConversationEntity; messages: MessageEntity[] }> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId, userId },
-    });
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
-    }
-    const messages = await this.messageRepository.find({
-      where: { conversationId },
-      order: { createdAt: 'ASC' },
-    });
-    return { conversation, messages };
-  }
-
-  /**
-   * Creates a new chat conversation session.
-   *
-   * @param userId Target user ID.
-   * @param title Title of the conversation.
-   * @returns Promise<ConversationEntity>
-   */
-  async createConversation(
-    userId: string,
-    title: string,
-  ): Promise<ConversationEntity> {
-    const user = await this.userRepository.findOneBy({ id: userId });
-    if (!user) throw new NotFoundException('User not found');
-
-    const conversation = this.conversationRepository.create({
-      userId,
-      title,
-    });
-    return this.conversationRepository.save(conversation);
-  }
-
-  /**
-   * Appends a new message log to a conversation session and updates the conversation's updatedAt timestamp.
-   *
-   * @param userId The ID of the conversation owner.
-   * @param conversationId Target conversation ID.
-   * @param role The message sender role ('system', 'user', 'assistant', 'tool').
-   * @param content Message text contents.
-   * @param tool_calls Optional array of tool calls generated by the model.
-   * @param tool_call_id Optional tool call reference identifier.
-   * @returns Promise<MessageEntity> The persisted message log entity.
-   */
-  async addMessage(
-    userId: string,
-    conversationId: string,
-    role: MessageRole,
-    content: string,
-    tool_calls?: any[],
-    tool_call_id?: string,
-  ): Promise<MessageEntity> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId, userId },
-    });
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
-    }
-
-    const message = this.messageRepository.create({
-      conversationId,
-      role,
-      content,
-      tool_calls: tool_calls ?? null,
-      tool_call_id: tool_call_id ?? null,
-    });
-    await this.messageRepository.save(message);
-
-    conversation.updatedAt = new Date();
-    await this.conversationRepository.save(conversation);
-
-    return message;
-  }
-
-  /**
-   * Deletes a conversation session along with all its associated message records.
-   *
-   * @param userId Target user ID.
-   * @param conversationId Conversation ID to remove.
-   * @returns Promise<{ success: boolean }>
-   */
-  async deleteConversation(
-    userId: string,
-    conversationId: string,
-  ): Promise<{ success: boolean }> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId, userId },
-    });
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
-    }
-
-    await this.messageRepository.delete({ conversationId });
-    await this.conversationRepository.delete({ id: conversationId });
-
-    return { success: true };
-  }
-
-  /**
-   * Truncates a conversation session history by deleting a target message and all subsequent messages.
-   * Useful for rewinding conversation flow.
-   *
-   * @param userId User ID.
-   * @param conversationId Target conversation ID.
-   * @param messageId The ID of the message to truncate from.
-   * @returns Promise<{ success: boolean }>
-   */
-  async truncateConversationAtMessage(
-    userId: string,
-    conversationId: string,
-    messageId: string,
-  ): Promise<{ success: boolean }> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId, userId },
-    });
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
-    }
-
-    const targetMessage = await this.messageRepository.findOne({
-      where: { id: messageId, conversationId },
-    });
-    if (!targetMessage) {
-      throw new NotFoundException('Message not found');
-    }
-
-    // Delete the target message and all subsequent messages
-    await this.messageRepository
-      .createQueryBuilder()
-      .delete()
-      .where('conversationId = :conversationId', { conversationId })
-      .andWhere('"createdAt" >= :createdAt', { createdAt: targetMessage.createdAt })
-      .execute();
-
-    return { success: true };
+    await this.scraperSettings.saveScraperSettings(id, data);
+    const updated = await this.findOne(id);
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
   }
 }

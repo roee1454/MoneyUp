@@ -6,10 +6,6 @@ import {
   getScraperSocket,
 } from '@/lib/scraper-socket';
 import { useAppStore } from '@/store';
-import { api } from '@/lib/api';
-import type { BankAccount } from './useAccounts';
-
-const SYNC_INITIAL_TRIGGERED = 'moneyup_sync_initial_triggered_v1';
 
 type SyncStartResponse = {
   jobId: string;
@@ -118,7 +114,16 @@ export function useGlobalSyncManager(enabled: boolean) {
       const isFailed = normalizedStatus === 'failed';
       const isRunning = normalizedStatus === 'running';
 
-      const shouldBeVisible = isRunning || isFailed || (isDone && !isSnapshot);
+      const userId = useAppStore.getState().session?.userId;
+      const dismissedJobId = userId
+        ? localStorage.getItem(`moneyup_dismissed_sync_error_${userId}`)
+        : null;
+
+      const isDismissed = payload.jobId && dismissedJobId === payload.jobId;
+      const shouldBeVisible =
+        isRunning ||
+        (isFailed && !isDismissed) ||
+        (isDone && !isSnapshot);
       const currentSync = useAppStore.getState().sync;
 
       setSync({
@@ -232,7 +237,9 @@ export function useGlobalSyncManager(enabled: boolean) {
     socket.on('connect', handleConnect);
 
     void emitScraperSocket<SyncEventPayload>('sync:snapshot')
-      .then((snapshot) => handlePayload(snapshot, 'job_snapshot'))
+      .then((snapshot) => {
+        handlePayload(snapshot, 'job_snapshot');
+      })
       .catch(() => {
         if (!isActive) return;
         setSync({
@@ -241,61 +248,6 @@ export function useGlobalSyncManager(enabled: boolean) {
           message: 'מחדש חיבור לעדכוני סנכרון...',
         });
       });
-
-    const initialTriggered =
-      typeof window !== 'undefined' &&
-      sessionStorage.getItem(SYNC_INITIAL_TRIGGERED) === '1';
-    if (!initialTriggered) {
-      void api
-        .get<BankAccount[]>('/scrapers/accounts')
-        .then((accounts) => {
-          if (!isActive) return;
-          if (accounts.length === 0) {
-            if (typeof window !== 'undefined') {
-              sessionStorage.setItem(SYNC_INITIAL_TRIGGERED, '1');
-            }
-            return;
-          }
-
-          return emitScraperSocket<SyncStartResponse>('sync:start', {
-            mode: 'initial',
-          }).then((data) => {
-            if (!isActive) return;
-            setSync({
-              jobId: data.jobId,
-              status: data.status === 'running' ? 'running' : data.status,
-              phase: data.phase,
-              serverProgress: data.progress,
-              displayProgress: data.progress,
-              message: data.message,
-              source: data.source,
-              error: null,
-              cooldownBlockedUntil: data.cooldownBlockedUntil ?? null,
-              cooldownRemainingMs: data.cooldownRemainingMs ?? null,
-              rangeStartDate: data.startDate ?? null,
-              rangeEndDate: data.endDate ?? null,
-              startedAt: data.startedAt,
-              updatedAt: data.updatedAt,
-              visible: data.status === 'running',
-              challenge: null,
-              currentlySyncing: data.currentlySyncing ?? null,
-            });
-          });
-        })
-        .catch(() => {
-          if (!isActive) return;
-          setSync({
-            status: 'failed',
-            visible: true,
-            message: 'אירעה שגיאה בהפעלת סנכרון ראשוני',
-          });
-        })
-        .finally(() => {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem(SYNC_INITIAL_TRIGGERED, '1');
-          }
-        });
-    }
 
     return () => {
       isActive = false;

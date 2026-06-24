@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BaseScraper } from '../base';
-import { BrowserService } from '../../browser/browser.service';
+import { ChromiumService } from '../../../chromium/chromium.service';
 import {
   CompanyTypes,
   createScraper,
@@ -16,7 +16,7 @@ import { ScraperResponse } from '@money-up/types';
 export class IsracardScraper extends BaseScraper {
   constructor(
     configService: ConfigService,
-    browserService: BrowserService,
+    browserService: ChromiumService,
   ) {
     super(configService, browserService);
   }

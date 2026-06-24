@@ -1,29 +1,56 @@
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PremiumInput } from '@/components/ui/premium-input';
 import { Button } from '@/components/ui/button';
 import type { User } from '@/hooks/useUsers';
 
+const deleteFormSchema = z.object({
+  deleteConfirmation: z.string().trim().min(1),
+});
+
+type DeleteFormValues = z.infer<typeof deleteFormSchema>;
+
 interface DeleteProfileDialogProps {
   target: User | null;
   onClose: () => void;
-  deleteConfirmation: string;
-  setDeleteConfirmation: (v: string) => void;
   deleteSuccess: boolean;
   setDeleteSuccess: (v: boolean) => void;
-  onDelete: () => void;
+  onDelete: (confirmationUserId: string) => void;
   isPending: boolean;
 }
 
 export function DeleteProfileDialog({
   target,
   onClose,
-  deleteConfirmation,
-  setDeleteConfirmation,
   deleteSuccess,
   setDeleteSuccess,
   onDelete,
   isPending,
 }: DeleteProfileDialogProps) {
+  const { control, handleSubmit, reset, watch } = useForm<DeleteFormValues>({
+    resolver: zodResolver(deleteFormSchema),
+    defaultValues: {
+      deleteConfirmation: '',
+    },
+  });
+
+  const deleteConfirmation = watch('deleteConfirmation') || '';
+
+  useEffect(() => {
+    if (target) {
+      reset({ deleteConfirmation: '' });
+    }
+  }, [target, reset]);
+
+  const onSubmit = (values: DeleteFormValues) => {
+    if (values.deleteConfirmation === target?.id) {
+      onDelete(values.deleteConfirmation);
+    }
+  };
+
   return (
     <Dialog
       open={!!target}
@@ -53,7 +80,7 @@ export function DeleteProfileDialog({
             </Button>
           </div>
         ) : (
-          <>
+          <form onSubmit={handleSubmit(onSubmit)}>
             <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
               <DialogTitle className="text-lg font-black text-foreground uppercase tracking-tight">
                 מחיקת פרופיל
@@ -69,16 +96,17 @@ export function DeleteProfileDialog({
                   {target?.id}
                 </span>
               </p>
-              <PremiumInput
-                value={deleteConfirmation}
-                onChange={(e) => setDeleteConfirmation(e.target.value)}
-                placeholder="מזהה פרופיל..."
-                className="w-full h-12 bg-muted/50 border border-border rounded-none"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && deleteConfirmation === target?.id) {
-                    void onDelete();
-                  }
-                }}
+              <Controller
+                name="deleteConfirmation"
+                control={control}
+                render={({ field }) => (
+                  <PremiumInput
+                    {...field}
+                    placeholder="מזהה פרופיל..."
+                    className="w-full h-12 bg-muted/50 border border-border rounded-none"
+                    disabled={isPending}
+                  />
+                )}
               />
               <div className="flex items-center gap-3 pt-2 justify-end">
                 <Button
@@ -90,16 +118,15 @@ export function DeleteProfileDialog({
                   ביטול
                 </Button>
                 <Button
-                  type="button"
+                  type="submit"
                   className="rounded-none font-black text-xs h-10 bg-destructive hover:bg-destructive/90 text-destructive-foreground cursor-pointer px-6"
                   disabled={deleteConfirmation !== target?.id || isPending}
-                  onClick={() => void onDelete()}
                 >
                   {isPending ? 'מוחק...' : 'מחק פרופיל'}
                 </Button>
               </div>
             </div>
-          </>
+          </form>
         )}
       </DialogContent>
     </Dialog>

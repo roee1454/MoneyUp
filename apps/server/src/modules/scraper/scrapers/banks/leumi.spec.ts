@@ -1,6 +1,6 @@
-// Mock BrowserService BEFORE anything else to avoid ESM issues with @puppeteer/browsers
-jest.mock('../../browser/browser.service', () => ({
-  BrowserService: class {
+// Mock ChromiumService BEFORE anything else to avoid ESM issues with @puppeteer/browsers
+jest.mock('../../../chromium/chromium.service', () => ({
+  ChromiumService: class {
     getCommonBrowserArgs() {
       return ['--no-sandbox'];
     }
@@ -29,9 +29,9 @@ describe('LeumiScraper', () => {
       providers: [
         LeumiScraper,
         { provide: ConfigService, useValue: mockConfigService },
-        // BrowserService is already mocked above
+        // ChromiumService is already mocked above
         { 
-          provide: require('../../browser/browser.service').BrowserService, 
+          provide: require('../../../chromium/chromium.service').ChromiumService, 
           useValue: { getCommonBrowserArgs: () => ['--no-sandbox'] } 
         },
       ],

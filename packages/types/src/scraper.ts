@@ -34,6 +34,13 @@ export interface UnifiedTransaction {
   memo?: string;
   originalCurrency?: string;
   isDuplicate?: boolean;
+  type?: 'normal' | 'installments';
+  identifier?: string;
+  originalAmount?: number;
+  chargedCurrency?: string;
+  status?: 'completed' | 'pending';
+  installmentNumber?: number;
+  installmentTotal?: number;
 }
 
 export interface UnifiedAccount {

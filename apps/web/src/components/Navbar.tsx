@@ -28,8 +28,7 @@ import { SyncStatusCard } from '@/components/SyncStatusCard';
 const NAV_ITEMS = [
   { label: 'בית', to: '/dashboard' },
   { label: 'סוכן AI', to: '/ai-studio' },
-  { label: 'השקעות', to: '/investments' },
-  { label: 'ייצוא דוחות', to: '/export' },
+  { label: 'ייצוא נתונים', to: '/export' },
 ];
 
 const SETTINGS_SUB_ITEMS = [
@@ -43,7 +42,7 @@ type SidebarContentProps = {
   username?: string;
   isSyncing: boolean;
   isSyncPending: boolean;
-  onSync: () => void;
+  onSync: (startDate: string, endDate: string) => void;
   onLogout: () => void;
 };
 
@@ -302,11 +301,10 @@ export function Navbar() {
     await logoutMutation.mutateAsync();
   }
 
-  async function syncToday() {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+  async function handleSync(startDate: string, endDate: string) {
     await syncMutation.mutateAsync({
-      startDate: todayStr,
-      endDate: todayStr,
+      startDate,
+      endDate,
     });
   }
 
@@ -318,7 +316,7 @@ export function Navbar() {
       username={session.username}
       isSyncing={isSyncing}
       isSyncPending={syncMutation.isPending}
-      onSync={() => void syncToday()}
+      onSync={(start, end) => void handleSync(start, end)}
       onLogout={() => void logout()}
     />
   );

@@ -46,7 +46,7 @@ export function ProfileCard({
         className={cn(
           'w-full flex flex-col justify-between h-44',
           isSelected &&
-            'border-primary bg-primary/5 shadow-[6px_6px_0px_0px_var(--color-primary)]',
+            'border-primary bg-primary/5 shadow-lg shadow-primary/10',
         )}
       >
         <div className="flex justify-between items-start w-full">

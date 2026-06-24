@@ -1,27 +1,50 @@
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PremiumInput } from '@/components/ui/premium-input';
 import { Button } from '@/components/ui/button';
 import type { User } from '@/hooks/useUsers';
 
+const unlockFormSchema = z.object({
+  unlockKey: z.string().trim().min(1, 'חובה להזין קוד פתיחה'),
+});
+
+type UnlockFormValues = z.infer<typeof unlockFormSchema>;
+
 interface UnlockProfileDialogProps {
   target: User | null;
   onClose: () => void;
-  unlockInput: string;
-  setUnlockInput: (v: string) => void;
   unlockError: string;
-  onUnlock: () => void;
+  onUnlock: (key: string) => void;
   isPending: boolean;
 }
 
 export function UnlockProfileDialog({
   target,
   onClose,
-  unlockInput,
-  setUnlockInput,
   unlockError,
   onUnlock,
   isPending,
 }: UnlockProfileDialogProps) {
+  const { control, handleSubmit, reset } = useForm<UnlockFormValues>({
+    resolver: zodResolver(unlockFormSchema),
+    defaultValues: {
+      unlockKey: '',
+    },
+  });
+
+  useEffect(() => {
+    if (target) {
+      reset({ unlockKey: '' });
+    }
+  }, [target, reset]);
+
+  const onSubmit = (values: UnlockFormValues) => {
+    onUnlock(values.unlockKey);
+  };
+
   return (
     <Dialog
       open={!!target}
@@ -40,16 +63,19 @@ export function UnlockProfileDialog({
             הזן קוד פתיחה עבור {target?.username}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3 pt-4">
-          <PremiumInput
-            isPassword
-            value={unlockInput}
-            onChange={(e) => setUnlockInput(e.target.value)}
-            placeholder="קוד פתיחה כאן..."
-            className="w-full h-12 bg-muted/50 border border-border rounded-none"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void onUnlock();
-            }}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 pt-4">
+          <Controller
+            name="unlockKey"
+            control={control}
+            render={({ field }) => (
+              <PremiumInput
+                {...field}
+                isPassword
+                placeholder="קוד פתיחה כאן..."
+                className="w-full h-12 bg-muted/50 border border-border rounded-none"
+                disabled={isPending}
+              />
+            )}
           />
           {unlockError ? (
             <p className="text-[11px] font-bold text-destructive bg-destructive/10 p-2 border border-destructive/20 text-right uppercase">
@@ -66,15 +92,14 @@ export function UnlockProfileDialog({
               ביטול
             </Button>
             <Button
-              type="button"
+              type="submit"
               className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-6"
-              onClick={() => void onUnlock()}
               disabled={isPending}
             >
               {isPending ? 'משחרר...' : 'שחרר והתחבר'}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -107,21 +107,7 @@ export function getFriendlyErrorMessage(errorInput: any): string {
     }
   }
 
-  if (lowerStr.includes('openrouter')) {
-    if (lowerStr.includes('401') || lowerStr.includes('403')) {
-      return 'שגיאת התחברות ל-OpenRouter. אנא ודא שמפתח ה-API תקין ושיש לך יתרה מספקת בחשבון.';
-    }
-    if (lowerStr.includes('429')) {
-      return 'חרגת מקצב הבקשות ב-OpenRouter. אנא נסה שוב בעוד מספר רגעים (שגיאה 429).';
-    }
-    if (
-      lowerStr.includes('502') ||
-      lowerStr.includes('503') ||
-      lowerStr.includes('upstream')
-    ) {
-      return 'ספק המודל ב-OpenRouter אינו זמין כעת. אנא נסה שוב מאוחר יותר או בחר מודל אחר (שגיאה 502/503).';
-    }
-  }
+
 
   if (lowerStr.includes('ollama') && lowerStr.includes('404')) {
     return 'מודל Ollama שנבחר לא נמצא. ודא שהרצת "ollama pull <model-name>" במחשב שלך (שגיאה 404).';

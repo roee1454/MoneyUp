@@ -27,10 +27,10 @@ import {
   GeminiModels,
   ClaudeModels,
   OllamaModels,
-  OpenRouterModels,
   ALL_PROVIDERS,
   CATEGORY_EMOJIS,
   getModelPricing,
+  resolveAutoModel,
 } from '@money-up/common';
 
 interface SpendingCategoriesProps {
@@ -78,7 +78,6 @@ const MODELS_BY_PROVIDER: Record<string, string[]> = {
   claude: ClaudeModels,
   gemini: GeminiModels,
   ollama: OllamaModels,
-  openrouter: OpenRouterModels,
 };
 
 
@@ -113,7 +112,7 @@ export function SpendingCategories({
 
   const [classProvider, setClassProvider] = useState<AgentProvider>(() => {
     const saved = localStorage.getItem('moneyup_classification_provider');
-    if (saved === 'openai' || saved === 'claude' || saved === 'gemini' || saved === 'ollama' || saved === 'openrouter') {
+    if (saved === 'openai' || saved === 'claude' || saved === 'gemini' || saved === 'ollama') {
       return saved as AgentProvider;
     }
     return 'gemini';
@@ -205,20 +204,29 @@ export function SpendingCategories({
     const batches = Math.ceil(N / 50);
     const input = (batches * SYSTEM_PROMPT_TOKENS) + (N * INPUT_PER_MERCHANT);
     const output = N * OUTPUT_PER_MERCHANT;
-    const pricing = getModelPricing(classModel);
+
+    const activeModel = classModel === 'auto'
+      ? resolveAutoModel(classProvider, 'classification')
+      : classModel;
+
+    const pricing = getModelPricing(activeModel);
     const estimatedUsd = pricing
       ? (input / 1_000_000) * pricing.inputPer1M + (output / 1_000_000) * pricing.outputPer1M
       : null;
     return { input, output, total: input + output, batches, estimatedUsd };
-  }, [uncategorizedCount, classModel]);
+  }, [uncategorizedCount, classModel, classProvider]);
 
   const handleRunClassification = async () => {
     try {
+      const activeModel = classModel === 'auto'
+        ? resolveAutoModel(classProvider, 'classification')
+        : classModel;
+
       await annotateWithAiSocket({
         startDate: diagStartDate,
         endDate: diagEndDate,
         provider: classProvider as AgentProvider,
-        model: classModel,
+        model: activeModel,
       });
       toast.success('הסיווג החכם הושלם בהצלחה!');
       setIsDialogOpen(false);
@@ -613,6 +621,7 @@ export function SpendingCategories({
                   providers={ALL_PROVIDERS}
                   isLoading={isAnnotatingSocket}
                   configuredProviders={configuredProviders}
+                  className="w-full h-10"
                 />
               </div>
 
@@ -626,6 +635,8 @@ export function SpendingCategories({
                     onStartDateChange={setDiagStartDate}
                     onEndDateChange={setDiagEndDate}
                     isBusy={isAnnotatingSocket}
+                    className="w-full"
+                    pickerClassName="flex-1 h-10"
                   />
                 </div>
               </div>

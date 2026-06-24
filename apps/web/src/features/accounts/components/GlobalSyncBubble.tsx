@@ -20,6 +20,16 @@ import { PremiumInput } from '@/components/ui/premium-input';
 import { Button } from '@/components/ui/button';
 import { BankIcon } from './BankIcon';
 import { getFriendlyScraperError } from '@/lib/error-formatter';
+import { OTP_MIN_LENGTH, OTP_MAX_LENGTH } from './add-bank-account/constants';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const syncOtpSchema = z.object({
+  otpCode: z.string().trim().min(OTP_MIN_LENGTH),
+});
+
+type SyncOtpValues = z.infer<typeof syncOtpSchema>;
 
 function getPhaseLabel(phase: string | null): string {
   if (phase === 'initializing') return 'אתחול';
@@ -44,10 +54,12 @@ export function GlobalSyncBubble() {
 
   const dashboardRange = useAppStore((s) => s.dashboardRange);
   const setSync = useAppStore((s) => s.setSync);
+  const userId = useAppStore((s) => s.session?.userId);
 
   const currentlySyncing = useAppStore((s) => s.sync.currentlySyncing);
   const [displayedBankId, setDisplayedBankId] = useState<string | null>(null);
   const [fade, setFade] = useState(true);
+  const isChallenged = !!challenge;
 
   useEffect(() => {
     if (currentlySyncing !== displayedBankId) {
@@ -63,9 +75,22 @@ export function GlobalSyncBubble() {
   const [now, setNow] = useState(() => Date.now());
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
   
-  // OTP Challenge State
-  const [otpCode, setOtpCode] = useState('');
+  // OTP Challenge Form State
+  const { control, handleSubmit: handleFormSubmit, reset, watch } = useForm<SyncOtpValues>({
+    resolver: zodResolver(syncOtpSchema),
+    defaultValues: {
+      otpCode: '',
+    },
+  });
+
+  const otpCode = watch('otpCode') || '';
   const [isSubmittingOtp, setIsSubmittingOtp] = useState(false);
+
+  useEffect(() => {
+    if (isChallenged) {
+      reset({ otpCode: '' });
+    }
+  }, [isChallenged, reset]);
 
   useEffect(() => {
     if (status !== 'failed' || !cooldownBlockedUntil) return;
@@ -79,7 +104,6 @@ export function GlobalSyncBubble() {
   if (!visible) return null;
 
   const isFailed = status === 'failed';
-  const isChallenged = !!challenge;
   const title = isFailed ? 'סנכרון נכשל' : isChallenged ? 'נדרש אימות' : 'סנכרון נתונים';
   const displayMessage = isFailed
     ? (error ? getFriendlyScraperError(error) : (message || 'אירעה שגיאה במהלך הסנכרון'))
@@ -111,6 +135,13 @@ export function GlobalSyncBubble() {
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
+  const handleDismiss = () => {
+    if (userId && jobId) {
+      localStorage.setItem(`moneyup_dismissed_sync_error_${userId}`, jobId);
+    }
+    setSync({ visible: false });
+  };
+
   async function handleRetry() {
     await syncMutation.mutateAsync({
       startDate:
@@ -123,20 +154,19 @@ export function GlobalSyncBubble() {
     });
   }
 
-  async function handleSubmitOtp(e: React.FormEvent) {
-    e.preventDefault();
-    if (!jobId || !otpCode) return;
+  async function handleSubmitOtp(values: SyncOtpValues) {
+    if (!jobId || !values.otpCode) return;
     
     setIsSubmittingOtp(true);
     try {
       const socket = getScraperSocket();
       socket.emit('scraper:challenge:submit', { 
         sessionId: jobId, 
-        code: otpCode 
+        code: values.otpCode 
       });
       // Clear challenge locally to hide dialog while waiting for server response
       setSync({ challenge: null });
-      setOtpCode('');
+      reset({ otpCode: '' });
     } finally {
       setIsSubmittingOtp(false);
     }
@@ -230,7 +260,7 @@ export function GlobalSyncBubble() {
                 <div className="flex items-center gap-3">
                    <button
                     type="button"
-                    onClick={() => setSync({ visible: false })}
+                    onClick={handleDismiss}
                     className="h-11 w-11 flex items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-all active:scale-90"
                     aria-label="ביטול"
                   >
@@ -336,23 +366,28 @@ export function GlobalSyncBubble() {
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitOtp} className="space-y-4 pt-4 text-right">
+          <form onSubmit={handleFormSubmit(handleSubmitOtp)} className="space-y-4 pt-4 text-right">
             <p className="text-xs font-semibold text-muted-foreground leading-relaxed">
               {challenge?.message || 'הזן את קוד ה-SMS שנשלח אליך לצורך אימות הסנכרון'}
             </p>
             
             <div className="pt-2 pb-2 flex justify-center" dir="ltr">
-              <PremiumInput
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) =>
-                  setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                }
-                autoFocus
-                className="text-center tracking-[0.35em] font-bold text-lg"
+              <Controller
+                name="otpCode"
+                control={control}
+                render={({ field: { value, onChange, ...fieldProps } }) => (
+                  <PremiumInput
+                    {...fieldProps}
+                    value={value}
+                    onChange={(e) =>
+                      onChange(e.target.value.replace(/\D/g, '').slice(0, OTP_MAX_LENGTH))
+                    }
+                    type="text"
+                    inputMode="numeric"
+                    autoFocus
+                    className="text-center tracking-[0.35em] font-bold text-lg"
+                  />
+                )}
               />
             </div>
 
@@ -369,7 +404,7 @@ export function GlobalSyncBubble() {
               <Button
                 type="submit"
                 className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
-                disabled={isSubmittingOtp || otpCode.length < 6}
+                disabled={isSubmittingOtp || otpCode.length < OTP_MIN_LENGTH}
               >
                 {isSubmittingOtp ? 'מאמת...' : 'אשר קוד והמשך'}
               </Button>

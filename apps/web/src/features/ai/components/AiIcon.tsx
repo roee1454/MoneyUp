@@ -17,7 +17,6 @@ const AI_ICON_BY_PROVIDER: Record<AiProvider, string> = {
   claude: '/ai-providers/claude.png',
   gemini: '/ai-providers/gemini.png',
   ollama: '/ai-providers/ollama.png',
-  openrouter: '/ai-providers/openrouter.png',
 };
 
 const AI_LABEL_BY_PROVIDER: Record<AiProvider, string> = {
@@ -25,7 +24,6 @@ const AI_LABEL_BY_PROVIDER: Record<AiProvider, string> = {
   claude: 'Anthropic Claude',
   gemini: 'Gemini',
   ollama: 'Ollama',
-  openrouter: 'OpenRouter',
 };
 
 const sizeClassByVariant: Record<NonNullable<AiIconProps['size']>, string> = {

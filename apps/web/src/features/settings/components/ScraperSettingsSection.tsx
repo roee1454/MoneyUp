@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Warning, ArrowsClockwise } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { PremiumCard } from '@/components/ui/premium-card';
 import { useDetectChromium } from '@/hooks/useScrapers';
 import { useUpdateScraperSettings } from '@/hooks/useUsers';
@@ -12,6 +14,7 @@ import { ScraperSettingsCard } from './ScraperSettingsCard';
 import { DetectingBrowserCard } from './DetectingBrowserCard';
 import { InstallingBrowserCard } from './InstallingBrowserCard';
 import { API_BASE } from '@/lib/api';
+import { useSettingsStore } from '@/store/settingsStore';
 
 const scraperSettingsSchema = z.object({
   scraperTimeoutRetryCount: z.number().int().min(0).max(5),
@@ -23,6 +26,8 @@ const scraperSettingsSchema = z.object({
   scraperChromiumPath: z.string().optional(),
 });
 
+type ScraperFormValues = z.infer<typeof scraperSettingsSchema>;
+
 interface ScraperSettingsSectionProps {
   userProfile: User | null | undefined;
 }
@@ -30,70 +35,83 @@ interface ScraperSettingsSectionProps {
 export function ScraperSettingsSection({
   userProfile,
 }: ScraperSettingsSectionProps) {
-  const [scraperTimeoutRetryCount, setScraperTimeoutRetryCount] = useState(1);
-  const [scraperLoginTimeoutSeconds, setScraperLoginTimeoutSeconds] =
-    useState(90);
-  const [scraperDefaultTimeoutSeconds, setScraperDefaultTimeoutSeconds] =
-    useState(90);
-  const [cooldownValue, setCooldownValue] = useState(30);
-  const [cooldownUnit, setCooldownUnit] = useState<
-    'seconds' | 'minutes' | 'hours'
-  >('minutes');
-  const [scraperShowBrowser, setScraperShowBrowser] = useState(false);
-  const [scraperChromiumPath, setScraperChromiumPath] = useState('');
-  const [showAdvancedScraper, setShowAdvancedScraper] = useState(false);
-
-  const [isPathDialogOpen, setIsPathDialogOpen] = useState(false);
-
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [isInstalling, setIsInstalling] = useState(false);
-  const [installProgress, setInstallProgress] = useState(0);
-  const [installLogs, setInstallLogs] = useState<string[]>([]);
-  const [availableBrowsers, setAvailableBrowsers] = useState<any[]>([]);
+  const {
+    showAdvancedScraper,
+    setShowAdvancedScraper,
+    isPathDialogOpen,
+    setIsPathDialogOpen,
+    isDetecting,
+    setIsDetecting,
+    isInstalling,
+    setIsInstalling,
+    installProgress,
+    setInstallProgress,
+    installLogs,
+    setInstallLogs,
+    availableBrowsers,
+    setAvailableBrowsers,
+  } = useSettingsStore();
 
   const { refetch: detectChromium } = useDetectChromium();
   const saveScraperSettings = useUpdateScraperSettings();
 
+  const { control, handleSubmit, reset, setValue, watch } = useForm<ScraperFormValues>({
+    resolver: zodResolver(scraperSettingsSchema),
+    defaultValues: {
+      scraperTimeoutRetryCount: 1,
+      scraperLoginTimeoutSeconds: 90,
+      scraperDefaultTimeoutSeconds: 90,
+      cooldownValue: 30,
+      cooldownUnit: 'minutes',
+      scraperShowBrowser: false,
+      scraperChromiumPath: '',
+    },
+  });
+
+  const scraperChromiumPath = watch('scraperChromiumPath') || '';
+
   useEffect(() => {
     if (userProfile) {
-      setScraperTimeoutRetryCount(userProfile.scraperTimeoutRetryCount ?? 1);
-      setScraperLoginTimeoutSeconds(
-        userProfile.scraperLoginTimeoutSeconds ?? 90,
-      );
-      setScraperDefaultTimeoutSeconds(
-        userProfile.scraperDefaultTimeoutSeconds ?? 90,
-      );
-      setScraperShowBrowser(userProfile.scraperShowBrowser ?? false);
-      setScraperChromiumPath(userProfile.scraperChromiumPath ?? '');
-
       const totalSeconds = userProfile.scraperAutoSyncCooldownSeconds ?? 1800;
+      let val = 30;
+      let unit: 'seconds' | 'minutes' | 'hours' = 'minutes';
       if (totalSeconds % 3600 === 0 && totalSeconds > 0) {
-        setCooldownValue(totalSeconds / 3600);
-        setCooldownUnit('hours');
+        val = totalSeconds / 3600;
+        unit = 'hours';
       } else if (totalSeconds % 60 === 0 && totalSeconds > 0) {
-        setCooldownValue(totalSeconds / 60);
-        setCooldownUnit('minutes');
+        val = totalSeconds / 60;
+        unit = 'minutes';
       } else {
-        setCooldownValue(totalSeconds);
-        setCooldownUnit('seconds');
+        val = totalSeconds;
+        unit = 'seconds';
       }
+
+      reset({
+        scraperTimeoutRetryCount: userProfile.scraperTimeoutRetryCount ?? 1,
+        scraperLoginTimeoutSeconds: userProfile.scraperLoginTimeoutSeconds ?? 90,
+        scraperDefaultTimeoutSeconds: userProfile.scraperDefaultTimeoutSeconds ?? 90,
+        scraperShowBrowser: userProfile.scraperShowBrowser ?? false,
+        scraperChromiumPath: userProfile.scraperChromiumPath ?? '',
+        cooldownValue: val,
+        cooldownUnit: unit,
+      });
 
       if (!userProfile.scraperChromiumPath && !isDetecting) {
         void handleAutoDetectChromium();
       }
     }
-  }, [userProfile]);
+  }, [userProfile, reset]);
 
   const handleAutoDetectChromium = async () => {
     setIsDetecting(true);
-    setScraperChromiumPath('');
+    setValue('scraperChromiumPath', '');
     try {
       const result = await detectChromium();
       if (result.data?.availableBrowsers)
         setAvailableBrowsers(result.data.availableBrowsers);
       const detectedPath =
         result.data?.success && result.data.path ? result.data.path : null;
-      setScraperChromiumPath(detectedPath ?? '');
+      setValue('scraperChromiumPath', detectedPath ?? '');
 
       saveScraperSettings.mutate({
         scraperTimeoutRetryCount: userProfile?.scraperTimeoutRetryCount ?? 1,
@@ -147,34 +165,19 @@ export function ScraperSettingsSection({
     };
   };
 
-  const handleSaveScraperSettings = () => {
-    const result = scraperSettingsSchema.safeParse({
-      scraperTimeoutRetryCount,
-      scraperLoginTimeoutSeconds,
-      scraperDefaultTimeoutSeconds,
-      cooldownValue,
-      cooldownUnit,
-      scraperShowBrowser,
-      scraperChromiumPath,
-    });
-
-    if (!result.success) {
-      toast.error('נא לבדוק את תקינות הערכים שהוזנו');
-      return;
-    }
-
-    let scraperAutoSyncCooldownSeconds = cooldownValue;
-    if (cooldownUnit === 'minutes') scraperAutoSyncCooldownSeconds *= 60;
-    if (cooldownUnit === 'hours') scraperAutoSyncCooldownSeconds *= 3600;
+  const onSubmitForm = (values: ScraperFormValues) => {
+    let scraperAutoSyncCooldownSeconds = values.cooldownValue;
+    if (values.cooldownUnit === 'minutes') scraperAutoSyncCooldownSeconds *= 60;
+    if (values.cooldownUnit === 'hours') scraperAutoSyncCooldownSeconds *= 3600;
 
     saveScraperSettings.mutate(
       {
-        scraperTimeoutRetryCount,
-        scraperLoginTimeoutSeconds,
-        scraperDefaultTimeoutSeconds,
+        scraperTimeoutRetryCount: values.scraperTimeoutRetryCount,
+        scraperLoginTimeoutSeconds: values.scraperLoginTimeoutSeconds,
+        scraperDefaultTimeoutSeconds: values.scraperDefaultTimeoutSeconds,
         scraperAutoSyncCooldownSeconds,
-        scraperShowBrowser,
-        scraperChromiumPath,
+        scraperShowBrowser: values.scraperShowBrowser,
+        scraperChromiumPath: values.scraperChromiumPath || null,
       },
       {
         onSuccess: () => toast.success('הגדרות הסורק נשמרו בהצלחה'),
@@ -215,24 +218,13 @@ export function ScraperSettingsSection({
         />
       ) : (
         <ScraperSettingsCard
+          control={control}
           scraperChromiumPath={scraperChromiumPath}
-          scraperShowBrowser={scraperShowBrowser}
-          setScraperShowBrowser={setScraperShowBrowser}
           showAdvancedScraper={showAdvancedScraper}
           setShowAdvancedScraper={setShowAdvancedScraper}
-          scraperTimeoutRetryCount={scraperTimeoutRetryCount}
-          setScraperTimeoutRetryCount={setScraperTimeoutRetryCount}
-          cooldownValue={cooldownValue}
-          setCooldownValue={setCooldownValue}
-          cooldownUnit={cooldownUnit}
-          setCooldownUnit={setCooldownUnit}
-          scraperLoginTimeoutSeconds={scraperLoginTimeoutSeconds}
-          setScraperLoginTimeoutSeconds={setScraperLoginTimeoutSeconds}
-          scraperDefaultTimeoutSeconds={scraperDefaultTimeoutSeconds}
-          setScraperDefaultTimeoutSeconds={setScraperDefaultTimeoutSeconds}
           isDetecting={isDetecting}
           onDetect={handleAutoDetectChromium}
-          onSaveAll={handleSaveScraperSettings}
+          onSaveAll={handleSubmit(onSubmitForm)}
           isPending={saveScraperSettings.isPending}
           onOpenPathDialog={() => setIsPathDialogOpen(true)}
         />
@@ -261,7 +253,7 @@ export function ScraperSettingsSection({
         open={isPathDialogOpen}
         onOpenChange={setIsPathDialogOpen}
         currentPath={scraperChromiumPath}
-        onSave={setScraperChromiumPath}
+        onSave={(path) => setValue('scraperChromiumPath', path)}
       />
     </section>
   );

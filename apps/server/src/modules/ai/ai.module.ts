@@ -13,17 +13,26 @@ import { GetTechnicalAnalysisRunner } from './tools/get-technical-analysis';
 import { SearchWebRunner } from './tools/search-web';
 import { ReadWebpageRunner } from './tools/read-webpage';
 import { RenderInvestmentSimulatorRunner } from './tools/render-investment-simulator';
+import { SearchPastConversationsRunner, GetPastConversationMessagesRunner } from './tools/conversation-context';
 import { UsersModule } from '../users/users.module';
 import { ScraperModule } from '../scraper/scraper.module';
 import { SpendingModule } from '../spending/spending.module';
 import { BrokerModule } from '../broker/broker.module';
 import { MarketDataModule } from '../market-data/market-data.module';
+import { ConversationsModule } from '../conversations/conversations.module';
 
 /**
  * NestJS Module configuring declarations and providers for Ai.
  */
 @Module({
-  imports: [UsersModule, ScraperModule, forwardRef(() => SpendingModule), forwardRef(() => BrokerModule), forwardRef(() => MarketDataModule)],
+  imports: [
+    forwardRef(() => UsersModule),
+    forwardRef(() => ScraperModule),
+    forwardRef(() => ConversationsModule),
+    forwardRef(() => SpendingModule),
+    forwardRef(() => BrokerModule),
+    forwardRef(() => MarketDataModule),
+  ],
   controllers: [AiController],
   providers: [
     AiService,
@@ -39,6 +48,8 @@ import { MarketDataModule } from '../market-data/market-data.module';
     SearchWebRunner,
     ReadWebpageRunner,
     RenderInvestmentSimulatorRunner,
+    SearchPastConversationsRunner,
+    GetPastConversationMessagesRunner,
   ],
   exports: [AiService],
 })

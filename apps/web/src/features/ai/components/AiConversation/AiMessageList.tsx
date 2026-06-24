@@ -104,23 +104,23 @@ export function AiMessageList({
               {...(!shouldReduceMotion ? { variants: itemVariants } : {})}
             >
               {/* Outer Glow Ring */}
-              <div className="absolute inset-0 rounded-full bg-radial-to-br from-amber-500/30 via-amber-500/5 to-transparent blur-md animate-pulse duration-[4s]" />
+              <div className="absolute inset-0 rounded-full bg-radial-to-br from-zinc-500/30 via-zinc-500/5 to-transparent blur-md animate-pulse duration-[4s]" />
               {/* Orbit rings */}
               <div
-                className="absolute inset-2 rounded-full border border-dashed border-amber-500/20 animate-spin"
+                className="absolute inset-2 rounded-full border border-dashed border-zinc-500/20 animate-spin"
                 style={{ animationDuration: '20s' }}
               />
               <div
-                className="absolute inset-5 rounded-full border border-dotted border-amber-500/30 animate-spin"
+                className="absolute inset-5 rounded-full border border-dotted border-zinc-500/30 animate-spin"
                 style={{
                   animationDuration: '10s',
                   animationDirection: 'reverse',
                 }}
               />
               {/* Centered Glowing Shape */}
-              <div className="relative flex h-16 w-16 items-center justify-center border border-amber-500/35 bg-background shadow-xl shadow-amber-500/10 rounded-full">
+              <div className="relative flex h-16 w-16 items-center justify-center border border-zinc-500/35 bg-background shadow-xl shadow-zinc-500/10 rounded-full">
                 <Sparkle
-                  className="h-8 w-8 text-amber-500 animate-pulse"
+                  className="h-8 w-8 text-zinc-700 animate-pulse"
                   style={{ animationDuration: '2.5s' }}
                   weight="fill"
                 />

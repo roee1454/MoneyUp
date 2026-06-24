@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from '@phosphor-icons/react';
@@ -30,8 +31,16 @@ export function DatePicker({
   disabled,
   className,
 }: DatePickerProps) {
+  const [open, setOpen] = useState(false);
+
+  const handleSelect = (selectedDate?: Date) => {
+    if (disabled) return;
+    setOpen(false);
+    onDateChange(selectedDate);
+  };
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant={'outline'}
@@ -61,7 +70,7 @@ export function DatePicker({
         <Calendar
           mode="single"
           selected={date}
-          onSelect={onDateChange}
+          onSelect={handleSelect}
           defaultMonth={date}
           disabled={[
             ...(minDate ? [{ before: minDate }] : []),
@@ -74,3 +83,4 @@ export function DatePicker({
     </Popover>
   );
 }
+

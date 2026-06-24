@@ -1,10 +1,9 @@
-export type AgentProvider = "openai" | "gemini" | "claude" | "openrouter" | "ollama";
+export type AgentProvider = "openai" | "gemini" | "claude" | "ollama";
 
 export const AgentProvider = {
   OpenAI: "openai" as const,
   Gemini: "gemini" as const,
   Claude: "claude" as const,
-  OpenRouter: "openrouter" as const,
   Ollama: "ollama" as const
 };
 
@@ -31,27 +30,24 @@ export const ClaudeModels = [
 
 export const OllamaModels: string[] = [];
 
-export const OpenRouterModels: string[] = [];
-
 /** All supported provider identifiers, in display order. */
 export const ALL_PROVIDERS: AgentProvider[] = [
   'gemini',
   'openai',
   'claude',
   'ollama',
-  'openrouter',
 ];
 
 export const ModelTags: Record<string, string> = {
-  'gpt-4o-mini': 'token efficient',
-  'gpt-4o': 'token efficient',
-  'gpt-5.4-mini': 'thinking',
-  'gpt-5.4': 'thinking',
-  'gemini-2.5-flash': 'balanced',
-  'gemini-2.5-flash-lite': 'lightweight',
-  'gemini-3.1-flash-lite': 'lightweight',
-  'gemini-3.1-pro-preview': 'reasoning',
-  'gemini-3.5-flash': 'balanced',
+  'gpt-4o-mini': 'יעיל בטוקנים',
+  'gpt-4o': 'יעיל בטוקנים',
+  'gpt-5.4-mini': 'חשיבה',
+  'gpt-5.4': 'חשיבה',
+  'gemini-2.5-flash': 'מאוזן',
+  'gemini-2.5-flash-lite': 'קל משקל',
+  'gemini-3.1-flash-lite': 'קל משקל',
+  'gemini-3.1-pro-preview': 'חשיבה עמוקה',
+  'gemini-3.5-flash': 'מאוזן',
 };
 
 export function getFriendlyModelName(modelId: string): string {
@@ -85,3 +81,51 @@ export function getFriendlyModelName(modelId: string): string {
 
   return modelNameMap[modelId] || modelId;
 }
+
+export type AiTask = 'chat' | 'classification' | 'investments';
+
+export function resolveAutoModel(
+  provider: string,
+  task: AiTask,
+  availableModels?: string[]
+): string {
+  switch (provider) {
+    case 'openai':
+      if (task === 'classification') {
+        return 'gpt-4o-mini';
+      }
+      if (task === 'investments') {
+        return 'gpt-5.4';
+      }
+      return 'gpt-4o';
+    case 'claude':
+      if (task === 'classification') {
+        return 'claude-3-5-haiku-20241022';
+      }
+      if (task === 'investments') {
+        return 'claude-3-5-sonnet-20241022';
+      }
+      return 'claude-3-5-sonnet-20241022';
+    case 'gemini':
+      if (task === 'classification') {
+        return 'gemini-2.5-flash';
+      }
+      if (task === 'investments') {
+        return 'gemini-3.1-pro-preview';
+      }
+      return 'gemini-3.5-flash';
+    case 'ollama':
+      if (availableModels && availableModels.length > 0) {
+        const intelligentKeywords = ['qwen2.5', 'llama3.1', 'mistral', 'gemma2'];
+        for (const kw of intelligentKeywords) {
+          const match = availableModels.find(m => m.toLowerCase().includes(kw));
+          if (match) return match;
+        }
+        return availableModels[0];
+      }
+      return 'llama3.1:8b';
+    default:
+      return '';
+  }
+}
+

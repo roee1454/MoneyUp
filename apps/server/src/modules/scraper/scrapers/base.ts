@@ -4,7 +4,7 @@ import {
   ScraperOptions,
 } from 'israeli-bank-scrapers';
 import { ConfigService } from '@nestjs/config';
-import { BrowserService } from '../browser/browser.service';
+import { ChromiumService } from '../../chromium/chromium.service';
 import {
   UnifiedAccount,
   UnifiedTransaction,
@@ -19,7 +19,7 @@ export abstract class BaseScraper {
   abstract readonly companyId: CompanyTypes;
   constructor(
     protected readonly configService: ConfigService,
-    protected readonly browserService: BrowserService,
+    protected readonly browserService: ChromiumService,
   ) {}
 
   async scrape(
@@ -215,6 +215,13 @@ export abstract class BaseScraper {
           description: txn.description || '',
           memo: txn.memo || '',
           originalCurrency: txn.originalCurrency || 'ILS',
+          type: txn.type,
+          identifier: txn.identifier != null ? String(txn.identifier) : undefined,
+          originalAmount: typeof txn.originalAmount === 'number' ? txn.originalAmount : undefined,
+          chargedCurrency: txn.chargedCurrency,
+          status: txn.status,
+          installmentNumber: txn.installments?.number,
+          installmentTotal: txn.installments?.total,
         };
       });
 

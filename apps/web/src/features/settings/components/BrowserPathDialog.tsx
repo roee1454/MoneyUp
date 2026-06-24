@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +11,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+
+const pathSchema = z.object({
+  path: z.string().trim().regex(/^\/|^[a-zA-Z]:\\/, 'נתיב הדפדפן חייב להיות נתיב מוחלט תקין במערכת'),
+});
+
+type PathFormValues = z.infer<typeof pathSchema>;
 
 interface BrowserPathDialogProps {
   open: boolean;
@@ -22,13 +31,23 @@ export function BrowserPathDialog({
   currentPath,
   onSave,
 }: BrowserPathDialogProps) {
-  const [tempPath, setTempPath] = useState(currentPath);
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<PathFormValues>({
+    resolver: zodResolver(pathSchema),
+    defaultValues: {
+      path: '',
+    },
+  });
 
   useEffect(() => {
     if (open) {
-      setTempPath(currentPath);
+      reset({ path: currentPath });
     }
-  }, [open, currentPath]);
+  }, [open, currentPath, reset]);
+
+  const onSubmit = (values: PathFormValues) => {
+    onSave(values.path);
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -44,33 +63,45 @@ export function BrowserPathDialog({
             הזן את נתיב ההרצה המלא של דפדפן Chromium במערכת שלך.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-          <input
-            type="text"
-            value={tempPath}
-            onChange={(e) => setTempPath(e.target.value)}
-            className="h-10 w-full border border-border bg-muted/30 px-3 text-xs font-mono font-bold focus:bg-card focus:outline-none transition-all rounded-none text-foreground"
-            placeholder="/path/to/chrome-or-chromium"
-          />
-        </div>
-        <DialogFooter className="pt-4 flex flex-row justify-end gap-3">
-          <Button
-            variant="outline"
-            className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
-            onClick={() => onOpenChange(false)}
-          >
-            ביטול
-          </Button>
-          <Button
-            className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-6 shadow-lg shadow-primary/10"
-            onClick={() => {
-              onSave(tempPath);
-              onOpenChange(false);
-            }}
-          >
-            עדכן
-          </Button>
-        </DialogFooter>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="py-2 space-y-1.5 text-right">
+            <Controller
+              name="path"
+              control={control}
+              render={({ field }) => (
+                <input
+                  type="text"
+                  {...field}
+                  className={`h-10 w-full border bg-muted/30 px-3 text-xs font-mono font-bold focus:bg-card focus:outline-none transition-all rounded-none text-foreground ${
+                    errors.path ? 'border-destructive focus:border-destructive' : 'border-border'
+                  }`}
+                  placeholder="/path/to/chrome-or-chromium"
+                />
+              )}
+            />
+            {errors.path && (
+              <p className="text-[10px] font-bold text-destructive">
+                {errors.path.message}
+              </p>
+            )}
+          </div>
+          <DialogFooter className="pt-2 flex flex-row justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
+              onClick={() => onOpenChange(false)}
+            >
+              ביטול
+            </Button>
+            <Button
+              type="submit"
+              className="rounded-none font-black text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-6 shadow-lg shadow-primary/10"
+            >
+              עדכן
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Check } from '@phosphor-icons/react';
 import { AiIcon, type AiProvider } from './AiIcon';
 import { Button } from '@/components/ui/button';
@@ -30,7 +33,6 @@ const providerLabels: Record<Provider, string> = {
   claude: 'Anthropic Claude',
   gemini: 'Gemini',
   ollama: 'Ollama (מקומי)',
-  openrouter: 'OpenRouter',
 };
 
 const DEFAULT_MODELS: Record<Provider, string> = {
@@ -38,8 +40,13 @@ const DEFAULT_MODELS: Record<Provider, string> = {
   claude: 'claude-3-5-haiku-20241022',
   gemini: 'gemini-2.5-flash',
   ollama: 'qwen2.5:14b-instruct',
-  openrouter: 'meta-llama/llama-3.1-8b-instruct:free',
 };
+
+const addAiProviderSchema = z.object({
+  apiKey: z.string().trim().optional(),
+});
+
+type AddAiProviderFormValues = z.infer<typeof addAiProviderSchema>;
 
 export function AddAiProviderDialog({
   open,
@@ -49,17 +56,34 @@ export function AddAiProviderDialog({
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
     null,
   );
-  const [apiKey, setApiKey] = useState('');
   const [isDone, setIsDone] = useState(false);
   const [error, setError] = useState('');
 
   const verifyMutation = useVerifyAiConnection();
   const saveMutation = useSaveAiConfig();
+
+  const { control, handleSubmit, reset, watch } = useForm<AddAiProviderFormValues>({
+    resolver: zodResolver(addAiProviderSchema),
+    defaultValues: {
+      apiKey: '',
+    },
+  });
+
+  const apiKey = watch('apiKey') || '';
   const canVerify = !!selectedProvider && (selectedProvider === 'ollama' || apiKey.trim().length > 0);
 
-  async function handleVerify() {
+  useEffect(() => {
+    if (open) {
+      reset({ apiKey: '' });
+      setIsDone(false);
+      setError('');
+      setSelectedProvider(null);
+    }
+  }, [open, reset]);
+
+  async function handleVerify(values: AddAiProviderFormValues) {
     if (!selectedProvider) return;
-    const resolvedKey = selectedProvider === 'ollama' && !apiKey.trim() ? 'http://localhost:11434/v1' : apiKey;
+    const resolvedKey = selectedProvider === 'ollama' && !values.apiKey?.trim() ? 'http://localhost:11434/v1' : (values.apiKey ?? '');
     setError('');
     try {
       const res = await verifyMutation.mutateAsync({
@@ -94,12 +118,6 @@ export function AddAiProviderDialog({
 
   function handleClose() {
     onOpenChange(false);
-    setTimeout(() => {
-      setApiKey('');
-      setIsDone(false);
-      setError('');
-      setSelectedProvider(null);
-    }, 200);
   }
 
   return (
@@ -130,7 +148,7 @@ export function AddAiProviderDialog({
             </DialogHeader>
 
             <div className="space-y-2 pt-2">
-              {(['openai', 'claude', 'gemini', 'ollama', 'openrouter'] as const).map((provider) => (
+              {(['openai', 'claude', 'gemini', 'ollama'] as const).map((provider) => (
                 <PremiumGridButton
                   key={provider}
                   onClick={() => {
@@ -149,7 +167,7 @@ export function AddAiProviderDialog({
             providerName={providerLabels[selectedProvider]}
           />
         ) : (
-          <div className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
+          <form onSubmit={handleSubmit(handleVerify)} className="animate-in fade-in-50 duration-200 slide-in-from-bottom-2 space-y-4">
             <DialogHeader className="text-right space-y-1 pb-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <AiIcon provider={selectedProvider} size="md" />
@@ -166,15 +184,20 @@ export function AddAiProviderDialog({
 
             <div className="space-y-4 pt-4">
               <div className="space-y-1.5 text-right">
-                <label className="text-sm font-bold text-muted-foreground">
+                <label className="text-sm font-bold text-muted-foreground block">
                   {selectedProvider === 'ollama' ? 'כתובת שרת / מפתח API' : 'מפתח API'}
                 </label>
-                <PremiumInput
-                  isPassword={selectedProvider !== 'ollama'}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={selectedProvider === 'ollama' ? 'http://localhost:11434/v1 (או השאר ריק)' : 'sk-...'}
-                  dir="ltr"
+                <Controller
+                  name="apiKey"
+                  control={control}
+                  render={({ field }) => (
+                    <PremiumInput
+                      {...field}
+                      isPassword={selectedProvider !== 'ollama'}
+                      placeholder={selectedProvider === 'ollama' ? 'http://localhost:11434/v1 (או השאר ריק)' : 'sk-...'}
+                      dir="ltr"
+                    />
+                  )}
                 />
               </div>
 
@@ -198,14 +221,14 @@ export function AddAiProviderDialog({
                   className="rounded-none font-bold text-xs h-10 border-border cursor-pointer"
                   onClick={() => {
                     setSelectedProvider(null);
-                    setApiKey('');
+                    reset({ apiKey: '' });
                     setError('');
                   }}
                 >
                   חזרה
                 </Button>
                 <Button
-                  onClick={() => void handleVerify()}
+                  type="submit"
                   disabled={!canVerify}
                   className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
                 >
@@ -213,7 +236,7 @@ export function AddAiProviderDialog({
                 </Button>
               </div>
             </div>
-          </div>
+          </form>
         )}
       </DialogContent>
     </Dialog>
@@ -278,6 +301,7 @@ function ConnectedView({
       </div>
 
       <Button
+        type="button"
         onClick={onClose}
         className="rounded-none font-bold text-xs h-10 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer px-8"
       >

@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 export function useVerifyAiConnection() {
   return useMutation({
     mutationFn: (payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama';
       apiKey: string;
     }) => api.post<{ success: boolean }>('/ai/verify', payload),
   });
@@ -23,7 +23,7 @@ export function useVerifyAiConnection() {
  * @returns The React Query result containing the list of available models.
  */
 export function useFetchAiModels(
-  provider?: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter',
+  provider?: 'openai' | 'claude' | 'gemini' | 'ollama',
   apiKey?: string,
 ) {
   return useQuery({
@@ -47,10 +47,10 @@ export function useSaveAiConfig() {
 
   return useMutation({
     mutationFn: (payload: {
-      provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      provider: 'openai' | 'claude' | 'gemini' | 'ollama';
       apiKey: string;
       preferredModel?: string;
-      activeProvider?: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter';
+      activeProvider?: 'openai' | 'claude' | 'gemini' | 'ollama';
       config?: {
         model: string;
         preset: 'accurate' | 'moderate' | 'save_tokens' | 'custom';
@@ -79,10 +79,79 @@ export function useDeleteAiProvider() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: { provider: 'openai' | 'claude' | 'gemini' | 'ollama' | 'openrouter' }) =>
+    mutationFn: (payload: { provider: 'openai' | 'claude' | 'gemini' | 'ollama' }) =>
       api.post('/users/delete-ai-provider', payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+    },
+  });
+}
+
+/**
+ * Hook to query currently running Ollama models.
+ */
+export function useOllamaRunningModels(enabled: boolean) {
+  return useQuery({
+    queryKey: ['ollama-running-models'],
+    queryFn: () => api.get<string[]>('/ai/ollama/running'),
+    enabled,
+    refetchInterval: enabled ? 10000 : false, // Poll every 10 seconds while enabled
+  });
+}
+
+/**
+ * Mutation hook to pre-load / start an Ollama model in memory.
+ */
+export function useStartOllamaModel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { model: string }) =>
+      api.post<{ success: boolean }>('/ai/ollama/start', payload),
+    onSuccess: async (_data, variables) => {
+      queryClient.setQueryData<string[]>(['ollama-running-models'], (old) => {
+        if (!old) return [variables.model];
+        const modelLower = variables.model.toLowerCase();
+        const exists = old.some((m) => {
+          const mLower = m.toLowerCase();
+          return (
+            mLower === modelLower ||
+            mLower.startsWith(modelLower + ':') ||
+            modelLower.startsWith(mLower + ':')
+          );
+        });
+        if (exists) return old;
+        return [...old, variables.model];
+      });
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['ollama-running-models'] }).catch(() => {});
+      }, 2000);
+    },
+  });
+}
+
+/**
+ * Mutation hook to unload / stop an Ollama model from memory.
+ */
+export function useStopOllamaModel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { model: string }) =>
+      api.post<{ success: boolean }>('/ai/ollama/stop', payload),
+    onSuccess: async (_data, variables) => {
+      queryClient.setQueryData<string[]>(['ollama-running-models'], (old) => {
+        if (!old) return [];
+        const modelLower = variables.model.toLowerCase();
+        return old.filter((m) => {
+          const mLower = m.toLowerCase();
+          if (mLower === modelLower) return false;
+          if (mLower.startsWith(modelLower + ':')) return false;
+          if (modelLower.startsWith(mLower + ':')) return false;
+          return true;
+        });
+      });
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['ollama-running-models'] }).catch(() => {});
+      }, 2000);
     },
   });
 }

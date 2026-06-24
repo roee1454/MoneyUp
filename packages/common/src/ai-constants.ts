@@ -218,6 +218,47 @@ export const AI_TOOLS = [
       required: ['ticker'],
     },
   },
+  {
+    name: 'search_past_conversations',
+    description:
+      'Search or list the user\'s past chat conversations. Returns metadata including ID, title, and timestamps. ' +
+      'If query is provided, filters past conversations by title (case-insensitive). ' +
+      'Use this tool to find relevant past conversations to retrieve context from.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Optional search query to filter conversation titles.',
+        },
+        limit: {
+          type: 'number',
+          description: 'Optional maximum number of conversations to return (default 10).',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_past_conversation_messages',
+    description:
+      'Retrieve the chronological list of messages in a specific past conversation. ' +
+      'Use search_past_conversations first to find the correct conversation ID.',
+    parameters: {
+      type: 'object',
+      properties: {
+        conversationId: {
+          type: 'string',
+          description: 'The unique ID of the past conversation to fetch messages for.',
+        },
+        limit: {
+          type: 'number',
+          description: 'Optional maximum number of messages to return (default 50).',
+        },
+      },
+      required: ['conversationId'],
+    },
+  },
 ];
 
 export const MERCHANT_CATEGORIZATION_RULES = [

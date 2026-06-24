@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ScraperFactory } from './scraper-factory.service';
-import { BrowserService } from './browser/browser.service';
+import { ChromiumService } from '../chromium/chromium.service';
 import { SessionService } from './session/session.service';
-import { CredentialsService } from './credentials/credentials.service';
+import { CredentialsService } from '../accounts/services/credentials.service';
 import { SyncService } from './sync/sync.service';
-import { CacheService } from './cache/cache.service';
-import { CoverageService } from './coverage/coverage.service';
-import { ScansService } from './scans/scans.service';
+import { CacheService } from '../accounts/services/cache.service';
+import { CoverageService } from '../accounts/services/coverage.service';
+import { ScansService } from '../accounts/services/scans.service';
 import { ScraperCredentials } from 'israeli-bank-scrapers';
 import { randomUUID } from 'crypto';
 import type { UnifiedTransaction, ScanIncomeRequest } from '@money-up/types';
@@ -33,7 +33,7 @@ export class ScraperService {
 
   constructor(
     private readonly scraperFactory: ScraperFactory,
-    private readonly browserService: BrowserService,
+    private readonly browserService: ChromiumService,
     private readonly sessionService: SessionService,
     private readonly credentialsService: CredentialsService,
     private readonly syncService: SyncService,
@@ -44,6 +44,37 @@ export class ScraperService {
 
   getHelloMessage(): string {
     return 'Hello World!';
+  }
+
+  async checkSyncNeeded(userId: string): Promise<{ needsSync: boolean; lastTransactionDate?: string }> {
+    const connections = await this.credentialsService.getUserConnections(userId);
+    if (connections.length === 0) {
+      return { needsSync: false };
+    }
+
+    const latestTxn = await this.cacheService.getLatestTransaction(userId);
+    const lastTransactionDate = latestTxn ? latestTxn.date.slice(0, 10) : undefined;
+
+    // Check if any connection has never been successfully scraped
+    const hasNeverScraped = connections.some((c) => !c.lastScrapedAt);
+    if (hasNeverScraped) {
+      return {
+        needsSync: true,
+        lastTransactionDate,
+      };
+    }
+
+    // Find the oldest successful scrape time among all connected accounts
+    const scrapeTimes = connections.map((c) => new Date(c.lastScrapedAt!).getTime());
+    const oldestScrapeTime = Math.min(...scrapeTimes);
+
+    const diffMs = Date.now() - oldestScrapeTime;
+    const twoHoursMs = 2 * 60 * 60 * 1000;
+
+    return {
+      needsSync: diffMs >= twoHoursMs,
+      lastTransactionDate,
+    };
   }
 
   getScrapersList(): any[] {
@@ -78,20 +109,6 @@ export class ScraperService {
   }): Promise<any> {
     const { userId, bankId, startDate } = data;
     try {
-      // Prevent duplicate connections
-      const existingCredentials = await this.credentialsService.getCredentials(
-        userId,
-        bankId,
-      );
-      if (existingCredentials) {
-        return {
-          status: 'FAILED',
-          errorCode: 'ACCOUNT_ALREADY_CONNECTED',
-          error:
-            'החשבון כבר מחובר. אנא בחר חשבון אחר או נתק את החשבון הקיים תחילה.',
-        };
-      }
-
       const normalizedCredentials = normalizeCredentials(
         bankId,
         data.credentials as Record<string, string>,
@@ -106,6 +123,21 @@ export class ScraperService {
           status: 'FAILED',
           errorCode: sanitized.code,
           error: sanitized.message,
+        };
+      }
+
+      // Prevent duplicate connections with identical credentials
+      const isDuplicate = await this.credentialsService.checkDuplicateCredentials(
+        userId,
+        bankId,
+        normalizedCredentials as Record<string, string>,
+      );
+      if (isDuplicate) {
+        return {
+          status: 'FAILED',
+          errorCode: 'ACCOUNT_ALREADY_CONNECTED',
+          error:
+            'החשבון כבר מחובר עם אותם פרטי גישה. אנא הזן פרטים של חשבון אחר.',
         };
       }
 
@@ -238,7 +270,7 @@ export class ScraperService {
             startDate: coverageStartDate,
             endDate: coverageEndDate,
           });
-          await this.credentialsService.markScrapedAt(userId, bankId);
+          await this.credentialsService.markScrapedAt(userId, bankId, credentials as Record<string, string>);
         }
         this.sessionService.updateSession(sessionId, {
           status: 'SUCCESS',
@@ -254,12 +286,20 @@ export class ScraperService {
           userId,
           bankId,
           response.error ?? sanitized.code,
+          credentials as Record<string, string>,
         );
+
+        const session = this.sessionService.getSession(sessionId);
+        const failedStep = (session?.step === 'logged_in' || session?.step === 'scanning_transactions' || session?.step === 'finalizing')
+          ? 'scanning_transactions'
+          : 'logging_in';
+
         this.sessionService.updateSession(sessionId, {
           status: 'FAILED',
           errorCode: sanitized.code,
           error: sanitized.message,
           internalErrorRaw: response.error,
+          step: failedStep,
         });
       }
     } catch (err: any) {
@@ -269,12 +309,19 @@ export class ScraperService {
         err,
       );
       const sanitized = normalizeScraperError(raw);
-      await this.credentialsService.markConnectionFailed(userId, bankId, raw);
+      await this.credentialsService.markConnectionFailed(userId, bankId, raw, credentials as Record<string, string>);
+
+      const session = this.sessionService.getSession(sessionId);
+      const failedStep = (session?.step === 'logged_in' || session?.step === 'scanning_transactions' || session?.step === 'finalizing')
+        ? 'scanning_transactions'
+        : 'logging_in';
+
       this.sessionService.updateSession(sessionId, {
         status: 'FAILED',
         errorCode: sanitized.code,
         error: sanitized.message,
         internalErrorRaw: raw,
+        step: failedStep,
       });
     }
   }
@@ -429,7 +476,6 @@ export class ScraperService {
     startDate?: string;
     endDate?: string;
     mode?: 'initial' | 'manual';
-    timeoutRetryCount?: number;
     showBrowser?: boolean;
     loginTimeoutSeconds?: number;
     defaultTimeoutSeconds?: number;
@@ -465,7 +511,6 @@ export class ScraperService {
         startDate: data.startDate,
         endDate: data.endDate,
         mode: data.mode,
-        timeoutRetryCount: data.timeoutRetryCount,
         showBrowser: data.showBrowser,
         loginTimeoutSeconds: data.loginTimeoutSeconds,
         defaultTimeoutSeconds: data.defaultTimeoutSeconds,
@@ -579,5 +624,4 @@ export class ScraperService {
     );
     return { success: true };
   }
-
 }

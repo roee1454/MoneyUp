@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { CircleNotch, LockKey } from '@phosphor-icons/react';
 import { Link } from '@tanstack/react-router';
-import { PremiumCard } from '@/components/ui/premium-card';
 import { cn } from '@/lib/utils';
 import { DataSourceCard } from './DataSourceCard';
+
 
 type MetricTone = 'rose' | 'emerald' | 'sky' | 'zinc';
 
@@ -43,22 +43,24 @@ export function DashboardMetricCard({
   sourceBankIds = [],
   className,
 }: DashboardMetricCardProps) {
+
+
   if (variant === 'cell') {
     return (
       <div
         className={cn(
-          'relative p-6 text-foreground flex flex-col justify-between h-36 select-none bg-card border border-border rounded-none shadow-xs',
+          'relative p-6 text-foreground flex flex-col justify-between min-h-[9rem] h-auto select-none bg-card border border-border rounded-none shadow-xs transition-[background-color,border-color,box-shadow] duration-200 hover:border-primary/40 hover:shadow-lg',
           isLocked && 'opacity-75',
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1 text-right">
-            <div className="flex items-center gap-2">
-              <p className="text-base sm:text-lg font-black text-foreground">
+        <div className="flex items-start justify-between gap-3 min-w-0">
+          <div className="space-y-1 text-right min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <p className="text-sm sm:text-base font-black text-foreground truncate max-w-full">
                 {title}
               </p>
-              <DataSourceCard bankIds={sourceBankIds} />
+              <DataSourceCard bankIds={sourceBankIds} className="shrink-0" />
             </div>
             {caption && (
               <p className="text-xs font-bold text-muted-foreground/60 leading-tight">
@@ -82,7 +84,7 @@ export function DashboardMetricCard({
           )}
         </div>
 
-        <div className="space-y-1.5 text-right mt-4">
+        <div className="space-y-1.5 text-right mt-4 min-w-0">
           {isLoading ? (
             <div className="ml-auto h-8 w-28 animate-soft-shimmer bg-muted/80 rounded-none" />
           ) : isLocked ? (
@@ -100,7 +102,7 @@ export function DashboardMetricCard({
           ) : (
             <div
               className={cn(
-                'text-sm sm:text-base font-bold tracking-tight',
+                'text-lg sm:text-2xl font-black tracking-tight',
                 iconToneClasses[tone],
               )}
               dir="ltr"
@@ -124,21 +126,23 @@ export function DashboardMetricCard({
 
   if (variant === 'slim') {
     return (
-      <PremiumCard
+      <div
         className={cn(
-          'relative overflow-hidden bg-card p-4 text-foreground flex flex-col justify-between h-28',
+          'relative overflow-hidden bg-card p-4 text-foreground flex flex-col justify-between min-h-[7rem] h-auto border border-border shadow-sm transition-[background-color,border-color,box-shadow] duration-200 hover:border-primary/40 hover:shadow-lg rounded-none',
           isLocked && 'opacity-75',
           className,
         )}
       >
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm sm:text-base font-black text-foreground">
-            {title}
-          </p>
-          <DataSourceCard bankIds={sourceBankIds} />
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+            <p className="text-sm sm:text-base font-black text-foreground truncate max-w-full">
+              {title}
+            </p>
+            <DataSourceCard bankIds={sourceBankIds} className="shrink-0" />
+          </div>
         </div>
 
-        <div className="space-y-1 text-right">
+        <div className="space-y-1 text-right mt-3 min-w-0">
           {isLoading ? (
             <div className="ml-auto h-7 w-28 animate-soft-shimmer bg-muted/80" />
           ) : isLocked ? (
@@ -156,7 +160,7 @@ export function DashboardMetricCard({
           ) : (
             <div
               className={cn(
-                'text-xs sm:text-sm font-bold tracking-tight',
+                'text-sm sm:text-base font-black tracking-tight',
                 iconToneClasses[tone],
               )}
               dir="ltr"
@@ -174,26 +178,26 @@ export function DashboardMetricCard({
         {isLoading && (
           <CircleNotch className="absolute bottom-3 left-3 h-3.5 w-3.5 animate-spin text-muted-foreground/40" />
         )}
-      </PremiumCard>
+      </div>
     );
   }
 
   return (
-    <PremiumCard
+    <div
       className={cn(
-        'relative min-h-40 overflow-hidden bg-card p-5 text-foreground',
+        'relative min-h-[10rem] h-auto overflow-hidden bg-card p-5 text-foreground border border-border shadow-sm transition-[background-color,border-color,box-shadow] duration-200 hover:border-primary/40 hover:shadow-lg rounded-none',
         isLocked && 'opacity-75',
         className,
       )}
     >
-      <div className="relative z-10 flex h-full flex-col justify-between gap-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1 text-right">
-            <div className="flex items-center gap-3">
-              <p className="text-lg sm:text-xl font-black text-foreground">
+      <div className="relative z-10 flex h-full flex-col justify-between gap-5 min-w-0">
+        <div className="flex items-start justify-between gap-4 min-w-0">
+          <div className="space-y-1 text-right min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-3 min-w-0">
+              <p className="text-lg sm:text-xl font-black text-foreground truncate max-w-full">
                 {title}
               </p>
-              <DataSourceCard bankIds={sourceBankIds} />
+              <DataSourceCard bankIds={sourceBankIds} className="shrink-0" />
             </div>
             {caption && (
               <p className="text-xs font-bold text-muted-foreground/80">
@@ -217,7 +221,7 @@ export function DashboardMetricCard({
           )}
         </div>
 
-        <div className="space-y-2 text-right">
+        <div className="space-y-2 text-right min-w-0">
           {isLoading ? (
             <div className="ml-auto h-9 w-40 animate-soft-shimmer bg-muted/80" />
           ) : isLocked ? (
@@ -235,7 +239,7 @@ export function DashboardMetricCard({
           ) : (
             <div
               className={cn(
-                'text-sm sm:text-base font-bold tracking-tight',
+                'text-2xl sm:text-3xl font-black tracking-tight',
                 iconToneClasses[tone],
               )}
               dir="ltr"
@@ -253,6 +257,6 @@ export function DashboardMetricCard({
       {isLoading ? (
         <CircleNotch className="absolute bottom-4 left-4 h-4 w-4 animate-spin text-muted-foreground" />
       ) : null}
-    </PremiumCard>
+    </div>
   );
 }

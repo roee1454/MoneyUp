@@ -10,15 +10,17 @@ import {
   MERCHANT_CATEGORIZATION_RULES,
   EXPENSE_CATEGORIES,
   AgentProvider,
+  resolveAutoModel,
+  AiTask,
 } from '@money-up/common';
 import { UsersService } from '../users/users.service';
+import { ConversationsService } from '../conversations/conversations.service';
 
 import { AIProvider } from './providers/ai-provider';
 import { OpenAIProvider } from './providers/openai-provider';
 import { ClaudeProvider } from './providers/claude-provider';
 import { GeminiProvider } from './providers/gemini-provider';
 import { OllamaProvider } from './providers/ollama-provider';
-import { OpenRouterProvider } from './providers/openrouter-provider';
 
 type ProviderName = AgentProvider;
 
@@ -32,6 +34,7 @@ export class AiService {
   constructor(
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
+    private readonly conversationsService: ConversationsService,
     private readonly toolRegistry: ToolRegistry,
   ) {}
 
@@ -39,7 +42,7 @@ export class AiService {
    * Instantiates the specified AI provider with an API key.
    * Prioritizes user-configured overrides, falling back to server environment variables.
    *
-   * @param providerName The target provider identifier ('openai', 'claude', 'gemini', 'ollama', or 'openrouter').
+   * @param providerName The target provider identifier ('openai', 'claude', 'gemini', or 'ollama').
    * @param customApiKey Optional raw API key to override global config.
    * @returns An instance of the AIProvider wrapper class.
    * @throws InternalServerErrorException if the required API key is missing or the provider is unsupported.
@@ -68,8 +71,6 @@ export class AiService {
         return new GeminiProvider(apiKey);
       case 'ollama':
         return new OllamaProvider(apiKey);
-      case 'openrouter':
-        return new OpenRouterProvider(apiKey);
       default:
         throw new InternalServerErrorException(
         `Unsupported provider: ${providerName}`,
@@ -124,7 +125,7 @@ export class AiService {
         currentMessages.push(assistantMsg);
 
         if (conversationId) {
-          await this.usersService
+          await this.conversationsService
             .addMessage(
               userId,
               conversationId,
@@ -150,7 +151,7 @@ export class AiService {
           currentMessages.push(toolResultMsg);
 
           if (conversationId) {
-            await this.usersService
+            await this.conversationsService
               .addMessage(
                 userId,
                 conversationId,
@@ -166,7 +167,7 @@ export class AiService {
       }
 
       if (conversationId && response.content) {
-        await this.usersService
+        await this.conversationsService
           .addMessage(userId, conversationId, 'assistant', response.content)
           .catch((e) =>
             console.error('Failed to persist final assistant message', e),
@@ -251,7 +252,7 @@ export class AiService {
               resolvedPayload.messages.push(assistantMsg);
 
               if (conversationId) {
-                await this.usersService
+                await this.conversationsService
                   .addMessage(
                     userId,
                     conversationId,
@@ -283,7 +284,7 @@ export class AiService {
                 resolvedPayload.messages.push(toolResultMsg);
 
                 if (conversationId) {
-                  await this.usersService
+                  await this.conversationsService
                     .addMessage(
                       userId,
                       conversationId,
@@ -308,7 +309,7 @@ export class AiService {
               resolve();
             } else if (isTextStreaming) {
               if (conversationId && accumulatedAssistantText) {
-                await this.usersService
+                await this.conversationsService
                   .addMessage(
                     userId,
                     conversationId,
@@ -328,7 +329,7 @@ export class AiService {
               const fallback = 'מצטער, לא הצלחתי למצוא מידע רלוונטי לבקשה שלך.';
               subscriber.next({ type: 'text', content: fallback });
               if (conversationId) {
-                await this.usersService
+                await this.conversationsService
                   .addMessage(userId, conversationId, 'assistant', fallback)
                   .catch((e) =>
                     console.error(
@@ -369,6 +370,7 @@ export class AiService {
       maxTokens?: number;
       stream?: boolean;
       forceMarkdown?: boolean;
+      task?: AiTask;
     },
     request?: Request,
   ): Promise<any> {
@@ -395,6 +397,10 @@ export class AiService {
       (cfg.aiProviderConfigs && cfg.aiProviderConfigs[payload.provider]) || {};
 
     const resolvedPayload = { ...payload };
+
+    if (!resolvedPayload.model || resolvedPayload.model === 'auto') {
+      resolvedPayload.model = resolveAutoModel(resolvedPayload.provider, payload.task || 'chat');
+    }
 
     const resolvedApiKey =
       cfg.decryptedApiKeys?.[payload.provider] ||
@@ -572,5 +578,26 @@ export class AiService {
     }
 
     return payload;
+  }
+
+  async getOllamaRunningModels(customApiKey?: string): Promise<string[]> {
+    const provider = this.getProvider('ollama', customApiKey) as OllamaProvider;
+    return provider.getLoadedModels();
+  }
+
+  async startOllamaModel(
+    model: string,
+    customApiKey?: string,
+  ): Promise<boolean> {
+    const provider = this.getProvider('ollama', customApiKey) as OllamaProvider;
+    return provider.startModel(model);
+  }
+
+  async stopOllamaModel(
+    model: string,
+    customApiKey?: string,
+  ): Promise<boolean> {
+    const provider = this.getProvider('ollama', customApiKey) as OllamaProvider;
+    return provider.stopModel(model);
   }
 }

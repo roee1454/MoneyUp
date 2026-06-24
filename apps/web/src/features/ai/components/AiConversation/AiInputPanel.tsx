@@ -13,28 +13,30 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { BankIcon } from '@/features/accounts/components/BankIcon';
 import { getBankName, normalizeBankId } from '@money-up/common';
 import { AiModelDropdownSelector } from '@/features/ai/components/AiModelDropdownSelector';
-import type { AgentProvider } from '@money-up/common';
+import type { AgentProvider as CommonAgentProvider } from '@money-up/common';
+import { OllamaModelLoaderBanner } from '../OllamaModelLoaderBanner';
+import { useAiStore } from '@/store/aiStore';
 
 type TaggedItem =
   | { type: 'account'; bankId: string; accountNumber: string; name?: string }
   | { type: 'investment'; ticker: string; name: string };
 
 interface AiInputPanelProps {
-  prompt: string;
-  setPrompt: (value: string) => void;
   onSubmit: (promptValue: string) => void;
   isLoading: boolean;
   selectedModel: string;
   activeSources: string[];
 
-  agentProvider: AgentProvider;
-  setAgentProvider: (
-    provider: AgentProvider,
-  ) => void;
+  agentProvider: CommonAgentProvider;
+  setAgentProvider: (provider: CommonAgentProvider) => void;
   agentModel: string;
   setAgentModel: (model: string) => void;
+
   modelsByProvider: Record<string, string[]>;
   configuredProviders?: string[];
+
+  isModelLoaded?: boolean;
+  onStartModel?: () => void;
 }
 
 const MOCK_INVESTMENTS: TaggedItem[] = [
@@ -44,8 +46,6 @@ const MOCK_INVESTMENTS: TaggedItem[] = [
 ];
 
 export function AiInputPanel({
-  prompt,
-  setPrompt,
   onSubmit,
   isLoading,
   selectedModel,
@@ -56,7 +56,15 @@ export function AiInputPanel({
   setAgentModel,
   modelsByProvider,
   configuredProviders,
+  isModelLoaded = true,
+  onStartModel,
 }: AiInputPanelProps) {
+  const {
+    promptDraft: prompt,
+    setPromptDraft: setPrompt,
+    isStartingModel,
+  } = useAiStore();
+
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
@@ -471,6 +479,13 @@ export function AiInputPanel({
         </div>
       )}
 
+      <OllamaModelLoaderBanner
+        selectedModel={selectedModel}
+        isModelLoaded={isModelLoaded}
+        isStartingModel={isStartingModel}
+        onStartModel={onStartModel}
+      />
+
       <PremiumTextarea
         ref={textareaRef}
         value={prompt}
@@ -478,12 +493,14 @@ export function AiInputPanel({
         onSelect={handleSelect}
         onKeyDown={handleKeyDown}
         placeholder={
-          selectedModel
+          !isModelLoaded
+            ? `מודל ${selectedModel} אינו טעון בזיכרון. יש להפעילו תחילה.`
+            : selectedModel
             ? 'הקלד כאן שאלה... (השתמש ב-@ כדי לתייג חשבון או השקעה)'
             : 'יש לחבר ספק AI על מנת לשלוח הודעות'
         }
         className="w-full min-h-[100px] max-h-60 rounded-none border-none bg-transparent hover:bg-transparent focus:bg-transparent shadow-none py-4 px-4 resize-none text-right text-foreground relative z-10 leading-relaxed placeholder:text-muted-foreground text-[17px]"
-        disabled={isLoading || !selectedModel}
+        disabled={isLoading || !selectedModel || !isModelLoaded}
         rows={3}
       />
 
@@ -515,9 +532,10 @@ export function AiInputPanel({
           disabled={
             (!prompt.trim() && taggedItems.length === 0) ||
             isLoading ||
-            !selectedModel
+            !selectedModel ||
+            !isModelLoaded
           }
-          className="h-10 px-5"
+          className="h-10 px-5 rounded-none"
         >
           {isLoading ? (
             <CircleNotch className="h-4 w-4 animate-spin" />
