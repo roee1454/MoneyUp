@@ -26,6 +26,10 @@ export type UserPayload = {
   scraperChromiumPath?: string | null;
   aiProviderConfigs?: AiProviderConfigs;
   forceMarkdown?: boolean;
+  initialLandingPage?: string;
+  accentColor?: string;
+  defaultCurrency?: string;
+  sessionTimeoutMinutes?: number;
   createdAt: string;
   updatedAt: string;
 };

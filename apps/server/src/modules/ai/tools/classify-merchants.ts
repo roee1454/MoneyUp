@@ -1,5 +1,5 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
-import { SpendingService } from '../../spending/spending.service';
+import { SpendingAnnotationService } from '../../spending/spending-annotation.service';
 import { ToolRunner, ToolRegistry } from './tool-registry';
 
 /**
@@ -10,8 +10,8 @@ export class ClassifyMerchantsRunner implements ToolRunner {
   readonly name = 'classify_merchants_with_ai';
 
   constructor(
-    @Inject(forwardRef(() => SpendingService))
-    private readonly spendingService: SpendingService,
+    @Inject(forwardRef(() => SpendingAnnotationService))
+    private readonly spendingAnnotationService: SpendingAnnotationService,
     private readonly registry: ToolRegistry,
   ) {
     this.registry.register(this);
@@ -23,7 +23,7 @@ export class ClassifyMerchantsRunner implements ToolRunner {
         return { error: 'Missing or invalid unresolved merchants array.' };
       }
 
-      const results = await this.spendingService.classifyUnknownMerchantsWithAi(
+      const results = await this.spendingAnnotationService.classifyUnknownMerchantsWithAi(
         userId,
         args.unresolved,
         context?.provider as any,

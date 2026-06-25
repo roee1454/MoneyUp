@@ -1,9 +1,8 @@
 import { CircleNotch } from '@phosphor-icons/react';
-import { PremiumCard } from '@/components/ui/premium-card';
 
 export function DetectingBrowserCard() {
   return (
-    <PremiumCard className="p-12 flex flex-col items-center justify-center text-center space-y-4">
+    <div className="border border-border bg-muted/10 p-12 flex flex-col items-center justify-center text-center space-y-4 rounded-none">
       <CircleNotch className="h-10 w-10 animate-spin text-primary" />
       <div className="space-y-1">
         <p className="text-sm font-black text-foreground">
@@ -13,6 +12,6 @@ export function DetectingBrowserCard() {
           פעולה זו מתבצעת באופן אוטומטי לצורך הגדרת הסורקים
         </p>
       </div>
-    </PremiumCard>
+    </div>
   );
 }

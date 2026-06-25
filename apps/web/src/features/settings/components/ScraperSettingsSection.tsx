@@ -1,20 +1,23 @@
 import { useEffect } from 'react';
-import { Warning, ArrowsClockwise } from '@phosphor-icons/react';
+import { MagnifyingGlass, CaretDown } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PremiumCard } from '@/components/ui/premium-card';
 import { useDetectChromium } from '@/hooks/useScrapers';
 import { useUpdateScraperSettings } from '@/hooks/useUsers';
 import type { User } from '@/hooks/useUsers';
 import { BrowserPathDialog } from './BrowserPathDialog';
 import { InstallBrowserCard } from './InstallBrowserCard';
-import { ScraperSettingsCard } from './ScraperSettingsCard';
 import { DetectingBrowserCard } from './DetectingBrowserCard';
 import { InstallingBrowserCard } from './InstallingBrowserCard';
 import { API_BASE } from '@/lib/api';
 import { useSettingsStore } from '@/store/settingsStore';
+import { PremiumButton } from '@/components/ui/premium-button';
+import { PremiumInput } from '@/components/ui/premium-input';
+import { Select, SelectItem } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 
 const scraperSettingsSchema = z.object({
   scraperTimeoutRetryCount: z.number().int().min(0).max(5),
@@ -186,67 +189,238 @@ export function ScraperSettingsSection({
     );
   };
 
+  if (isDetecting) {
+    return <DetectingBrowserCard />;
+  }
+
+  if (isInstalling) {
+    return (
+      <InstallingBrowserCard
+        progress={installProgress}
+        logs={installLogs}
+      />
+    );
+  }
+
+  if (!scraperChromiumPath) {
+    return (
+      <InstallBrowserCard
+        availableBrowsers={availableBrowsers}
+        isInstalling={isInstalling}
+        onInstall={handleInstallChromium}
+        onDetect={handleAutoDetectChromium}
+      />
+    );
+  }
+
   return (
-    <section className="w-full space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-none bg-primary flex items-center justify-center">
-            <ArrowsClockwise
-              className="h-4 w-4 text-primary-foreground"
-              weight="bold"
-            />
+    <div className="w-full space-y-1 text-right">
+      {/* Row 1: Chromium Browser Path */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 border-b border-border/30 text-right items-start">
+        <div className="space-y-1.5">
+          <h3 className="font-black text-base text-foreground">נתיב דפדפן Chromium</h3>
+          <p className="text-xs font-semibold text-muted-foreground leading-relaxed">
+            נתיב ההרצה של דפדפן Chromium המשמש להרצת הסורקים האוטומטיים.
+          </p>
+        </div>
+        <div className="space-y-3 md:col-span-2 max-w-md w-full">
+          <div
+            onClick={() => setIsPathDialogOpen(true)}
+            className="p-3 bg-muted/40 border border-border text-[10.5px] font-mono font-bold text-muted-foreground truncate cursor-pointer hover:bg-muted/60 hover:border-border transition-all w-full"
+          >
+            {scraperChromiumPath || 'לא נמצא נתיב דפדפן'}
           </div>
-          <h2 className="text-xl font-black text-foreground">
-            הגדרות סורק Chromium
-          </h2>
+          <div className="flex justify-start">
+            <PremiumButton
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAutoDetectChromium}
+              disabled={isDetecting}
+              className="text-xs"
+            >
+              <MagnifyingGlass weight="bold" className="h-3.5 w-3.5 ms-1.5" />
+              <span>סריקה מחדש</span>
+            </PremiumButton>
+          </div>
         </div>
       </div>
 
-      {isDetecting ? (
-        <DetectingBrowserCard />
-      ) : isInstalling ? (
-        <InstallingBrowserCard
-          progress={installProgress}
-          logs={installLogs}
-        />
-      ) : !scraperChromiumPath ? (
-        <InstallBrowserCard
-          availableBrowsers={availableBrowsers}
-          isInstalling={isInstalling}
-          onInstall={handleInstallChromium}
-          onDetect={handleAutoDetectChromium}
-        />
-      ) : (
-        <ScraperSettingsCard
-          control={control}
-          scraperChromiumPath={scraperChromiumPath}
-          showAdvancedScraper={showAdvancedScraper}
-          setShowAdvancedScraper={setShowAdvancedScraper}
-          isDetecting={isDetecting}
-          onDetect={handleAutoDetectChromium}
-          onSaveAll={handleSubmit(onSubmitForm)}
-          isPending={saveScraperSettings.isPending}
-          onOpenPathDialog={() => setIsPathDialogOpen(true)}
-        />
+      {/* Row 2: Show Browser */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 border-b border-border/30 text-right items-start">
+        <div className="space-y-1.5">
+          <h3 className="font-black text-base text-foreground">הצגת דפדפן סריקה</h3>
+          <p className="text-xs font-semibold text-muted-foreground leading-relaxed">
+            הצג את חלון הדפדפן באופן ויזואלי בזמן פעולת הסנכרון (שימושי לפתרון בעיות).
+          </p>
+        </div>
+        <div className="md:col-span-2 max-w-md w-full flex items-center justify-between border border-border p-4 bg-muted/10">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-black text-foreground">מצב ויזואלי (Headful)</span>
+            <span className="text-[10px] font-semibold text-muted-foreground">
+              {watch('scraperShowBrowser') ? 'הדפדפן יוצג על המסך' : 'הדפדפן ירוץ ברקע'}
+            </span>
+          </div>
+          <Controller
+            name="scraperShowBrowser"
+            control={control}
+            render={({ field: { value, onChange } }) => (
+              <Switch
+                checked={value}
+                onCheckedChange={onChange}
+              />
+            )}
+          />
+        </div>
+      </div>
+
+      {/* Collapse/Expand Row for Advanced Settings */}
+      <div className="py-6 flex justify-center w-full">
+        <button
+          type="button"
+          onClick={() => setShowAdvancedScraper(!showAdvancedScraper)}
+          className="text-xs font-black text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 cursor-pointer py-1"
+        >
+          <span>{showAdvancedScraper ? 'הסתר הגדרות מתקדמות' : 'הצג הגדרות מתקדמות'}</span>
+          <CaretDown className={cn("h-3.5 w-3.5 transition-transform duration-200", showAdvancedScraper && "rotate-180")} weight="bold" />
+        </button>
+      </div>
+
+      {/* Advanced Settings */}
+      {showAdvancedScraper && (
+        <>
+          {/* Row 3: Scrape Retries */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 border-b border-border/30 text-right items-start">
+            <div className="space-y-1.5">
+              <h3 className="font-black text-base text-foreground">ניסיונות סריקה חוזרים</h3>
+              <p className="text-xs font-semibold text-muted-foreground leading-relaxed">
+                מספר הניסיונות שהסורק יבצע במידה והסנכרון נכשל בשל בעיות תקשורת או שגיאה זמנית באתר הבנק.
+              </p>
+            </div>
+            <div className="space-y-2 md:col-span-2 max-w-md w-full">
+              <Controller
+                name="scraperTimeoutRetryCount"
+                control={control}
+                render={({ field: { value, onChange } }) => (
+                  <Select
+                    value={String(value)}
+                    onValueChange={(val) => onChange(Number(val))}
+                  >
+                    <SelectItem value="0">ללא ניסיונות חוזרים</SelectItem>
+                    <SelectItem value="1">ניסיון אחד נוסף</SelectItem>
+                    <SelectItem value="2">2 ניסיונות נוספים</SelectItem>
+                    <SelectItem value="3">3 ניסיונות נוספים</SelectItem>
+                  </Select>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Row 4: Cooldown time between syncs */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 border-b border-border/30 text-right items-start">
+            <div className="space-y-1.5">
+              <h3 className="font-black text-base text-foreground">המתנה בין סנכרונים</h3>
+              <p className="text-xs font-semibold text-muted-foreground leading-relaxed">
+                תקופת הצינון הנדרשת בין סנכרונים ידניים עוקבים כדי למנוע חסימת החשבון ע'י מערכות האבטחה של הבנק.
+              </p>
+            </div>
+            <div className="flex gap-3 md:col-span-2 max-w-md w-full">
+              <Controller
+                name="cooldownValue"
+                control={control}
+                render={({ field: { value, onChange } }) => (
+                  <PremiumInput
+                    type="number"
+                    value={value}
+                    onChange={(e) => onChange(Number(e.target.value))}
+                    className="w-24 text-center"
+                  />
+                )}
+              />
+              <div className="w-full">
+                <Controller
+                  name="cooldownUnit"
+                  control={control}
+                  render={({ field: { value, onChange } }) => (
+                    <Select
+                      value={value}
+                      onValueChange={onChange}
+                      className='w-full'
+                    >
+                      <SelectItem value="seconds">שניות</SelectItem>
+                      <SelectItem value="minutes">דקות</SelectItem>
+                      <SelectItem value="hours">שעות</SelectItem>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 5: Connection Timeout */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 border-b border-border/30 text-right items-start">
+            <div className="space-y-1.5">
+              <h3 className="font-black text-base text-foreground">זמן התחברות (שניות)</h3>
+              <p className="text-xs font-semibold text-muted-foreground leading-relaxed">
+                הזמן המקסימלי שהמערכת תמתין לטעינת דף ההתחברות של הבנק או כרטיס האשראי.
+              </p>
+            </div>
+            <div className="space-y-2 md:col-span-2 max-w-md w-full">
+              <Controller
+                name="scraperLoginTimeoutSeconds"
+                control={control}
+                render={({ field: { value, onChange } }) => (
+                  <PremiumInput
+                    type="number"
+                    value={value}
+                    onChange={(e) => onChange(Number(e.target.value))}
+                  />
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Row 6: Default/Scrape Timeout */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-6 text-right items-start">
+            <div className="space-y-1.5">
+              <h3 className="font-black text-base text-foreground">זמן סריקה (שניות)</h3>
+              <p className="text-xs font-semibold text-muted-foreground leading-relaxed">
+                הזמן המקסימלי שהמערכת תמתין לטעינת נתוני העובר ושב או העסקאות בתוך החשבון.
+              </p>
+            </div>
+            <div className="space-y-2 md:col-span-2 max-w-md w-full">
+              <Controller
+                name="scraperDefaultTimeoutSeconds"
+                control={control}
+                render={({ field: { value, onChange } }) => (
+                  <PremiumInput
+                    type="number"
+                    value={value}
+                    onChange={(e) => onChange(Number(e.target.value))}
+                  />
+                )}
+              />
+            </div>
+          </div>
+        </>
       )}
 
-      <PremiumCard className="p-5 bg-muted/10 border-dashed border-border">
-        <div className="flex gap-4">
-          <div className="h-10 w-10 shrink-0 rounded-full bg-muted flex items-center justify-center">
-            <Warning className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="space-y-1">
-            <h4 className="text-sm font-black text-foreground leading-tight">
-              צריך עזרה?
-            </h4>
-            <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">
-              הגדרות אלו משפיעות ישירות על יציבות הסנכרון מול הבנקים. במקרה של
-              תקלות חוזרות, מומלץ להעלות את זמני ה-Timeout או להפעיל את תצוגת
-              הדפדפן כדי לאבחן את הבעיה.
-            </p>
-          </div>
+
+      {/* Sticky Save Button Row */}
+      <div
+        className="sticky bottom-0 z-30 bg-background/95 backdrop-blur-md grid grid-cols-1 md:grid-cols-3 gap-8 py-6 text-right items-center w-full"
+      >
+        <div className="hidden md:block" />
+        <div className="md:col-span-2 max-w-md w-full flex justify-end">
+          <PremiumButton
+            onClick={handleSubmit(onSubmitForm)}
+            disabled={saveScraperSettings.isPending}
+            className="w-full md:w-auto px-10 shadow-lg shadow-primary/10"
+          >
+            {saveScraperSettings.isPending ? 'שומר שינויים...' : 'שמור שינויים'}
+          </PremiumButton>
         </div>
-      </PremiumCard>
+      </div>
 
       {/* Browser Path Dialog */}
       <BrowserPathDialog
@@ -255,6 +429,6 @@ export function ScraperSettingsSection({
         currentPath={scraperChromiumPath}
         onSave={(path) => setValue('scraperChromiumPath', path)}
       />
-    </section>
+    </div>
   );
 }

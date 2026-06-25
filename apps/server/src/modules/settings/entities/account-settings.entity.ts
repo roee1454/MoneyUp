@@ -22,4 +22,16 @@ export class AccountSettingsEntity {
 
   @Column({ type: 'text', nullable: true })
   unlockKeySalt: string | null;
+
+  @Column({ type: 'text', default: '/dashboard' })
+  initialLandingPage: string;
+
+  @Column({ type: 'text', default: 'default' })
+  accentColor: string;
+
+  @Column({ type: 'text', default: 'ILS' })
+  defaultCurrency: string;
+
+  @Column({ type: 'integer', default: 30 })
+  sessionTimeoutMinutes: number;
 }

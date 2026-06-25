@@ -1,37 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
-import { CircleNotch, CreditCard, Sparkle, Info } from '@phosphor-icons/react';
-import { cn } from '@/lib/utils';
+import { CircleNotch, CreditCard, Sparkle } from '@phosphor-icons/react';
 import type { SpendingScansResponse } from '@/hooks/useAiSpending';
-import { useAnnotateSpendingScansProgress, useUnresolvedMerchantsCount } from '@/hooks/useAiSpending';
-import { toast } from 'sonner';
-import { useNavigate } from '@tanstack/react-router';
-import { AiModelDropdownSelector } from '@/features/ai/components/AiModelDropdownSelector';
 import { PremiumButton } from '@/components/ui/premium-button';
 import type { SpendingCategoryItem, SpendingTransactionItem } from '../types';
 import { SpendingCategoryList } from './SpendingCategoryList';
 import { CategoryDetailsSheet } from './CategoryDetailsSheet';
 import { FilterChips } from '@/components/ui/filter-chips';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { DashboardRangePicker } from './DashboardRangePicker';
-import {
-  AgentProvider,
-  getBankName,
-  OpenAiModels,
-  GeminiModels,
-  ClaudeModels,
-  OllamaModels,
-  ALL_PROVIDERS,
-  CATEGORY_EMOJIS,
-  getModelPricing,
-  resolveAutoModel,
-} from '@money-up/common';
+import { getBankName, CATEGORY_EMOJIS } from '@money-up/common';
+import { AiClassificationDialog } from './AiClassificationDialog';
 
 interface SpendingCategoriesProps {
   scans?: SpendingScansResponse | null;
@@ -72,15 +48,6 @@ function getDisplayReason(reason?: string): string | null {
   return null;
 }
 
-
-const MODELS_BY_PROVIDER: Record<string, string[]> = {
-  openai: OpenAiModels,
-  claude: ClaudeModels,
-  gemini: GeminiModels,
-  ollama: OllamaModels,
-};
-
-
 export function SpendingCategories({
   scans,
   period,
@@ -95,145 +62,8 @@ export function SpendingCategories({
   onGoToAiStudio,
   onExcludedExpensesChange,
 }: SpendingCategoriesProps) {
-  const navigate = useNavigate();
-  const shouldReduceMotion = useReducedMotion();
-
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [diagStartDate, setDiagStartDate] = useState(startDate);
-  const [diagEndDate, setDiagEndDate] = useState(endDate);
-
-  // Sync dialog date range to dashboard range whenever the dialog opens
-  useEffect(() => {
-    if (isDialogOpen) {
-      setDiagStartDate(startDate);
-      setDiagEndDate(endDate);
-    }
-  }, [isDialogOpen, startDate, endDate]);
-
-  const [classProvider, setClassProvider] = useState<AgentProvider>(() => {
-    const saved = localStorage.getItem('moneyup_classification_provider');
-    if (saved === 'openai' || saved === 'claude' || saved === 'gemini' || saved === 'ollama') {
-      return saved as AgentProvider;
-    }
-    return 'gemini';
-  });
-
-  const [classModel, setClassModel] = useState<string>(() => {
-    const saved = localStorage.getItem('moneyup_classification_model');
-    if (saved) return saved;
-    return 'gemini-2.5-flash';
-  });
-
-  useEffect(() => {
-    if (configuredProviders.length > 0) {
-      const savedProvider = localStorage.getItem('moneyup_classification_provider') as AgentProvider | null;
-      const savedModel = localStorage.getItem('moneyup_classification_model');
-
-      let targetProvider: AgentProvider = 'gemini';
-      if (savedProvider && configuredProviders.includes(savedProvider)) {
-        targetProvider = savedProvider;
-      } else if (configuredProviders.includes(classProvider)) {
-        targetProvider = classProvider;
-      } else {
-        targetProvider = (configuredProviders[0] as AgentProvider) || 'gemini';
-      }
-
-      setClassProvider(targetProvider);
-
-      const availableModels = MODELS_BY_PROVIDER[targetProvider] || [];
-      if (savedModel && availableModels.includes(savedModel)) {
-        setClassModel(savedModel);
-      } else {
-        let defaultModel = 'gemini-2.5-flash';
-        if (targetProvider === 'openai') defaultModel = 'gpt-4o-mini';
-        else if (targetProvider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
-        else if (targetProvider === 'gemini') defaultModel = 'gemini-2.5-flash';
-        else defaultModel = MODELS_BY_PROVIDER[targetProvider]?.[0] || '';
-        setClassModel(defaultModel);
-      }
-    }
-  }, [configuredProviders]);
-
-  const handleProviderChange = (provider: AgentProvider) => {
-    if (!configuredProviders.includes(provider)) {
-      toast.error(`ספק ${provider.toUpperCase()} אינו מחובר.`, {
-        action: {
-          label: 'להגדרות',
-          onClick: () => void navigate({ to: '/settings/ai' }),
-        },
-      });
-      return;
-    }
-
-    setClassProvider(provider);
-    localStorage.setItem('moneyup_classification_provider', provider);
-    let defaultModel = 'gemini-2.5-flash';
-    if (provider === 'openai') defaultModel = 'gpt-4o-mini';
-    else if (provider === 'claude') defaultModel = 'claude-3-5-haiku-20241022';
-    else if (provider === 'gemini') defaultModel = 'gemini-2.5-flash';
-    else defaultModel = MODELS_BY_PROVIDER[provider]?.[0] || '';
-    
-    setClassModel(defaultModel);
-    localStorage.setItem('moneyup_classification_model', defaultModel);
-  };
-
-  const handleModelChange = (model: string) => {
-    setClassModel(model);
-    localStorage.setItem('moneyup_classification_model', model);
-  };
-
-  const {
-    mutateAsync: annotateWithAiSocket,
-    isPending: isAnnotatingSocket,
-  } = useAnnotateSpendingScansProgress();
-
-  // Live unresolved merchant count for the dialog's own date range.
-  // Only fetches when the dialog is open; TanStack Query serves from cache
-  // when diagRange === dashboardRange (zero extra network cost).
-  const {
-    count: uncategorizedCount,
-    isLoading: isMerchantsLoading,
-  } = useUnresolvedMerchantsCount(diagStartDate, diagEndDate, isDialogOpen);
-
-  const tokenEstimation = useMemo(() => {
-    const N = uncategorizedCount;
-    if (N === 0) return { input: 0, output: 0, total: 0, batches: 0, estimatedUsd: null };
-    const SYSTEM_PROMPT_TOKENS = 478;
-    const INPUT_PER_MERCHANT = 18;
-    const OUTPUT_PER_MERCHANT = 35;
-    const batches = Math.ceil(N / 50);
-    const input = (batches * SYSTEM_PROMPT_TOKENS) + (N * INPUT_PER_MERCHANT);
-    const output = N * OUTPUT_PER_MERCHANT;
-
-    const activeModel = classModel === 'auto'
-      ? resolveAutoModel(classProvider, 'classification')
-      : classModel;
-
-    const pricing = getModelPricing(activeModel);
-    const estimatedUsd = pricing
-      ? (input / 1_000_000) * pricing.inputPer1M + (output / 1_000_000) * pricing.outputPer1M
-      : null;
-    return { input, output, total: input + output, batches, estimatedUsd };
-  }, [uncategorizedCount, classModel, classProvider]);
-
-  const handleRunClassification = async () => {
-    try {
-      const activeModel = classModel === 'auto'
-        ? resolveAutoModel(classProvider, 'classification')
-        : classModel;
-
-      await annotateWithAiSocket({
-        startDate: diagStartDate,
-        endDate: diagEndDate,
-        provider: classProvider as AgentProvider,
-        model: activeModel,
-      });
-      toast.success('הסיווג החכם הושלם בהצלחה!');
-      setIsDialogOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || 'הסיווג נכשל');
-    }
-  };
+  const [isAnnotating, setIsAnnotating] = useState(false);
 
   const [selectedCategory, setSelectedCategory] =
     useState<SpendingCategoryItem | null>(null);
@@ -399,7 +229,7 @@ export function SpendingCategories({
   }, [selectedCategory, sortedCategories, allExpensesCategory]);
 
   const showShimmer = isLoadingScans || (hasConnectedAccounts && !scans);
-  const isBusy = (isWidgetBusy || isAnnotatingSocket) && !showShimmer;
+  const isBusy = (isWidgetBusy || isAnnotating) && !showShimmer;
   const shouldShimmerSpendingValues = showShimmer || isRefreshingScans;
 
   const aiAction = hasConnectedAccounts ? (
@@ -408,7 +238,7 @@ export function SpendingCategories({
         <PremiumButton
           type="button"
           onClick={() => setIsDialogOpen(true)}
-          disabled={isWidgetBusy || isAnnotatingSocket}
+          disabled={isWidgetBusy || isAnnotating}
           size="sm"
           className="h-8.5 px-5 rounded-none border border-border/40 shadow-xs font-black text-xs min-w-[140px] cursor-pointer bg-primary text-primary-foreground hover:bg-primary/95"
         >
@@ -504,9 +334,9 @@ export function SpendingCategories({
 
   return (
     <div className="space-y-6">
-      {(isWidgetBusy || isRefreshingScans || isAnnotatingSocket) && !showShimmer ? (
+      {(isWidgetBusy || isRefreshingScans || isAnnotating) && !showShimmer ? (
         <div className="pointer-events-none fixed bottom-5 left-5 z-30 border border-border bg-background px-4 py-2 text-xs font-black text-foreground shadow-lg">
-          {isAnnotatingSocket
+          {isAnnotating
             ? 'מסווג בתי עסק ומעדכן נתונים...'
             : 'מעדכן נתוני הוצאות...'}
         </div>
@@ -543,7 +373,7 @@ export function SpendingCategories({
             <div className="flex items-center gap-3 border border-border bg-background px-5 py-4 shadow-xl rounded-none">
               <CircleNotch className="h-5 w-5 animate-spin text-primary" />
               <span className="text-xs font-black text-foreground uppercase tracking-wider">
-                {isAnnotatingSocket ? 'מבצע סיווג חכם...' : 'סנכרון נתונים פעיל...'}
+                {isAnnotating ? 'מבצע סיווג חכם...' : 'סנכרון נתונים פעיל...'}
               </span>
             </div>
           </div>
@@ -586,158 +416,14 @@ export function SpendingCategories({
         getDisplayReason={getDisplayReason}
       />
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        if (!isAnnotatingSocket) {
-          setIsDialogOpen(open);
-        }
-      }}>
-        <DialogContent className="rounded-none border border-border bg-card text-foreground max-w-lg shadow-2xl p-6 text-right font-semibold" dir="rtl" showCloseButton={!isAnnotatingSocket}>
-          <motion.div
-            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <DialogHeader className="text-right space-y-1.5 border-b border-border/40 pb-4">
-              <DialogTitle className="text-lg font-black tracking-tight flex items-center gap-2">
-                <Sparkle className="h-5 w-5 text-primary" weight="fill" />
-                סיווג עסקאות חכם (AI)
-              </DialogTitle>
-              <DialogDescription className="text-sm font-medium text-muted-foreground">
-                בחרו ספק, דגם וטווח תאריכים להפעלת סיווג אוטומטי של עסקאות לא מסווגות.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-5 py-4">
-
-              {/* AI Model Selector */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-muted-foreground block">ספק ודגם AI</label>
-                <AiModelDropdownSelector
-                  selectedProvider={classProvider}
-                  setSelectedProvider={(p) => handleProviderChange(p as any)}
-                  selectedModel={classModel}
-                  setSelectedModel={handleModelChange}
-                  modelsByProvider={MODELS_BY_PROVIDER}
-                  providers={ALL_PROVIDERS}
-                  isLoading={isAnnotatingSocket}
-                  configuredProviders={configuredProviders}
-                  className="w-full h-10"
-                />
-              </div>
-
-              {/* Date Range */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-muted-foreground block">טווח תאריכים לסיווג</label>
-                <div className="border border-border/60 bg-muted/5 px-3 py-2">
-                  <DashboardRangePicker
-                    startDate={diagStartDate}
-                    endDate={diagEndDate}
-                    onStartDateChange={setDiagStartDate}
-                    onEndDateChange={setDiagEndDate}
-                    isBusy={isAnnotatingSocket}
-                    className="w-full"
-                    pickerClassName="flex-1 h-10"
-                  />
-                </div>
-              </div>
-
-              <motion.div
-                layout
-                initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-                className={cn(
-                  "border p-4 rounded-none text-sm leading-relaxed",
-                  isMerchantsLoading
-                    ? "border-border/60 bg-muted/10 text-muted-foreground animate-pulse"
-                    : uncategorizedCount === 0
-                      ? "border-border/60 bg-muted/10 text-muted-foreground"
-                      : "bg-primary/5 text-foreground border-primary/30"
-                )}
-              >
-                {isMerchantsLoading ? (
-                  <div className="flex items-center gap-2">
-                    <CircleNotch className="h-4 w-4 shrink-0 animate-spin" />
-                    <span>טוען נתונים לטווח התאריכים...</span>
-                  </div>
-                ) : uncategorizedCount === 0 ? (
-                  <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 shrink-0 text-muted-foreground" weight="bold" />
-                    <span>אין ביתי עסק לא מסווגים בטווח זה. הכל מסווג!</span>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <p className="font-black text-primary">נמצאו <span className="text-xl">{uncategorizedCount}</span> בתי עסק ייחודיים שטרם סווגו.</p>
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      עלות טוקנים מוערכת: <span className="font-bold text-foreground">{tokenEstimation.total.toLocaleString()} טוקנים</span>
-                      {' '}(~{tokenEstimation.input.toLocaleString()} קלט, ~{tokenEstimation.output.toLocaleString()} פלט ב-{tokenEstimation.batches} סבבים).
-                    </p>
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      עלות כספית מוערכת:{' '}
-                      {classProvider === 'ollama' ? (
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400">חינם (מקומי)</span>
-                      ) : tokenEstimation.estimatedUsd !== null ? (
-                        <span className="font-bold text-foreground" dir="ltr">
-                          ${tokenEstimation.estimatedUsd.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 4,
-                          })}
-                        </span>
-                      ) : (
-                        <span className="font-bold text-muted-foreground">עלות לא ידועה</span>
-                      )}
-                    </p>
-                  </div>
-                )}
-              </motion.div>
-
-              {isAnnotatingSocket && (
-                <motion.div
-                  initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                  className="flex items-center justify-center gap-3 border border-border/60 bg-muted/10 p-5 rounded-none"
-                >
-                  <CircleNotch className="h-5 w-5 animate-spin text-primary" weight="bold" />
-                  <span className="text-sm font-bold text-foreground">מבצע סיווג חכם... אנא המתן.</span>
-                </motion.div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-border/40 pt-4">
-              <motion.button
-                type="button"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={isAnnotatingSocket}
-                whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
-                whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
-                className="inline-flex h-10 cursor-pointer items-center justify-center border border-border bg-background px-5 text-sm font-black text-foreground hover:bg-muted/40 transition-colors rounded-none"
-              >
-                ביטול
-              </motion.button>
-              <motion.div
-                whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
-                whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
-                className="inline-block"
-              >
-                <PremiumButton
-                  type="button"
-                  onClick={handleRunClassification}
-                  disabled={uncategorizedCount === 0 || isAnnotatingSocket || isMerchantsLoading}
-                  className="h-10 px-6 rounded-none font-black text-sm"
-                >
-                  {isAnnotatingSocket ? (
-                    <CircleNotch className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkle className="h-4 w-4" weight="fill" />
-                  )}
-                  <span>הפעל סיווג</span>
-                </PremiumButton>
-              </motion.div>
-            </div>
-          </motion.div>
-        </DialogContent>
-      </Dialog>
+      <AiClassificationDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        startDate={startDate}
+        endDate={endDate}
+        configuredProviders={configuredProviders}
+        onAnnotatingChange={setIsAnnotating}
+      />
     </div>
   );
 }

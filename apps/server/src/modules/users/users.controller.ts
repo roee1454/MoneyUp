@@ -166,6 +166,65 @@ export class UsersController {
     return toPublicUser(user as any);
   }
 
+  @Patch('me/general-settings')
+  async saveGeneralSettings(
+    @Req() request: Request,
+    @Body()
+    data: {
+      username?: string;
+      initialLandingPage?: string;
+      accentColor?: string;
+      defaultCurrency?: string;
+      sessionTimeoutMinutes?: number;
+    },
+  ) {
+    const userId = requireSessionUserId(request);
+    const user = await this.usersService.saveGeneralSettings(userId, data);
+    return toPublicUser(user as any);
+  }
+
+  @Post('me/security/enable-lock')
+  async enableLock(
+    @Req() request: Request,
+    @Body() data: { unlockKey: string },
+  ) {
+    const userId = requireSessionUserId(request);
+    const user = await this.usersService.enableProfileLock(userId, data.unlockKey);
+    return toPublicUser(user as any);
+  }
+
+  @Post('me/security/disable-lock')
+  async disableLock(
+    @Req() request: Request,
+    @Body() data: { unlockKey: string },
+  ) {
+    const userId = requireSessionUserId(request);
+    try {
+      const user = await this.usersService.disableProfileLock(userId, data.unlockKey);
+      return toPublicUser(user as any);
+    } catch (err: any) {
+      throw new UnauthorizedException(err.message || 'קוד פתיחה שגוי');
+    }
+  }
+
+  @Post('me/security/update-lock')
+  async updateLock(
+    @Req() request: Request,
+    @Body() data: { oldUnlockKey: string; newUnlockKey: string },
+  ) {
+    const userId = requireSessionUserId(request);
+    try {
+      const user = await this.usersService.updateProfileUnlockKey(
+        userId,
+        data.oldUnlockKey,
+        data.newUnlockKey,
+      );
+      return toPublicUser(user as any);
+    } catch (err: any) {
+      throw new UnauthorizedException(err.message || 'קוד פתיחה שגוי');
+    }
+  }
+
   @Delete(':id')
   async deleteUser(@Param('id') id: string) {
     return this.usersService.remove(id);

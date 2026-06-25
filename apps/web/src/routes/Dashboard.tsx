@@ -267,7 +267,7 @@ export default function Dashboard() {
       <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
         <DashboardHeader
           greeting={greeting}
-          username={session?.username}
+          username={userProfile?.username || session?.username}
           controls={
             <DashboardRangePicker
               startDate={startDate}

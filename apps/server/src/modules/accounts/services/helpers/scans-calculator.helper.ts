@@ -206,19 +206,23 @@ export async function scanIncomeDeterministic(
       }
 
       if (amount < 0) {
-        const merchantName = getCleanDescription(
+        let merchantName = getCleanDescription(
           txn.description,
           txn.memo,
         );
         if (!merchantName) {
-          if (debugTrace && baseDebugTxn) {
-            debugTrace.transactions.push({
-              ...baseDebugTxn,
-              status: 'skipped_no_description',
-              reason: 'Expense has no usable description',
-            });
+          if (isCredit) {
+            merchantName = String(txn.description || txn.memo || 'הוצאה').trim();
+          } else {
+            if (debugTrace && baseDebugTxn) {
+              debugTrace.transactions.push({
+                ...baseDebugTxn,
+                status: 'skipped_no_description',
+                reason: 'Expense has no usable description',
+              });
+            }
+            continue;
           }
-          continue;
         }
         const normalizedMerchant = normalizeMerchantKey(merchantName);
         let category: (typeof EXPENSE_CATEGORIES)[number] | null =

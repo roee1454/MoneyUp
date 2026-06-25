@@ -14,14 +14,16 @@ export const loginPayloadSchema = z.object({
 export const profileCreationSchema = z.object({
   username: z.string().min(3, 'שם המשתמש חייב להכיל לפחות 3 תווים'),
   lockProfile: z.boolean().optional(),
-  unlockKey: z.string().min(4, 'קוד פתיחה חייב להכיל לפחות 4 תווים').optional(),
+  unlockKey: z.string().optional(),
 }).superRefine((data, ctx) => {
-  if (data.lockProfile && (!data.unlockKey || data.unlockKey.trim().length < 4)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['unlockKey'],
-      message: 'יש להזין קוד פתיחה כאשר הפרופיל נעול',
-    });
+  if (data.lockProfile) {
+    if (!data.unlockKey || data.unlockKey.trim().length < 4) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['unlockKey'],
+        message: 'קוד פתיחה חייב להכיל לפחות 4 תווים',
+      });
+    }
   }
 });
 

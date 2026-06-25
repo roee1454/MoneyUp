@@ -35,7 +35,7 @@ export function AiProvidersSection({
           onClick={onAddClick}
           className="h-9 px-4 text-xs font-black bg-primary hover:bg-primary/90 text-primary-foreground rounded-none shadow-lg shadow-primary/10 transition-all active:scale-95"
         >
-          <span>הוספת ספק (API)</span>
+          <span>הוספת ספק</span>
         </Button>
       </div>
 

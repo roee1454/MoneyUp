@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Warning } from '@phosphor-icons/react';
-import { useAccounts, isCreditCompanyBankId } from '@/hooks/useAccounts';
+import { useAccounts, isCreditCompanyBankId, isBankAccountBankId } from '@/hooks/useAccounts';
 import { toDateInputValue } from '@money-up/common';
 import { format, parseISO } from 'date-fns';
 import { motion, useReducedMotion, type Variants } from 'motion/react';
@@ -15,6 +15,7 @@ import { ExportHeader } from '@/features/export/components/ExportHeader';
 import { ExportMetricsGrid } from '@/features/export/components/ExportMetricsGrid';
 import { ExportActionsGrid } from '@/features/export/components/ExportActionsGrid';
 import { PrintableReportTemplate } from '@/features/export/components/PrintableReportTemplate';
+import { ExportConfigDialog, type ExportFormatType } from '@/features/export/components/ExportConfigDialog';
 
 export default function Export() {
   const shouldReduceMotion = useReducedMotion();
@@ -46,6 +47,10 @@ export default function Export() {
     return accounts.filter((acc) => isCreditCompanyBankId(acc.bankId));
   }, [accounts]);
 
+  const bankAccounts = React.useMemo(() => {
+    return accounts.filter((acc) => isBankAccountBankId(acc.bankId));
+  }, [accounts]);
+
   // Calculate totals
   const totalTransactions = React.useMemo(() => {
     return creditAccounts.reduce((acc, curr) => acc + (curr.transactions?.length || 0), 0);
@@ -65,9 +70,46 @@ export default function Export() {
     return total;
   }, [rawScans]);
 
+  const totalIncomesAmount = React.useMemo(() => {
+    return bankAccounts.reduce((sum, acc) => {
+      const accountIncomes = (acc.transactions ?? [])
+        .filter((t) => !t.isDuplicate && Number(t.chargedAmount ?? t.amount ?? 0) > 0)
+        .reduce((accSum, t) => accSum + Number(t.chargedAmount ?? t.amount ?? 0), 0);
+      return sum + accountIncomes;
+    }, 0);
+  }, [bankAccounts]);
+
   const creditAccountIds = React.useMemo(() => {
     return [...new Set(creditAccounts.map((a) => a.bankId))];
   }, [creditAccounts]);
+
+  const bankAccountIds = React.useMemo(() => {
+    return [...new Set(bankAccounts.map((a) => a.bankId))];
+  }, [bankAccounts]);
+
+  /**
+   * Builds a txn-identifier -> category name lookup from the AI scans result.
+   * Falls back to an empty map when scans are not yet loaded.
+   */
+  const categoryMap = React.useMemo<Map<string, string>>(() => {
+    const map = new Map<string, string>();
+    if (!rawScans?.categoryTransactions) return map;
+    for (const catName in rawScans.categoryTransactions) {
+      for (const txn of rawScans.categoryTransactions[catName]) {
+        if (txn.transactionId) map.set(txn.transactionId, catName);
+      }
+    }
+    return map;
+  }, [rawScans]);
+
+  // Interface for file save mutations to avoid explicit 'any'
+  interface SaveFileResult {
+    aborted?: boolean;
+    success?: boolean;
+    filepath?: string;
+    fallback?: boolean;
+    isPdf?: boolean;
+  }
 
   // Mutation for unified file saving with abort checks & web fallbacks
   const saveFileMutation = useMutation({
@@ -81,7 +123,7 @@ export default function Export() {
       suggestedName: string;
       mimeType: string;
       extension: string;
-    }) => {
+    }): Promise<SaveFileResult> => {
       try {
         const res = await api.post<{ success: boolean; filepath?: string; aborted?: boolean; error?: string }>('/export/save', {
           content,
@@ -120,7 +162,7 @@ export default function Export() {
         URL.revokeObjectURL(url);
         return { success: true, fallback: true };
       },
-      onSuccess: (data: any) => {
+      onSuccess: (data: SaveFileResult) => {
         if (data?.aborted) {
           toast.info('שמירת הקובץ בוטלה על ידי המשתמש');
           return;
@@ -135,26 +177,86 @@ export default function Export() {
           toast.success(`הקובץ נשמר בהצלחה בנתיב: ${data.filepath}`);
         }
       },
-      onError: (error: any) => {
+      onError: (error: Error) => {
         toast.error(`שגיאה בשמירת הקובץ: ${error.message}`);
       },
   });
 
-  const handleExportCSV = () => {
-    const headers = ['בית עסק', 'תאריך', 'סכום לחיוב', 'מטבע', 'סוג תנועה'].join(',');
+  const [activeExportFormat, setActiveExportFormat] = useState<ExportFormatType | null>(null);
+  const [selectedPdfColumns, setSelectedPdfColumns] = useState<string[]>(['date', 'description', 'amount', 'type']);
+  const [includePdfIncomes, setIncludePdfIncomes] = useState(false);
+
+  const handleConfirmExport = (config: { includeIncomes: boolean; selectedColumns: string[] }) => {
+    if (activeExportFormat === 'CSV') {
+      handleExportCSV(config.selectedColumns, config.includeIncomes);
+    } else if (activeExportFormat === 'JSON') {
+      handleExportJSON(config.selectedColumns, config.includeIncomes);
+    } else if (activeExportFormat === 'PDF') {
+      setSelectedPdfColumns(config.selectedColumns);
+      setIncludePdfIncomes(config.includeIncomes);
+      // Wait for rendering update
+      setTimeout(() => {
+        handleExportPDF();
+      }, 100);
+    }
+    setActiveExportFormat(null);
+  };
+
+  const handleExportCSV = (selectedColumns: string[], includeIncomes: boolean) => {
+    const labelMap: Record<string, string> = {
+      date: 'תאריך',
+      description: 'בית עסק',
+      amount: 'סכום לחיוב',
+      currency: 'מטבע',
+      type: 'סוג תנועה',
+      category: 'קטגוריה',
+    };
+
+    const headers = selectedColumns.map((col) => labelMap[col] || col).join(',');
     const rows: string[] = [];
 
-    for (const account of creditAccounts) {
-       for (const txn of account.transactions || []) {
-         const merchant = txn.description || 'עסקה ללא שם';
-         const formattedDate = txn.date ? format(parseISO(txn.date), 'dd/MM/yyyy') : '';
-         const amount = txn.chargedAmount != null ? txn.chargedAmount : txn.amount;
-         const currency = txn.originalCurrency || 'ILS';
-         const type = txn.type === 'installments' ? 'תשלומים' : 'רגיל';
+    const exportAccounts = includeIncomes
+      ? accounts
+      : creditAccounts;
 
-         const escapedMerchant = `"${merchant.replace(/"/g, '""')}"`;
-         rows.push([escapedMerchant, formattedDate, amount, currency, type].join(','));
-       }
+    for (const account of exportAccounts) {
+      const isBank = isBankAccountBankId(account.bankId);
+      const rawTxns = account.transactions || [];
+
+      const txns = isBank
+        ? rawTxns.filter((t) => !t.isDuplicate && Number(t.chargedAmount ?? t.amount ?? 0) > 0)
+        : rawTxns;
+
+      for (const txn of txns) {
+        const isIncome = Number(txn.chargedAmount ?? txn.amount ?? 0) > 0;
+        const rowData: string[] = [];
+
+        for (const col of selectedColumns) {
+          if (col === 'date') {
+            rowData.push(txn.date ? format(parseISO(txn.date), 'dd/MM/yyyy') : '');
+          } else if (col === 'description') {
+            const desc = txn.description || (isBank ? 'הכנסה' : 'עסקה ללא שם');
+            rowData.push(`"${desc.replace(/"/g, '""')}"`);
+          } else if (col === 'amount') {
+            const amt = txn.chargedAmount != null ? txn.chargedAmount : txn.amount;
+            rowData.push(`${isIncome ? '+' : '-'}${amt}`);
+          } else if (col === 'type') {
+            const typeLabel = isBank
+              ? 'הכנסה'
+              : txn.type === 'installments'
+              ? 'תשלומים'
+              : 'רגיל';
+            rowData.push(typeLabel);
+          } else if (col === 'category') {
+            const cat =
+              (txn.id ? categoryMap.get(String(txn.id)) : undefined) ??
+              (txn.identifier ? categoryMap.get(String(txn.identifier)) : undefined) ??
+              (isBank ? 'הכנסה' : 'לא מסווג');
+            rowData.push(`"${cat.replace(/"/g, '""')}"`);
+          }
+        }
+        rows.push(rowData.join(','));
+      }
     }
 
     const csvContent = '\uFEFF' + headers + '\r\n' + rows.join('\r\n');
@@ -167,31 +269,49 @@ export default function Export() {
     });
   };
 
-  const handleExportJSON = () => {
-    const dataToExport = creditAccounts.map((acc) => ({
-      bankId: acc.bankId,
-      accountNumber: acc.accountNumber,
-      balance: acc.balance,
-      lastScrapedAt: acc.lastScrapedAt,
-      transactions: (acc.transactions || []).map((txn) => ({
-        id: txn.id,
-        date: txn.date,
-        processedDate: txn.processedDate,
-        amount: txn.amount,
-        chargedAmount: txn.chargedAmount,
-        description: txn.description,
-        memo: txn.memo,
-        originalCurrency: txn.originalCurrency,
-        isDuplicate: txn.isDuplicate,
-        type: txn.type,
-        identifier: txn.identifier,
-        originalAmount: txn.originalAmount,
-        chargedCurrency: txn.chargedCurrency,
-        status: txn.status,
-        installmentNumber: txn.installmentNumber,
-        installmentTotal: txn.installmentTotal,
-      })),
-    }));
+  const handleExportJSON = (selectedColumns: string[], includeIncomes: boolean) => {
+    const exportAccounts = includeIncomes
+      ? accounts
+      : creditAccounts;
+
+    const dataToExport = exportAccounts.map((acc) => {
+      const isBank = isBankAccountBankId(acc.bankId);
+      const rawTxns = acc.transactions || [];
+
+      const txns = isBank
+        ? rawTxns.filter((t) => !t.isDuplicate && Number(t.chargedAmount ?? t.amount ?? 0) > 0)
+        : rawTxns;
+
+      const accObj: Record<string, any> = {};
+
+      if (selectedColumns.includes('bankId')) accObj.bankId = acc.bankId;
+      if (selectedColumns.includes('accountNumber')) accObj.accountNumber = acc.accountNumber;
+      if (selectedColumns.includes('balance')) accObj.balance = acc.balance;
+      if (selectedColumns.includes('lastScrapedAt')) accObj.lastScrapedAt = acc.lastScrapedAt;
+
+      if (selectedColumns.includes('transactions')) {
+        accObj.transactions = txns.map((txn) => ({
+          id: txn.id,
+          date: txn.date,
+          processedDate: txn.processedDate,
+          amount: txn.amount,
+          chargedAmount: txn.chargedAmount,
+          description: txn.description,
+          memo: txn.memo,
+          originalCurrency: txn.originalCurrency,
+          isDuplicate: txn.isDuplicate,
+          type: isBank ? 'income' : txn.type,
+          identifier: txn.identifier,
+          originalAmount: txn.originalAmount,
+          chargedCurrency: txn.chargedCurrency,
+          status: txn.status,
+          installmentNumber: txn.installmentNumber,
+          installmentTotal: txn.installmentTotal,
+        }));
+      }
+
+      return accObj;
+    });
 
     const jsonContent = JSON.stringify(dataToExport, null, 2);
     const filename = `MoneyUp_Backup_${startDate}_to_${endDate}.json`;
@@ -266,27 +386,41 @@ export default function Export() {
 
       <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
         <ExportMetricsGrid
-          creditAccountsCount={creditAccounts.length}
-          totalTransactions={totalTransactions}
           totalExpensesAmount={totalExpensesAmount}
+          totalIncomesAmount={totalIncomesAmount}
           creditAccountIds={creditAccountIds}
+          bankAccountIds={bankAccountIds}
           isBusy={isBusy}
         />
       </MotionItem>
 
       <MotionItem {...(isAnimated ? { variants: itemVariants } : {})}>
         <ExportActionsGrid
-          onExportCSV={handleExportCSV}
-          onExportPDF={handleExportPDF}
-          onExportJSON={handleExportJSON}
-          totalTransactions={totalTransactions}
-          creditAccountsCount={creditAccounts.length}
+          onExportCSV={() => setActiveExportFormat('CSV')}
+          onExportPDF={() => setActiveExportFormat('PDF')}
+          onExportJSON={() => setActiveExportFormat('JSON')}
+          hasConnectedAccounts={creditAccounts.length > 0}
           isBusy={isBusy}
           isExporting={saveFileMutation.isPending ? saveFileMutation.variables?.extension.toUpperCase() || null : null}
         />
       </MotionItem>
 
-      {totalTransactions === 0 && !isLoading && !isFetching && (
+      {creditAccounts.length === 0 && !isLoading && !isFetching && (
+        <MotionItem
+          className="bg-muted/40 border border-border p-4 text-right flex gap-3 items-start rounded-none animate-in fade-in-50 duration-300"
+          {...(isAnimated ? { variants: itemVariants } : {})}
+        >
+          <Warning className="h-5 w-5 text-primary-500 shrink-0 mt-0.5" weight="fill" />
+          <div className="space-y-1">
+            <h4 className="text-xs font-black text-foreground">לא מחוברת חברת אשראי</h4>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              עליך לחבר חברת אשראי לפרופיל שלך כדי שתוכל לראות, לייצא ולייצר דוחות עבור ההוצאות שלך. ניתן לחבר חברת אשראי דרך כפתור "חיבור חשבון" בדף הבית.
+            </p>
+          </div>
+        </MotionItem>
+      )}
+
+      {creditAccounts.length > 0 && totalTransactions === 0 && !isLoading && !isFetching && (
         <MotionItem
           className="bg-amber-500/10 border border-amber-500/20 p-4 text-right flex gap-3 items-start rounded-none animate-in fade-in-50 duration-300"
           {...(isAnimated ? { variants: itemVariants } : {})}
@@ -304,8 +438,17 @@ export default function Export() {
       <PrintableReportTemplate
         startDate={startDate}
         endDate={endDate}
-        creditAccounts={creditAccounts}
-        totalTransactions={totalTransactions}
+        accounts={selectedPdfColumns.length > 0 && includePdfIncomes ? [...bankAccounts, ...creditAccounts] : creditAccounts}
+        selectedColumns={selectedPdfColumns}
+        includeIncomes={includePdfIncomes}
+        categoryMap={categoryMap}
+      />
+
+      <ExportConfigDialog
+        open={activeExportFormat !== null}
+        onOpenChange={(open) => { if (!open) setActiveExportFormat(null); }}
+        format={activeExportFormat}
+        onConfirm={handleConfirmExport}
       />
     </LayoutContainer>
   );

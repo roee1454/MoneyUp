@@ -18,13 +18,7 @@ interface DashboardMetricsGridProps {
   onShowIncomeClick: () => void;
 }
 
-function formatMoney(value: number): string {
-  return value.toLocaleString('he-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    maximumFractionDigits: 0,
-  });
-}
+import { useFormatMoney } from '@/hooks/useFormatMoney';
 
 export function DashboardMetricsGrid({
   accounts,
@@ -39,6 +33,7 @@ export function DashboardMetricsGrid({
   excludedExpenseAmount,
   onShowIncomeClick,
 }: DashboardMetricsGridProps) {
+  const formatMoney = useFormatMoney();
   const currentBankBalance = useMemo(() => {
     return accounts
       .filter((account) => !['max', 'isracard', 'cal'].includes(account.bankId))
@@ -106,12 +101,16 @@ export function DashboardMetricsGrid({
         value={formatMoney(
           hasBankAccounts ? currentBankBalance : (scans?.totalBalance ?? 0),
         )}
-        caption="סיכום עו״ש בלבד"
         tone="zinc"
         isLoading={isBalanceLoading || isSyncing}
         isLocked={!hasBankAccounts}
         lockedLabel="נדרש חיבור לחשבון בנק"
         sourceBankIds={bankAccountIds}
+        footer={
+          hasBankAccounts ? (
+            <span>סיכום עו״ש בלבד</span>
+          ) : null
+        }
       />
 
       <DashboardMetricCard
@@ -133,7 +132,7 @@ export function DashboardMetricsGrid({
       <DashboardMetricCard
         variant="cell"
         title="סך הכנסות"
-        value={formatMoney(dashboardTotalIncome)}
+        value={`+${formatMoney(dashboardTotalIncome)}`}
         tone="emerald"
         isLoading={isIncomeLoading || isSyncing}
         isLocked={!hasBankAccounts}
@@ -155,7 +154,7 @@ export function DashboardMetricsGrid({
       <DashboardMetricCard
         variant="cell"
         title="תזרים נטו"
-        value={formatMoney(netSpending)}
+        value={`${formatMoney(netSpending)}`}
         tone={netSpending < 0 ? 'rose' : 'emerald'}
         isLoading={isNetSpendingLoading || isSyncing}
         isLocked={!hasBankAccounts}

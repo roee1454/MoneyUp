@@ -78,7 +78,7 @@ export function Select({
 
       {open && (
         <div className={cn(
-          "absolute z-50 min-w-32 overflow-hidden border border-border bg-card/95 backdrop-blur-md text-foreground shadow-xl animate-in fade-in-50 zoom-in-95 duration-200 w-full max-h-60 overflow-y-auto custom-scrollbar",
+          "absolute z-50 min-w-32 overflow-hidden border border-border bg-card text-foreground shadow-xl transform-gpu animate-in fade-in-50 zoom-in-95 duration-200 w-full max-h-60 overflow-y-auto custom-scrollbar",
           position === 'top' ? 'bottom-full mb-1.5' : 'mt-1.5',
           className?.includes('rounded-full') || className?.includes('rounded-md') ? 'rounded-lg' : 'rounded-none'
         )}>

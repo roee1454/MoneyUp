@@ -8,7 +8,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { PremiumInput } from '@/components/ui/premium-input';
 import { BankIcon } from '../BankIcon';
-import { LOGIN_FIELD_LABELS } from './constants';
+import { BROWSER_RECOMMENDATION_BANKS, LOGIN_FIELD_LABELS } from './constants';
 import type { ScraperListItem } from './types';
 
 interface CredentialsStepProps {
@@ -17,6 +17,7 @@ interface CredentialsStepProps {
   onBack: () => void;
   errorMsg: string | null;
   isConnecting: boolean;
+  initialValues?: Record<string, string> | null;
 }
 
 /** Login credentials form for the selected bank scraper using react-hook-form. */
@@ -26,9 +27,13 @@ export function CredentialsStep({
   onBack,
   errorMsg,
   isConnecting,
+  initialValues,
 }: CredentialsStepProps) {
   const { control, handleSubmit } = useForm<Record<string, string>>({
-    defaultValues: selectedBank.loginFields.reduce((acc, field) => ({ ...acc, [field]: '' }), {}),
+    defaultValues: selectedBank.loginFields.reduce((acc, field) => {
+      acc[field] = initialValues?.[field] ?? '';
+      return acc;
+    }, {} as Record<string, string>),
   });
 
   return (
@@ -47,9 +52,19 @@ export function CredentialsStep({
         </div>
       </DialogHeader>
 
-      <div className="bg-muted/40 border border-border p-3 text-xs leading-relaxed text-muted-foreground rounded-none animate-in fade-in-50 duration-150">
-        <span>
-          פרטי ההתחברות אינם מועברים לשום צד שלישי. הם מוצפן באופן מקומי
+      {BROWSER_RECOMMENDATION_BANKS.includes(selectedBank.id.toLowerCase()) && (
+        <div className="p-3 text-xs leading-relaxed border border-border bg-muted/40 rounded-none animate-in fade-in-50 duration-150 flex flex-col gap-1">
+          <span className="font-black">💡 מומלץ להפעיל תצוגת דפדפן:</span>
+          <span className="text-muted-foreground">
+            עבור ספק זה מומלץ להפעיל את תצוגת הדפדפן (הגדרות סורקים ← "הצג דפדפן בזמן סנכרון") כדי למנוע חסימות אבטחה ולאפשר הזנת קודים או אישורים נוספים במידת הצורך.
+          </span>
+        </div>
+      )}
+      
+      <div className="bg-muted/40 border border-border p-3 text-xs leading-relaxed rounded-none animate-in fade-in-50 duration-150 flex flex-col gap-1">
+        <span className='font-black'>תזכורת:</span>
+        <span className="text-muted-foreground">
+          פרטי ההתחברות אינם מועברים לשום צד שלישי. הם מוצפנים באופן מקומי
           על המחשב שלך בלבד!
         </span>
       </div>

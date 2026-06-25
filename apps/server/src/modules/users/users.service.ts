@@ -16,8 +16,7 @@ import { AccountSettingsService } from '../settings/services/account-settings.se
 
 /**
  * Service managing user profiles, configurations, and chat session histories.
- * Handles credential encryption, lock/unlock keys via scrypt, AI provider details,
- * and database storage for conversations and message logs.
+ * Handles credential encryption, lock/unlock keys via scrypt and AI provider details.
  */
 @Injectable()
 export class UsersService {
@@ -135,6 +134,10 @@ export class UsersService {
       scraperLoginTimeoutSeconds: scraper.scraperLoginTimeoutSeconds,
       scraperDefaultTimeoutSeconds: scraper.scraperDefaultTimeoutSeconds,
       scraperChromiumPath: scraper.scraperChromiumPath,
+      initialLandingPage: account.initialLandingPage,
+      accentColor: account.accentColor,
+      defaultCurrency: account.defaultCurrency,
+      sessionTimeoutMinutes: account.sessionTimeoutMinutes,
     };
   }
 
@@ -325,6 +328,55 @@ export class UsersService {
     },
   ): Promise<User> {
     await this.scraperSettings.saveScraperSettings(id, data);
+    const updated = await this.findOne(id);
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
+  }
+
+  /**
+   * Saves general preferences settings (landing page, accent color, currency preference, inactivity auto-logout timeout)
+   * and optionally updates username.
+   */
+  async saveGeneralSettings(
+    id: string,
+    data: {
+      username?: string;
+      initialLandingPage?: string;
+      accentColor?: string;
+      defaultCurrency?: string;
+      sessionTimeoutMinutes?: number;
+    },
+  ): Promise<any> {
+    if (data.username !== undefined && data.username.trim() !== '') {
+      const normalized = data.username.trim();
+      const existing = await this.userRepository.findOneBy({ username: normalized });
+      if (existing && existing.id !== id) {
+        throw new Error('שם משתמש זה כבר תפוס');
+      }
+      await this.userRepository.update(id, { username: normalized });
+    }
+    await this.accountSettings.updateGeneralSettings(id, data);
+    const updated = await this.findOne(id);
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
+  }
+
+  async enableProfileLock(id: string, unlockKey: string): Promise<any> {
+    await this.accountSettings.enableUnlockKey(id, unlockKey);
+    const updated = await this.findOne(id);
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
+  }
+
+  async disableProfileLock(id: string, unlockKey: string): Promise<any> {
+    await this.accountSettings.disableUnlockKey(id, unlockKey);
+    const updated = await this.findOne(id);
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
+  }
+
+  async updateProfileUnlockKey(id: string, oldUnlockKey: string, newUnlockKey: string): Promise<any> {
+    await this.accountSettings.updateUnlockKey(id, oldUnlockKey, newUnlockKey);
     const updated = await this.findOne(id);
     if (!updated) throw new NotFoundException('User not found');
     return updated;

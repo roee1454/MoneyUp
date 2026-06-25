@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { Plus } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { AccountStrip } from '@/features/accounts/components/AccountStrip';
 import type { BankAccount } from '@/hooks/useAccounts';
+import { useBrowserReady } from '@/hooks/useScrapers';
+import { NoBrowserDialog } from './NoBrowserDialog';
 
 interface BankConnectionsSectionProps {
   accounts: BankAccount[];
@@ -16,6 +19,17 @@ export function BankConnectionsSection({
   isSyncing = false,
   onAddClick,
 }: BankConnectionsSectionProps) {
+  const { isReady } = useBrowserReady();
+  const [noChromiumOpen, setNoChromiumOpen] = useState(false);
+
+  const handleAddClick = () => {
+    if (!isReady) {
+      setNoChromiumOpen(true);
+    } else {
+      onAddClick();
+    }
+  };
+
   return (
     <section className="w-full space-y-4">
       <div className="flex items-center justify-between">
@@ -28,7 +42,7 @@ export function BankConnectionsSection({
           </h2>
         </div>
         <Button
-          onClick={onAddClick}
+          onClick={handleAddClick}
           disabled={isSyncing}
           className="h-9 px-4 text-xs font-black bg-primary hover:bg-primary/90 text-primary-foreground rounded-none shadow-lg shadow-primary/10 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -38,10 +52,12 @@ export function BankConnectionsSection({
 
       <AccountStrip
         accounts={accounts}
-        onAddClick={onAddClick}
+        onAddClick={handleAddClick}
         isInitialLoading={isLoadingAccounts}
         isRefreshingValues={isSyncing}
       />
+
+      <NoBrowserDialog open={noChromiumOpen} onOpenChange={setNoChromiumOpen} />
     </section>
   );
 }

@@ -1,5 +1,4 @@
 import { CircleNotch } from '@phosphor-icons/react';
-import { PremiumCard } from '@/components/ui/premium-card';
 
 interface InstallingBrowserCardProps {
   progress: number;
@@ -11,7 +10,7 @@ export function InstallingBrowserCard({
   logs,
 }: InstallingBrowserCardProps) {
   return (
-    <PremiumCard className="p-8 flex flex-col space-y-6 bg-primary/5 relative overflow-hidden">
+    <div className="border border-border p-8 flex flex-col space-y-6 bg-primary/5 relative overflow-hidden rounded-none">
       <div className="flex flex-col items-center text-center space-y-4">
         <CircleNotch className="h-10 w-10 animate-spin text-primary" />
         <div className="space-y-1">
@@ -51,6 +50,6 @@ export function InstallingBrowserCard({
           ))
         )}
       </div>
-    </PremiumCard>
+    </div>
   );
 }

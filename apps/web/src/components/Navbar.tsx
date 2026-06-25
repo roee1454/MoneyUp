@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { List, CaretDown, Plus, Trash, ChatCircle } from '@phosphor-icons/react';
 import { Link, useRouterState } from '@tanstack/react-router';
-import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { DeleteConversationDialog } from '@/features/ai/components/DeleteConversationDialog';
 import { useConversations, useDeleteConversation } from '@/hooks/useAi';
@@ -32,9 +31,10 @@ const NAV_ITEMS = [
 ];
 
 const SETTINGS_SUB_ITEMS = [
+  { label: 'כללי ואבטחה', to: '/settings/profile' },
+  { label: 'הגדרות סורקים', to: '/settings/scrapers' },
   { label: 'חיבורי בנקים ואשראי', to: '/settings' },
   { label: 'הגדרות בינה מלאכותית', to: '/settings/ai' },
-  { label: 'הגדרות סורקים', to: '/settings/scrapers' },
 ];
 
 type SidebarContentProps = {
@@ -283,11 +283,14 @@ function SidebarContent({
   );
 }
 
+import { useUserProfile } from '@/hooks/useUsers';
+
 export function Navbar() {
   const [isHydrated, setIsHydrated] = useState(false);
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
   const session = useAppStore((s) => s.session);
+  const { data: userProfile } = useUserProfile(session?.userId);
   const sync = useAppStore((s) => s.sync);
   const logoutMutation = useLogout();
   const syncMutation = useSyncAccounts();
@@ -313,7 +316,7 @@ export function Navbar() {
   const sidebar = (
     <SidebarContent
       pathname={pathname}
-      username={session.username}
+      username={userProfile?.username || session.username}
       isSyncing={isSyncing}
       isSyncPending={syncMutation.isPending}
       onSync={(start, end) => void handleSync(start, end)}
@@ -334,7 +337,6 @@ export function Navbar() {
         <div className="flex items-center justify-between">
           <BrandLogo variant="nav" to="/dashboard" />
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <Sheet>
               <SheetTrigger asChild>
                 <Button
