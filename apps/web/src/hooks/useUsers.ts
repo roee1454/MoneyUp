@@ -110,3 +110,72 @@ export function useUpdateScraperSettings() {
     },
   });
 }
+
+/**
+ * Updates the general user preferences and settings.
+ */
+export function useUpdateGeneralSettings() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: {
+      username?: string;
+      initialLandingPage?: string;
+      accentColor?: string;
+      defaultCurrency?: string;
+      sessionTimeoutMinutes?: number;
+    }) => api.patch<User>('/users/me/general-settings', payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+/**
+ * Enables security passcode lock on the user profile.
+ */
+export function useEnableProfileLock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { unlockKey: string }) =>
+      api.post('/users/me/security/enable-lock', payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+/**
+ * Disables security passcode lock on the user profile.
+ */
+export function useDisableProfileLock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { unlockKey: string }) =>
+      api.post('/users/me/security/disable-lock', payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+/**
+ * Updates the security passcode lock key for the user profile.
+ */
+export function useUpdateUnlockKey() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { oldUnlockKey: string; newUnlockKey: string }) =>
+      api.post('/users/me/security/update-lock', payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}

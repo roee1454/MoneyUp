@@ -12,8 +12,7 @@ interface ExportActionsGridProps {
   onExportCSV: () => void;
   onExportPDF: () => void;
   onExportJSON: () => void;
-  totalTransactions: number;
-  creditAccountsCount: number;
+  hasConnectedAccounts: boolean;
   isBusy: boolean;
   isExporting: string | null;
 }
@@ -22,8 +21,7 @@ export function ExportActionsGrid({
   onExportCSV,
   onExportPDF,
   onExportJSON,
-  totalTransactions,
-  creditAccountsCount,
+  hasConnectedAccounts,
   isBusy,
   isExporting,
 }: ExportActionsGridProps) {
@@ -32,19 +30,19 @@ export function ExportActionsGrid({
       {/* CSV/Excel Card */}
       <PremiumCard className="p-6 flex flex-col justify-between h-[250px] border border-border/40 bg-card hover:border-primary/40 hover:shadow-lg transition-all duration-300">
         <div className="space-y-3">
-          <div className="h-12 w-12 bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 rounded-none border border-emerald-500/20 shadow-xs">
+          <div className="h-12 w-12 bg-primary/10 flex items-center justify-center rounded-none border border-primary/20 shadow-xs">
             <FileXls className="h-6 w-6" weight="duotone" />
           </div>
           <h3 className="text-base font-black text-foreground">קובץ Excel (CSV)</h3>
           <p className="text-xs font-semibold text-muted-foreground/80 leading-relaxed">
-            קובץ נתונים מובנה המותאם ל-Excel ול-Google Sheets. כולל את רשימת העסקאות והמטא-דאטה הגולמי שלהן (ללא קטגוריות).
+            קובץ נתונים מובנה המותאם ל-Excel. כולל את רשימת העסקאות והמטא-דאטה הגולמי שלהן.
           </p>
         </div>
         <PremiumButton
           onClick={onExportCSV}
-          disabled={isBusy || totalTransactions === 0 || isExporting !== null}
-          variant="outline"
-          className="w-full h-11 text-xs font-black border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/5 hover:border-emerald-500 flex items-center justify-center gap-2 rounded-none transition-all duration-200 active:scale-98"
+          disabled={isBusy || !hasConnectedAccounts || isExporting !== null}
+          variant="default"
+          className="w-full h-11 text-xs font-black border-primary/30 flex items-center justify-center gap-2 rounded-none transition-all duration-200 active:scale-98"
         >
           {isExporting === 'CSV' ? (
             <CircleNotch className="h-5 w-5 animate-spin" />
@@ -60,19 +58,19 @@ export function ExportActionsGrid({
       {/* PDF Card */}
       <PremiumCard className="p-6 flex flex-col justify-between h-[250px] border border-border/40 bg-card hover:border-primary/40 hover:shadow-lg transition-all duration-300">
         <div className="space-y-3">
-          <div className="h-12 w-12 bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400 rounded-none border border-rose-500/20 shadow-xs">
+          <div className="h-12 w-12 bg-primary/10 flex items-center justify-center rounded-none border border-primary/20 shadow-xs">
             <FilePdfIcon className="h-6 w-6" weight="duotone" />
           </div>
-          <h3 className="text-base font-black text-foreground">דוח PDF מעוצב</h3>
+          <h3 className="text-base font-black text-foreground">דו"ח PDF</h3>
           <p className="text-xs font-semibold text-muted-foreground/80 leading-relaxed">
-            דוח פיננסי מרוכז הכולל מיתוג, סיכום יתרות חשבון ופירוט תנועות מסודר בטבלה מעוצבת. מותאם להדפסה ולשמירה.
+            דו"ח הוצאות מרוכז המכיל מיתוג, תארכים, פירוט כרטיסים, וטבלת תנועות מפורטת.
           </p>
         </div>
         <PremiumButton
           onClick={onExportPDF}
-          disabled={isBusy || totalTransactions === 0 || isExporting !== null}
-          variant="outline"
-          className="w-full h-11 text-xs font-black border-rose-500/30 text-rose-600 hover:bg-rose-500/5 hover:border-rose-500 flex items-center justify-center gap-2 rounded-none transition-all duration-200 active:scale-98"
+          disabled={isBusy || !hasConnectedAccounts || isExporting !== null}
+          variant="default"
+          className="w-full h-11 text-xs font-black border-primary/30 flex items-center justify-center gap-2 rounded-none transition-all duration-200 active:scale-98"
         >
           {isExporting === 'PDF' ? (
             <CircleNotch className="h-5 w-5 animate-spin" />
@@ -88,19 +86,19 @@ export function ExportActionsGrid({
       {/* JSON Backup Card */}
       <PremiumCard className="p-6 flex flex-col justify-between h-[250px] border border-border/40 bg-card hover:border-primary/40 hover:shadow-lg transition-all duration-300 sm:col-span-2 lg:col-span-1">
         <div className="space-y-3">
-          <div className="h-12 w-12 bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 rounded-none border border-blue-500/20 shadow-xs">
+          <div className="h-12 w-12 bg-primary/10 flex items-center justify-center rounded-none border border-primary/20 shadow-xs">
             <FileJson className="h-6 w-6" />
           </div>
-          <h3 className="text-base font-black text-foreground">גיבוי מלא JSON</h3>
+          <h3 className="text-base font-black text-foreground">קובץ JSON</h3>
           <p className="text-xs font-semibold text-muted-foreground/80 leading-relaxed">
-            חילוץ מלא של כל הנתונים הפיננסיים והמטא-דאטה שנאספו במערכת לטווח התאריכים הנבחר כקובץ JSON מובנה.
+כל הנתונים הפיננסים לפי טווח התאריכים שנבחר בפורמט JSON.
           </p>
         </div>
         <PremiumButton
           onClick={onExportJSON}
-          disabled={isBusy || creditAccountsCount === 0 || isExporting !== null}
-          variant="outline"
-          className="w-full h-11 text-xs font-black border-blue-500/30 text-blue-600 hover:bg-blue-500/5 hover:border-blue-500 flex items-center justify-center gap-2 rounded-none transition-all duration-200 active:scale-98"
+          disabled={isBusy || !hasConnectedAccounts || isExporting !== null}
+          variant="default"
+          className="w-full h-11 text-xs font-black border-primary/30 flex items-center justify-center gap-2 rounded-none transition-all duration-200 active:scale-98"
         >
           {isExporting === 'JSON' ? (
             <CircleNotch className="h-5 w-5 animate-spin" />

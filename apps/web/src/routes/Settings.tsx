@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 import { motion, useReducedMotion, type Variants } from 'motion/react';
 
 const BREADCRUMBS = [
-  { label: 'חשבונות', to: '/settings' },
-  { label: 'בינה מלאכותית', to: '/settings/ai' },
+  { label: 'כללי ואבטחה', to: '/settings/profile' },
   { label: 'סורקים', to: '/settings/scrapers' },
+  { label: 'בנקים ואשראי', to: '/settings' },
+  { label: 'בינה מלאכותית', to: '/settings/ai' },
 ];
 
 const containerVariants: Variants = {

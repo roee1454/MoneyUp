@@ -49,16 +49,21 @@ export function useLogin() {
       username: string;
       unlockTicket?: string;
     }) => {
-      await api.post('/auth/login', { userId, username, unlockTicket });
-      return api.get<SessionResponse>('/auth/session');
+      const loginRes = await api.post<{ success: boolean; user: any }>('/auth/login', { userId, username, unlockTicket });
+      const sessionData = await api.get<SessionResponse>('/auth/session');
+      return {
+        session: sessionData,
+        userProfile: loginRes.user,
+      };
     },
-    onSuccess: (sessionData) => {
-      if (!sessionData.user) {
+    onSuccess: (data) => {
+      if (!data.session.user) {
         throw new Error('לא נמצאה סשן פעילה');
       }
-      setSession(sessionData.user);
+      setSession(data.session.user);
       queryClient.clear();
-      navigate({ to: '/dashboard' });
+      const landing = data.userProfile?.initialLandingPage ?? '/dashboard';
+      navigate({ to: landing });
     },
   });
 }

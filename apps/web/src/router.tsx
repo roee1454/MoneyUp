@@ -15,18 +15,21 @@ import Settings from '@/routes/Settings';
 import AccountsSettings from '@/routes/settings/Accounts';
 import AiSettings from '@/routes/settings/Ai';
 import ScrapersSettings from '@/routes/settings/Scrapers';
+import ProfileSettings from '@/routes/settings/Profile';
+import { useUserProfile } from '@/hooks/useUsers';
 // import { InvestmentsRoute } from '@/routes/InvestmentsRoute';
 
 import { useState, useEffect } from 'react';
 import { useRouterState, useNavigate } from '@tanstack/react-router';
 import { useAppStore } from '@/store';
 import { Navbar } from '@/components/Navbar';
-import { useSession } from '@/hooks/useAuth';
+import { useSession, useLogout } from '@/hooks/useAuth';
 import { useGlobalSyncManager } from '@/hooks/useGlobalSync';
 import { GlobalSyncBubble } from '@/features/accounts/components/GlobalSyncBubble';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { PremiumAnimatedBackground } from '@/components/ui/premium-animated-background';
+import { toast } from 'sonner';
 
 
 const privatePaths = [
@@ -36,6 +39,7 @@ const privatePaths = [
   '/settings',
   '/settings/ai',
   '/settings/scrapers',
+  '/settings/profile',
 ];
 
 function AppLayout() {
@@ -46,6 +50,9 @@ function AppLayout() {
   const [isHydrated, setIsHydrated] = useState(false);
   const sessionQuery = useSession();
   const isLoadingSession = sessionQuery.isLoading;
+
+  const profileQuery = useUserProfile(session?.userId);
+  const userProfile = profileQuery.data;
 
   useEffect(() => {
     setIsHydrated(true);
@@ -69,7 +76,9 @@ function AppLayout() {
 
     if (session) {
       if (path === '/login' || path === '/') {
-        void navigate({ to: '/dashboard' });
+        if (profileQuery.isLoading) return;
+        const landing = userProfile?.initialLandingPage ?? '/dashboard';
+        void navigate({ to: landing as any });
       }
     } else {
       if (privatePaths.includes(path)) {
@@ -82,7 +91,42 @@ function AppLayout() {
     routerState.location.pathname,
     navigate,
     isHydrated,
+    userProfile,
+    profileQuery.isLoading,
   ]);
+
+  const logoutMutation = useLogout();
+  const sessionTimeout = userProfile?.sessionTimeoutMinutes ?? 30;
+
+  useEffect(() => {
+    if (!session || sessionTimeout <= 0) return;
+
+    const timeoutMs = sessionTimeout * 60 * 1000;
+    let lastActivity = Date.now();
+
+    const checkTimeout = () => {
+      if (Date.now() - lastActivity >= timeoutMs) {
+        logoutMutation.mutate();
+        toast.error('התנתקת מהמערכת עקב חוסר פעילות');
+      }
+    };
+
+    const resetActivity = () => {
+      lastActivity = Date.now();
+    };
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    const handler = () => resetActivity();
+    events.forEach(e => window.addEventListener(e, handler));
+    
+    // Check interval every 15 seconds
+    const interval = setInterval(checkTimeout, 15000);
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, handler));
+      clearInterval(interval);
+    };
+  }, [session, sessionTimeout, logoutMutation]);
 
   const showNavbar =
     isHydrated &&
@@ -121,13 +165,18 @@ function AppLayout() {
     );
   }
 
+  const accentClass = userProfile?.accentColor && userProfile.accentColor !== 'default'
+    ? `accent-${userProfile.accentColor}`
+    : '';
+
   return (
     <main
-      className={
+      className={cn(
         showNavbar
           ? 'flex h-dvh flex-col overflow-hidden bg-background text-foreground transition-colors duration-300'
-          : 'min-h-screen bg-background text-foreground transition-colors duration-300 relative'
-      }
+          : 'min-h-screen bg-background text-foreground transition-colors duration-300 relative',
+        accentClass,
+      )}
     >
       {!showNavbar && (
         <div className="fixed top-4 left-4 z-50">
@@ -235,6 +284,12 @@ const settingsScrapersRoute = createRoute({
   component: ScrapersSettings,
 });
 
+const settingsProfileRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/profile',
+  component: ProfileSettings,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
@@ -246,6 +301,7 @@ const routeTree = rootRoute.addChildren([
     settingsIndexRoute,
     settingsAiRoute,
     settingsScrapersRoute,
+    settingsProfileRoute,
   ]),
 ]);
 

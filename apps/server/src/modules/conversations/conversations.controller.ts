@@ -15,6 +15,7 @@ import { requireSessionUserId } from '../../utils/auth.utils';
 import { ConversationsService } from './conversations.service';
 import { UsersService } from '../users/users.service';
 import { AiService } from '../ai/ai.service';
+import { OllamaService } from '../ai/ollama.service';
 
 @Controller('ai/conversations')
 export class ConversationsController {
@@ -24,6 +25,8 @@ export class ConversationsController {
     private readonly usersService: UsersService,
     @Inject(forwardRef(() => AiService))
     private readonly aiService: AiService,
+    @Inject(forwardRef(() => OllamaService))
+    private readonly ollamaService: OllamaService,
   ) {}
 
   @Get()
@@ -73,7 +76,7 @@ export class ConversationsController {
             { provider: 'ollama' },
             request,
           );
-          const loadedModels = await this.aiService.getOllamaRunningModels(resolved.apiKey);
+          const loadedModels = await this.ollamaService.getOllamaRunningModels(resolved.apiKey);
           const isRunning = loadedModels.includes(modelName) || loadedModels.some(r => r.startsWith(modelName + ':') || modelName.startsWith(r + ':'));
           if (!isRunning) {
             throw new BadRequestException(`מודל Ollama "${modelName}" אינו טעון בזיכרון. אנא הפעל אותו תחילה.`);

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useFormatMoney } from '@/hooks/useFormatMoney';
 import { CircleNotch, MagnifyingGlass, X } from '@phosphor-icons/react';
 import type { SpendingCategoryItem, SpendingTransactionItem } from '../types';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ export function SpendingCategoryDetailsCard({
   onToggleTransactionExcluded,
   getDisplayReason,
 }: SpendingCategoryDetailsCardProps) {
+  const formatMoney = useFormatMoney();
   const [displayLimit, setDisplayLimit] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'name-asc'>('date-desc');
@@ -237,9 +239,9 @@ export function SpendingCategoryDetailsCard({
               className="h-9 text-xs rounded-none border-border/80 bg-background"
             >
               <SelectItem value="all">כל הסכומים</SelectItem>
-              <SelectItem value="gt100">מעל ₪100</SelectItem>
-              <SelectItem value="gt500">מעל ₪500</SelectItem>
-              <SelectItem value="gt1000">מעל ₪1,000</SelectItem>
+              <SelectItem value="gt100">מעל {formatMoney(100)}</SelectItem>
+              <SelectItem value="gt500">מעל {formatMoney(500)}</SelectItem>
+              <SelectItem value="gt1000">מעל {formatMoney(1000)}</SelectItem>
             </Select>
           </div>
         </div>
@@ -277,7 +279,7 @@ export function SpendingCategoryDetailsCard({
                 className="text-xl font-black text-rose-600 dark:text-rose-400"
                 dir="ltr"
               >
-                {totalFilteredAmount.toLocaleString('he-IL')} ₪
+                {formatMoney(totalFilteredAmount)}
               </span>
             </div>
 
@@ -318,7 +320,7 @@ export function SpendingCategoryDetailsCard({
                         {isLoading ? (
                           <span className="inline-block h-3.5 w-16 animate-soft-shimmer bg-muted" />
                         ) : (
-                          <>-{txn.amount.toLocaleString('he-IL')} ₪</>
+                          <>-{formatMoney(txn.amount)}</>
                         )}
                       </div>
                     </div>

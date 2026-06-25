@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Warning, Trash, Info } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { useFormatMoney } from '@/hooks/useFormatMoney';
 import {
   type BankAccount,
   isCreditCompanyBankId,
@@ -44,25 +45,6 @@ const getAccountId = (account: BankAccount) => {
   return account.accountNumber;
 };
 
-const formatBalance = (value: number) => {
-  const abs = Math.abs(value);
-
-  if (abs >= 1_000_000) {
-    return value.toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'ILS',
-      notation: 'compact',
-      maximumFractionDigits: 2,
-    });
-  }
-
-  return value.toLocaleString('he-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    maximumFractionDigits: 0,
-  });
-};
-
 const getTransactionsCount = (accounts: BankAccount[]) =>
   accounts.reduce(
     (sum, account) => sum + (account.transactions?.length ?? 0),
@@ -75,6 +57,7 @@ export function AccountStrip({
   isInitialLoading = false,
   isRefreshingValues = false,
 }: AccountStripProps) {
+  const formatMoney = useFormatMoney();
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
   const [bankIdToDelete, setBankIdToDelete] = useState<string | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -237,7 +220,7 @@ export function AccountStrip({
                           totalBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'
                         }`}
                       >
-                        {formatBalance(totalBalance)}
+                        {formatMoney(totalBalance)}
                       </div>
                     )}
                     <p className="text-[9px] font-semibold text-muted-foreground">
@@ -341,7 +324,7 @@ export function AccountStrip({
                           balance >= 0 ? 'text-emerald-600' : 'text-rose-600'
                         }`}
                       >
-                        {formatBalance(balance)}
+                        {formatMoney(balance)}
                       </p>
                     )}
                   </div>

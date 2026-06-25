@@ -4,3 +4,4 @@ export * from './ai-constants';
 export * from './categories';
 export * from './bank-branding';
 export * from './date-utils';
+export * from './prompts';

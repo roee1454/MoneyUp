@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { useFormatMoney } from '@/hooks/useFormatMoney';
 import { CaretLeft } from '@phosphor-icons/react';
 import type { SpendingCategoryItem } from '../types';
 import { PremiumMotionCard } from '@/components/ui/premium-motion-card';
@@ -17,6 +18,7 @@ export function SpendingCategoryList({
   onCategorySelect,
   isLoading = false,
 }: SpendingCategoryListProps) {
+  const formatMoney = useFormatMoney();
   const maxAmount = Math.max(...categories.map((c) => c.amount), 1);
   const shouldReduceMotion = useReducedMotion();
   const isAnimated = !shouldReduceMotion;
@@ -63,7 +65,7 @@ export function SpendingCategoryList({
                 {allExpensesCategory.name}
               </span>
               <span className="text-base font-black text-foreground" dir="ltr">
-                {allExpensesCategory.amount.toLocaleString('he-IL')} ₪
+                {formatMoney(allExpensesCategory.amount)}
               </span>
             </div>
 
@@ -113,7 +115,7 @@ export function SpendingCategoryList({
                   className="text-base font-black text-rose-600 dark:text-rose-400"
                   dir="ltr"
                 >
-                  -{category.amount.toLocaleString('he-IL')} ₪
+                  -{formatMoney(category.amount)}
                 </span>
               </div>
 

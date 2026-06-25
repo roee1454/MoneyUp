@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccountSettingsEntity } from '../entities/account-settings.entity';
-import { scryptSync, timingSafeEqual } from 'crypto';
+import { scryptSync, timingSafeEqual, randomBytes } from 'crypto';
 
 @Injectable()
 export class AccountSettingsService {
@@ -54,6 +54,59 @@ export class AccountSettingsService {
     settings.unlockKeyHash = unlockKeyHash;
     settings.unlockKeySalt = unlockKeySalt;
     return this.accountSettingsRepository.save(settings);
+  }
+
+  async updateGeneralSettings(
+    userId: string,
+    data: Partial<{
+      initialLandingPage: string;
+      accentColor: string;
+      defaultCurrency: string;
+      sessionTimeoutMinutes: number;
+    }>,
+  ): Promise<AccountSettingsEntity> {
+    const settings = await this.getOrCreate(userId);
+    if (data.initialLandingPage !== undefined) {
+      settings.initialLandingPage = data.initialLandingPage;
+    }
+    if (data.accentColor !== undefined) {
+      settings.accentColor = data.accentColor;
+    }
+    if (data.defaultCurrency !== undefined) {
+      settings.defaultCurrency = data.defaultCurrency;
+    }
+    if (data.sessionTimeoutMinutes !== undefined) {
+      settings.sessionTimeoutMinutes = data.sessionTimeoutMinutes;
+    }
+    return this.accountSettingsRepository.save(settings);
+  }
+
+  async enableUnlockKey(userId: string, unlockKey: string): Promise<AccountSettingsEntity> {
+    const salt = randomBytes(16).toString('hex');
+    const hash = scryptSync(unlockKey, salt, 64).toString('hex');
+    return this.updateLockSettings(userId, true, hash, salt);
+  }
+
+  async disableUnlockKey(userId: string, unlockKey: string): Promise<AccountSettingsEntity> {
+    const verified = await this.verifyUnlockKey(userId, unlockKey);
+    if (!verified.valid) {
+      throw new Error('קוד פתיחה שגוי');
+    }
+    return this.updateLockSettings(userId, false, null, null);
+  }
+
+  async updateUnlockKey(
+    userId: string,
+    oldUnlockKey: string,
+    newUnlockKey: string,
+  ): Promise<AccountSettingsEntity> {
+    const verified = await this.verifyUnlockKey(userId, oldUnlockKey);
+    if (!verified.valid) {
+      throw new Error('קוד פתיחה ישן שגוי');
+    }
+    const salt = randomBytes(16).toString('hex');
+    const hash = scryptSync(newUnlockKey, salt, 64).toString('hex');
+    return this.updateLockSettings(userId, true, hash, salt);
   }
 
   async deleteForUser(userId: string): Promise<void> {

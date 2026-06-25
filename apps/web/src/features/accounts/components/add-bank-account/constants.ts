@@ -38,3 +38,6 @@ export const LOGIN_FIELD_LABELS: Record<
   card6Digits: { label: '6 ספרות אחרונות של הכרטיס', type: 'text' },
   accountNumber: { label: 'מספר חשבון', type: 'text' },
 };
+
+
+export const BROWSER_RECOMMENDATION_BANKS = ['cal', 'max', 'leumi', 'visacal', "yahav"]

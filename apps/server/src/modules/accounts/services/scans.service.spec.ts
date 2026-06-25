@@ -124,9 +124,9 @@ describe('ScansService scanIncome', () => {
       ],
     });
 
-    expect(result.totalExpenses).toBe(210);
+    expect(result.totalExpenses).toBe(240);
     expect(result.categories).toEqual([
-      { name: 'לא מסווג', amount: 210, count: 1 },
+      { name: 'לא מסווג', amount: 240, count: 2 },
     ]);
   });
 });

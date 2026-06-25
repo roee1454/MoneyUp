@@ -22,18 +22,13 @@ interface IncomeTransactionsDetailsCardProps {
   isLoading?: boolean;
 }
 
-function formatMoney(value: number): string {
-  return value.toLocaleString('he-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    maximumFractionDigits: 0,
-  });
-}
+import { useFormatMoney } from '@/hooks/useFormatMoney';
 
 export function IncomeTransactionsDetailsCard({
   transactions,
   isLoading = false,
 }: IncomeTransactionsDetailsCardProps) {
+  const formatMoney = useFormatMoney();
   const [displayLimit, setDisplayLimit] = useState(50);
   const queryClient = useQueryClient();
   const toggleDuplicate = useToggleTransactionDuplicate();
@@ -247,9 +242,9 @@ export function IncomeTransactionsDetailsCard({
               className="h-9 text-xs rounded-none border-border/80 bg-background"
             >
               <SelectItem value="all">כל הסכומים</SelectItem>
-              <SelectItem value="gt100">מעל ₪100</SelectItem>
-              <SelectItem value="gt500">מעל ₪500</SelectItem>
-              <SelectItem value="gt1000">מעל ₪1,000</SelectItem>
+              <SelectItem value="gt100">מעל {formatMoney(100)}</SelectItem>
+              <SelectItem value="gt500">מעל {formatMoney(500)}</SelectItem>
+              <SelectItem value="gt1000">מעל {formatMoney(1000)}</SelectItem>
             </Select>
           </div>
         </div>

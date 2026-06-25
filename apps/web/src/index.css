@@ -111,6 +111,23 @@ body {
 
 * {
   box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input, textarea, [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.select-all {
+  user-select: all !important;
+  -webkit-user-select: all !important;
+}
+
+.select-text {
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 .markdown-content p {
@@ -335,3 +352,43 @@ body {
 .custom-slider::-moz-range-thumb:hover {
   transform: scale(1.15);
 }
+
+/* Custom Accent Themes */
+.accent-emerald {
+  --primary: 142 70% 40% !important;
+  --primary-foreground: 0 0% 98% !important;
+  --color-primary: hsl(var(--primary)) !important;
+  --color-primary-foreground: hsl(var(--primary-foreground)) !important;
+}
+.accent-rose {
+  --primary: 350 80% 50% !important;
+  --primary-foreground: 0 0% 98% !important;
+  --color-primary: hsl(var(--primary)) !important;
+  --color-primary-foreground: hsl(var(--primary-foreground)) !important;
+}
+.accent-amber {
+  --primary: 38 90% 50% !important;
+  --primary-foreground: 0 0% 98% !important;
+  --color-primary: hsl(var(--primary)) !important;
+  --color-primary-foreground: hsl(var(--primary-foreground)) !important;
+}
+.accent-indigo {
+  --primary: 240 80% 60% !important;
+  --primary-foreground: 0 0% 98% !important;
+  --color-primary: hsl(var(--primary)) !important;
+  --color-primary-foreground: hsl(var(--primary-foreground)) !important;
+}
+
+/* Hide scrollbar globally across the app */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+

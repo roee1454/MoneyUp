@@ -81,6 +81,10 @@ export function toPublicUser(user: UserPayload) {
     scraperDefaultTimeoutSeconds: user.scraperDefaultTimeoutSeconds ?? 90,
     scraperChromiumPath: user.scraperChromiumPath ?? null,
     aiProviderConfigs: user.aiProviderConfigs ?? null,
+    initialLandingPage: user.initialLandingPage ?? '/dashboard',
+    accentColor: user.accentColor ?? 'default',
+    defaultCurrency: user.defaultCurrency ?? 'ILS',
+    sessionTimeoutMinutes: user.sessionTimeoutMinutes ?? 30,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

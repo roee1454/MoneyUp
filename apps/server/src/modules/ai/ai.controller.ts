@@ -17,6 +17,7 @@ import { map } from 'rxjs/operators';
 import { AgentProvider, AiTask } from '@money-up/common';
 import { requireSessionUserId } from '../../utils/auth.utils';
 import { AiService } from './ai.service';
+import { OllamaService } from './ollama.service';
 import { UsersService } from '../users/users.service';
 
 /**
@@ -26,6 +27,7 @@ import { UsersService } from '../users/users.service';
 export class AiController {
   constructor(
     private readonly aiService: AiService,
+    private readonly ollamaService: OllamaService,
     private readonly usersService: UsersService,
   ) {}
 
@@ -110,7 +112,7 @@ export class AiController {
         { provider: 'ollama' },
         request,
       );
-      const loadedModels = await this.aiService.getOllamaRunningModels(resolvedModels.apiKey);
+      const loadedModels = await this.ollamaService.getOllamaRunningModels(resolvedModels.apiKey);
       const isRunning = loadedModels.includes(payload.model) || loadedModels.some(r => r.startsWith(payload.model + ':') || payload.model.startsWith(r + ':'));
       if (!isRunning) {
         throw new BadRequestException(`מודל Ollama "${payload.model}" אינו טעון בזיכרון. אנא הפעל אותו תחילה.`);
@@ -152,7 +154,7 @@ export class AiController {
               { provider: 'ollama' },
               request,
             );
-            const loadedModels = await this.aiService.getOllamaRunningModels(resolvedModels.apiKey);
+            const loadedModels = await this.ollamaService.getOllamaRunningModels(resolvedModels.apiKey);
             const isRunning = loadedModels.includes(payload.model) || loadedModels.some(r => r.startsWith(payload.model + ':') || payload.model.startsWith(r + ':'));
             if (!isRunning) {
               throw new BadRequestException(`מודל Ollama "${payload.model}" אינו טעון בזיכרון. אנא הפעל אותו תחילה.`);
@@ -182,7 +184,7 @@ export class AiController {
       { provider: 'ollama' },
       request,
     );
-    return this.aiService.getOllamaRunningModels(resolved.apiKey);
+    return this.ollamaService.getOllamaRunningModels(resolved.apiKey);
   }
 
   @Post('ollama/start')
@@ -194,7 +196,7 @@ export class AiController {
       { provider: 'ollama' },
       request,
     );
-    return this.aiService.startOllamaModel(payload.model, resolved.apiKey);
+    return this.ollamaService.startOllamaModel(payload.model, resolved.apiKey);
   }
 
   @Post('ollama/stop')
@@ -206,6 +208,6 @@ export class AiController {
       { provider: 'ollama' },
       request,
     );
-    return this.aiService.stopOllamaModel(payload.model, resolved.apiKey);
+    return this.ollamaService.stopOllamaModel(payload.model, resolved.apiKey);
   }
 }

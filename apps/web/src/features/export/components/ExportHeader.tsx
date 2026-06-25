@@ -16,7 +16,7 @@ export function ExportHeader({
   isBusy,
 }: ExportHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between text-right pb-4 border-b border-border/40">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between text-right">
       <div className="space-y-2">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground flex items-center gap-3">
           <span>ייצוא נתונים</span>

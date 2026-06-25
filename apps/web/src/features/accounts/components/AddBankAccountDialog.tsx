@@ -5,7 +5,8 @@ import {
   Dialog,
   DialogContent,
 } from '@/components/ui/dialog';
-import { useScrapersList, type ScraperErrorCode } from '@/hooks/useScrapers';
+import { useScrapersList, useBrowserReady, type ScraperErrorCode } from '@/hooks/useScrapers';
+import { NoBrowserDialog } from '@/features/settings/components/NoBrowserDialog';
 import { getScraperSocket, emitScraperSocket } from '@/lib/scraper-socket';
 import { getFriendlyScraperError } from '@/lib/error-formatter';
 import { BankSelectionStep } from './add-bank-account/BankSelectionStep';
@@ -39,10 +40,22 @@ export function AddBankAccountDialog({
     'credit_card',
   );
   const [syncStep, setSyncStep] = useState<string | null>(null);
+  const [lastCredentials, setLastCredentials] = useState<Record<string, string> | null>(null);
+
+  const { isReady: isBrowserReady, isLoading: isBrowserLoading } = useBrowserReady();
+  const [noChromiumOpen, setNoChromiumOpen] = useState(false);
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  // Redirect to NoBrowserDialog if browser is not found when dialog tries to open
+  useEffect(() => {
+    if (open && !isBrowserReady && !isBrowserLoading) {
+      onOpenChange(false);
+      setNoChromiumOpen(true);
+    }
+  }, [open, isBrowserReady, isBrowserLoading]);
 
   const { data: scrapers = [], isLoading: isLoadingScrapers } =
     useScrapersList(open);
@@ -147,10 +160,11 @@ export function AddBankAccountDialog({
       socket.off('scraper:error', handleError);
       socket.off('connect_error', handleConnectError);
     };
-  }, [open, onSuccess]);
+  }, [open, onSuccess, queryClient]);
 
-  // ── Reset state on close ────────────────────────────────────────────
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setSelectedBank(null);
       setIsAwaiting2FA(false);
@@ -162,11 +176,13 @@ export function AddBankAccountDialog({
       setHasFailed(false);
       setActiveTab('credit_card');
       setSyncStep(null);
+      setLastCredentials(null);
     }
-  }, [open]);
+  }
 
   // ── Handlers ────────────────────────────────────────────────────────
   async function handleConnect(credentials: Record<string, string>) {
+    setLastCredentials(credentials);
     setIsConnecting(true);
     setHasFailed(false);
     setErrorMsg(null);
@@ -180,7 +196,7 @@ export function AddBankAccountDialog({
         errorCode?: ScraperErrorCode;
         error?: string;
       }>('scraper:connect', {
-        bankId: selectedBank!.id,
+        bankId: selectedBank?.id ?? '',
         credentials,
       });
 
@@ -191,13 +207,14 @@ export function AddBankAccountDialog({
       } else if (res.sessionId) {
         setSessionId(res.sessionId);
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'לא ניתן לפתוח חיבור בזמן אמת עכשיו, נא לפתוח את האפליקציה מחדש!');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'לא ניתן לפתוח חיבור בזמן אמת עכשיו, נא לפתוח את האפליקציה מחדש!';
+      setErrorMsg(message);
       setIsConnecting(false);
     }
   }
 
-  async function handleSubmitChallenge(otpCode: string) {
+  function handleSubmitChallenge(otpCode: string) {
     setIsConnecting(true);
     setErrorMsg(null);
 
@@ -205,8 +222,9 @@ export function AddBankAccountDialog({
       const socket = getScraperSocket();
       socket.emit('scraper:challenge:submit', { sessionId, code: otpCode });
       setIsAwaiting2FA(false);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'קוד האימות שגוי');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'קוד האימות שגוי';
+      setErrorMsg(message);
       setIsConnecting(false);
     }
   }
@@ -216,71 +234,77 @@ export function AddBankAccountDialog({
 
   // ── Render ──────────────────────────────────────────────────────────
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(val) => {
-        if (isConnecting) return;
-        onOpenChange(val);
-      }}
-    >
-      <DialogContent
-        showCloseButton={false}
-        className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
-        dir="rtl"
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(val) => {
+          if (isConnecting) return;
+          onOpenChange(val);
+        }}
       >
-        {isConnected && selectedBank ? (
-          <ConnectedView
-            bankId={selectedBank.id}
-            bankName={selectedBank.name}
-            onClose={() => onOpenChange(false)}
-          />
-        ) : showSyncingScreen ? (
-          <SyncingView
-            bankId={selectedBank.id}
-            bankName={selectedBank.name}
-            syncStep={syncStep}
-            errorMsg={hasFailed ? errorMsg : null}
-            onRetry={() => {
-              setHasFailed(false);
-              setErrorMsg(null);
-              setSessionId('');
-              setSyncStep(null);
-            }}
-            onClose={() => onOpenChange(false)}
-          />
-        ) : !selectedBank ? (
-          <BankSelectionStep
-            scrapers={tabScrapers}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onBankSelect={setSelectedBank}
-            isLoading={isLoadingScrapers}
-          />
-        ) : isAwaiting2FA ? (
-          <OtpChallengeStep
-            selectedBank={selectedBank}
-            onSubmit={handleSubmitChallenge}
-            onBack={() => {
-              setIsAwaiting2FA(false);
-              setErrorMsg(null);
-            }}
-            challengeMsg={challengeMsg}
-            errorMsg={errorMsg}
-            isConnecting={isConnecting}
-          />
-        ) : (
-          <CredentialsStep
-            selectedBank={selectedBank}
-            onSubmit={handleConnect}
-            onBack={() => {
-              setSelectedBank(null);
-              setErrorMsg(null);
-            }}
-            errorMsg={errorMsg}
-            isConnecting={isConnecting}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-md bg-card border border-border rounded-none p-6 shadow-2xl"
+          dir="rtl"
+        >
+          {isConnected && selectedBank ? (
+            <ConnectedView
+              bankId={selectedBank.id}
+              bankName={selectedBank.name}
+              onClose={() => onOpenChange(false)}
+            />
+          ) : showSyncingScreen ? (
+            <SyncingView
+              bankId={selectedBank.id}
+              bankName={selectedBank.name}
+              syncStep={syncStep}
+              errorMsg={hasFailed ? errorMsg : null}
+              onRetry={() => {
+                setHasFailed(false);
+                setErrorMsg(null);
+                setSessionId('');
+                setSyncStep(null);
+              }}
+              onClose={() => onOpenChange(false)}
+            />
+          ) : !selectedBank ? (
+            <BankSelectionStep
+              scrapers={tabScrapers}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              onBankSelect={setSelectedBank}
+              isLoading={isLoadingScrapers}
+            />
+          ) : isAwaiting2FA ? (
+            <OtpChallengeStep
+              selectedBank={selectedBank}
+              onSubmit={handleSubmitChallenge}
+              onBack={() => {
+                setIsAwaiting2FA(false);
+                setErrorMsg(null);
+              }}
+              challengeMsg={challengeMsg}
+              errorMsg={errorMsg}
+              isConnecting={isConnecting}
+            />
+          ) : (
+            <CredentialsStep
+              selectedBank={selectedBank}
+              onSubmit={(credentials) => { void handleConnect(credentials); }}
+              onBack={() => {
+                setSelectedBank(null);
+                setErrorMsg(null);
+                setLastCredentials(null);
+              }}
+              errorMsg={errorMsg}
+              isConnecting={isConnecting}
+              initialValues={lastCredentials}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+  
+      <NoBrowserDialog open={noChromiumOpen} onOpenChange={setNoChromiumOpen} />
+    </>
+  )
 }

@@ -26,36 +26,6 @@ export function getCleanDescription(
 ): string | null {
   const desc = String(description ?? '');
   const mem = String(memo ?? '');
-  const genericNames = [
-    'דירקט',
-    'דירקט מצטבר',
-    'עברה',
-    'העברה נכנסת',
-    'העברה',
-    'הוראת קבע',
-    'חיוב כרטיס',
-    'חיוב כרטיס אשראי',
-    'מזומן',
-    'הפקדה',
-    'משיכה',
-    'עמלה',
-    'עמלת',
-    'bit',
-    'ביט',
-    'paybox',
-    'פייבוקס',
-    'העברת כסף',
-  ];
-  const isGeneric = (value: string) =>
-    genericNames.some(
-      (genericValue) =>
-        value.trim() === genericValue ||
-        value.toLowerCase().includes(genericValue.toLowerCase()),
-    );
-  if (isGeneric(desc)) {
-    if (mem.trim() && !isGeneric(mem)) return mem.trim();
-    return null;
-  }
   const cleaned = desc.trim() || mem.trim();
   return cleaned || null;
 }

@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
+import { OllamaService } from './ollama.service';
 import { ToolRegistry } from './tools/tool-registry';
 import { GetSpendingSummaryRunner } from './tools/spending-summary';
 import { FindMerchantsRunner } from './tools/find-merchants';
@@ -36,6 +37,7 @@ import { ConversationsModule } from '../conversations/conversations.module';
   controllers: [AiController],
   providers: [
     AiService,
+    OllamaService,
     ToolRegistry,
     GetSpendingSummaryRunner,
     FindMerchantsRunner,
@@ -51,6 +53,6 @@ import { ConversationsModule } from '../conversations/conversations.module';
     SearchPastConversationsRunner,
     GetPastConversationMessagesRunner,
   ],
-  exports: [AiService],
+  exports: [AiService, OllamaService],
 })
 export class AiModule {}
