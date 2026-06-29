@@ -28,8 +28,15 @@ export async function initApiBase() {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
+    const headers = new Headers(init?.headers);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('moneyup_session') : null;
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
       credentials: 'include',
+      headers,
       ...init,
     });
 

@@ -49,7 +49,10 @@ export function useLogin() {
       username: string;
       unlockTicket?: string;
     }) => {
-      const loginRes = await api.post<{ success: boolean; user: any }>('/auth/login', { userId, username, unlockTicket });
+      const loginRes = await api.post<{ success: boolean; token?: string; user: any }>('/auth/login', { userId, username, unlockTicket });
+      if (loginRes.token) {
+        localStorage.setItem('moneyup_session', loginRes.token);
+      }
       const sessionData = await api.get<SessionResponse>('/auth/session');
       return {
         session: sessionData,
@@ -91,7 +94,11 @@ export function useLogout() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => api.post('/auth/logout'),
+    mutationFn: async () => {
+      const res = await api.post('/auth/logout');
+      localStorage.removeItem('moneyup_session');
+      return res;
+    },
     onSuccess: () => {
       queryClient.clear();
       setSession(null);

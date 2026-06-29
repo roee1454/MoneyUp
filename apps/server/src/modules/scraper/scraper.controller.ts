@@ -15,7 +15,7 @@ import { map } from 'rxjs/operators';
 import { SyncJobService } from '../sync/sync-job.service';
 import { ScraperService } from './scraper.service';
 import { UsersService } from '../users/users.service';
-import { requireSessionUserId, verifyJwtToken } from '../../utils/auth.utils';
+import { getSessionToken, requireSessionUserId, verifyJwtToken } from '../../utils/auth.utils';
 import { ConnectScraperDto, SubmitChallengeDto } from '@money-up/types';
 
 /**
@@ -58,7 +58,7 @@ export class ScraperController {
 
   @Get('check-sync-needed')
   async checkSyncNeeded(@Req() request: Request) {
-    const sessionToken = request.cookies?.moneyup_session;
+    const sessionToken = getSessionToken(request);
     if (!sessionToken) {
       throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
     }
@@ -73,7 +73,7 @@ export class ScraperController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const sessionToken = request.cookies?.moneyup_session;
+    const sessionToken = getSessionToken(request);
     if (!sessionToken) {
       throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
     }
@@ -194,7 +194,7 @@ export class ScraperController {
     @Body() payload: SubmitChallengeDto,
     @Req() request: Request,
   ) {
-    const sessionToken = request.cookies?.moneyup_session;
+    const sessionToken = getSessionToken(request);
     if (!sessionToken) {
       throw new UnauthorizedException('לא נמצא סשן פעיל. אנא התחבר מחדש.');
     }

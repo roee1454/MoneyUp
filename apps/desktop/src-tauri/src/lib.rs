@@ -31,6 +31,16 @@ fn find_open_port(start_port: u16) -> u16 {
     }
 }
 
+#[allow(dead_code)]
+fn clean_path(path: std::path::PathBuf) -> String {
+    let path_str = path.to_string_lossy().to_string();
+    if path_str.starts_with(r"\\?\") {
+        path_str[4..].to_string()
+    } else {
+        path_str
+    }
+}
+
 fn get_configured_port() -> Option<u16> {
     // 1. Check command line arguments: --port, -p, or --gateway-port
     let args: Vec<String> = std::env::args().collect();
@@ -101,18 +111,21 @@ pub fn run() {
                 let node_path = resource_dir.join("_up_").join("resources").join("bin").join(node_bin_name);
                 let server_path = resource_dir.join("_up_").join("resources").join("server").join("dist").join("main.js");
 
-                println!("[Tauri] Resolved node path: {:?}", node_path);
-                println!("[Tauri] Resolved server path: {:?}", server_path);
+                let node_path_str = clean_path(node_path);
+                let server_path_str = clean_path(server_path);
+
+                println!("[Tauri] Resolved node path: {:?}", node_path_str);
+                println!("[Tauri] Resolved server path: {:?}", server_path_str);
                 
                 // Ensure Node executable permissions on Linux/macOS
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
-                    if let Ok(metadata) = std::fs::metadata(&node_path) {
+                    if let Ok(metadata) = std::fs::metadata(&node_path_str) {
                         let mut perms = metadata.permissions();
                         if perms.mode() & 0o111 != 0o111 {
                             perms.set_mode(perms.mode() | 0o111);
-                            let _ = std::fs::set_permissions(&node_path, perms);
+                            let _ = std::fs::set_permissions(&node_path_str, perms);
                         }
                     }
                 }
@@ -124,14 +137,28 @@ pub fn run() {
                     std::fs::create_dir_all(&db_dir).expect("failed to create db directory");
                 }
 
+                let app_data_dir_str = clean_path(app_data_dir);
+
                 // 3. Spawn the server process on the detected open port
-                let mut cmd = Command::new(&node_path);
+                let log_file_path = std::path::PathBuf::from(&app_data_dir_str).join("server.log");
+                let log_file = std::fs::File::create(&log_file_path).ok();
+
+                let mut cmd = Command::new(&node_path_str);
                 cmd.envs(std::env::vars()) // Inherit parent environment FIRST
-                    .arg(&server_path)
-                    .current_dir(&app_data_dir) // Run inside local data folder
+                    .arg(&server_path_str)
+                    .current_dir(&app_data_dir_str) // Run inside local data folder
                     .env("NODE_ENV", "production")
                     .env("GATEWAY_PORT", server_port.to_string())
                     .env("CLIENT_URL", "tauri://localhost,https://tauri.localhost");
+
+                if let Some(ref file) = log_file {
+                    if let Ok(stdout_file) = file.try_clone() {
+                        cmd.stdout(std::process::Stdio::from(stdout_file));
+                    }
+                    if let Ok(stderr_file) = file.try_clone() {
+                        cmd.stderr(std::process::Stdio::from(stderr_file));
+                    }
+                }
 
                 // On Linux, register the death signal so the server terminates if the parent dies
                 #[cfg(target_os = "linux")]

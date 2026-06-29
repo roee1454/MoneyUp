@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { Observable, Subscriber } from 'rxjs';
 import { UserAiConfig } from '../../types/gateway.types';
-import { verifyJwtToken } from '../../utils/auth.utils';
+import { getSessionToken, verifyJwtToken } from '../../utils/auth.utils';
 import { ToolRegistry } from './tools/tool-registry';
 import {
   AI_TOOLS,
@@ -386,7 +386,7 @@ export class AiService {
       return payload;
     }
 
-    const sessionToken = request.cookies?.moneyup_session;
+    const sessionToken = getSessionToken(request);
     if (!sessionToken) {
       return payload;
     }
@@ -496,7 +496,7 @@ export class AiService {
       return payload;
     }
 
-    const sessionToken = request.cookies?.moneyup_session;
+    const sessionToken = getSessionToken(request);
     if (!sessionToken) {
       return payload;
     }

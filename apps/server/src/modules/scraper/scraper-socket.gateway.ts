@@ -22,6 +22,7 @@ type ScraperSocket = {
   id: string;
   handshake: {
     headers: Record<string, string | string[] | undefined>;
+    auth?: Record<string, any>;
   };
   data: {
     userId?: string;
@@ -62,7 +63,17 @@ export class ScraperSocketGateway
 
   handleConnection(client: ScraperSocket): void {
     try {
-      const token = this.getCookie(client, 'moneyup_session');
+      let token = this.getCookie(client, 'moneyup_session');
+      if (!token) {
+        const auth = client.handshake.auth;
+        const authHeader = client.handshake.headers.authorization;
+        if (auth && typeof auth.token === 'string') {
+          token = auth.token;
+        } else if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7);
+        }
+      }
+
       if (!token) {
         throw new UnauthorizedException('No active session found');
       }

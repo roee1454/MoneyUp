@@ -1,6 +1,9 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 import { AppController } from './app.controller';
 
 // Entities
@@ -31,6 +34,63 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { AccountsModule } from './modules/accounts/accounts.module';
 
+function getDatabasePath(): string {
+  if (process.env.DATABASE_PATH) {
+    return process.env.DATABASE_PATH;
+  }
+
+  // 1. Try to see if we can write to the default local path 'data/app.db'
+  let isLocalWritable = false;
+  const localDbPath = path.resolve('data/app.db');
+  const localDbDir = path.dirname(localDbPath);
+
+  try {
+    if (!fs.existsSync(localDbDir)) {
+      fs.mkdirSync(localDbDir, { recursive: true });
+    }
+    // Test write permission by writing a temp file
+    const testFile = path.join(localDbDir, '.write-test');
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    isLocalWritable = true;
+  } catch (e) {
+    isLocalWritable = false;
+  }
+
+  // 2. If we are in development mode AND the local directory is writable, use it.
+  if (process.env.NODE_ENV !== 'production' && isLocalWritable) {
+    return localDbPath;
+  }
+
+  // 3. Fallback to OS user-data directory (production, or if local path is read-only)
+  const homeDir = os.homedir();
+  let appDataDir: string;
+
+  if (process.platform === 'win32') {
+    appDataDir = process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, 'moneyup')
+      : path.join(homeDir, 'AppData', 'Local', 'moneyup');
+  } else if (process.platform === 'darwin') {
+    appDataDir = path.join(homeDir, 'Library', 'Application Support', 'moneyup');
+  } else {
+    appDataDir = process.env.XDG_DATA_HOME
+      ? path.join(process.env.XDG_DATA_HOME, 'moneyup')
+      : path.join(homeDir, '.local', 'share', 'moneyup');
+  }
+
+  const dbDir = path.join(appDataDir, 'data');
+  try {
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+  } catch (e) {
+    // If even this fails, fallback to temp directory
+    return path.join(os.tmpdir(), 'moneyup-app.db');
+  }
+
+  return path.join(dbDir, 'app.db');
+}
+
 @Global()
 @Module({
   imports: [
@@ -40,7 +100,7 @@ import { AccountsModule } from './modules/accounts/accounts.module';
     }),
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
-      database: 'data/app.db',
+      database: getDatabasePath(),
       entities: [
         User,
         ConversationEntity,

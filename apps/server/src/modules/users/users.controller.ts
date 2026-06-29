@@ -15,6 +15,7 @@ import { AgentProvider } from '@money-up/common';
 import { UsersService } from './users.service';
 import { UserPayload } from '../../types/gateway.types';
 import {
+  getSessionToken,
   requireSessionUserId,
   toPublicUser,
   verifyJwtToken,
@@ -47,7 +48,7 @@ export class UsersController {
 
   @Get('me')
   async getCurrentUserProfile(@Req() request: Request) {
-    const sessionToken = request.cookies?.moneyup_session;
+    const sessionToken = getSessionToken(request);
     if (!sessionToken) {
       throw new UnauthorizedException('No active session found');
     }

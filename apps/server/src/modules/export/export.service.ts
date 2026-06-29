@@ -26,9 +26,32 @@ export class ExportService {
         return { success: true, aborted: true };
       }
 
-      if (!dialogResult.filepath) {
-        this.logger.warn(`Native dialog failed/unsupported for ${extension.toUpperCase()}, requesting client fallback`);
-        return { success: false, error: 'Dialog not supported' };
+      let filepath = dialogResult.filepath;
+
+      if (!filepath) {
+        // Fallback to Downloads directory
+        const downloadsDir = path.join(os.homedir(), 'Downloads');
+        try {
+          await fs.mkdir(downloadsDir, { recursive: true });
+          
+          // Generate a unique filename in Downloads directory to avoid overwriting
+          let targetPath = path.join(downloadsDir, `${filename}.${extension}`);
+          let counter = 1;
+          while (true) {
+            try {
+              await fs.access(targetPath);
+              targetPath = path.join(downloadsDir, `${filename} (${counter}).${extension}`);
+              counter++;
+            } catch {
+              break; // File does not exist, safe to write
+            }
+          }
+          filepath = targetPath;
+          this.logger.log(`Using Downloads folder fallback: ${filepath}`);
+        } catch (fallbackErr: any) {
+          this.logger.warn(`Downloads fallback failed: ${fallbackErr.message}, requesting client fallback`);
+          return { success: false, error: 'Dialog not supported' };
+        }
       }
 
       // 2. Compile HTML content to PDF buffer if required
@@ -39,16 +62,16 @@ export class ExportService {
 
       // 3. Save buffer or string
       if (extension.toLowerCase() === 'pdf') {
-        await fs.writeFile(dialogResult.filepath, fileData);
+        await fs.writeFile(filepath, fileData);
       } else {
-        await fs.writeFile(dialogResult.filepath, fileData as string, 'utf8');
+        await fs.writeFile(filepath, fileData as string, 'utf8');
       }
 
-      this.logger.log(`Exported ${extension.toUpperCase()} saved to: ${dialogResult.filepath}`);
+      this.logger.log(`Exported ${extension.toUpperCase()} saved to: ${filepath}`);
 
       return {
         success: true,
-        filepath: dialogResult.filepath,
+        filepath: filepath,
       };
     } catch (err: any) {
       this.logger.error(`Failed to export file: ${err.message}`, err.stack);
@@ -61,6 +84,12 @@ export class ExportService {
 
   private async openDialog(filename: string, extension: string): Promise<{ filepath?: string; aborted?: boolean }> {
     const platform = os.platform();
+    // In production on Windows, avoid spawning a GUI dialog from a windowless service
+    if (platform === 'win32' && process.env.NODE_ENV === 'production') {
+      this.logger.log('Windows production environment detected: bypassing SaveFileDialog and using Downloads folder fallback.');
+      return {};
+    }
+
     if (platform === 'win32') {
       return this.showWindowsDialog(filename, extension);
     } else if (platform === 'darwin') {
@@ -154,6 +183,7 @@ $dialog = New-Object System.Windows.Forms.SaveFileDialog
 $dialog.Filter = "${filter}"
 $dialog.FileName = "${escapedName}"
 $dialog.Title = "Save Export File"
+$dialog.ShowHelp = $true
 if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
   Write-Output $dialog.FileName
 } else {
@@ -164,9 +194,14 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       const buffer = Buffer.from(psScript, 'utf16le');
       const encoded = buffer.toString('base64');
 
-      exec(`powershell -NoProfile -EncodedCommand ${encoded}`, (error, stdout) => {
+      // Set a 4-second timeout to prevent powershell from hanging indefinitely in non-interactive environments
+      exec(`powershell -NoProfile -STA -EncodedCommand ${encoded}`, { timeout: 4000 }, (error, stdout) => {
         if (error) {
-          this.logger.warn(`Windows SaveFileDialog error: ${error.message}`);
+          if (error.signal === 'SIGTERM') {
+            this.logger.warn('Windows SaveFileDialog timed out (possibly running in a windowless process)');
+          } else {
+            this.logger.warn(`Windows SaveFileDialog error: ${error.message}`);
+          }
           resolve({});
         } else {
           const res = stdout.trim();

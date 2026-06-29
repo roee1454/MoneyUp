@@ -23,8 +23,19 @@ export function verifyJwtToken(token: string): SessionTokenPayload {
   }
 }
 
+export function getSessionToken(request: Request): string | undefined {
+  if (request.cookies?.moneyup_session) {
+    return request.cookies.moneyup_session;
+  }
+  const authHeader = request.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  return undefined;
+}
+
 export function requireSessionUserId(request: Request): string {
-  const sessionToken = request.cookies?.moneyup_session;
+  const sessionToken = getSessionToken(request);
   if (!sessionToken) {
     throw new UnauthorizedException('No active session found');
   }

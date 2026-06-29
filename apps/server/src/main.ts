@@ -15,6 +15,8 @@ async function bootstrap() {
     origin: [
       'http://localhost:5173',
       'http://127.0.0.1:5173',
+      'http://tauri.localhost',
+      'tauri://localhost',
       ...clientUrls,
     ].filter(Boolean),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',

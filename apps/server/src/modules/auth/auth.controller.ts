@@ -14,6 +14,7 @@ import { UsersService } from '../users/users.service';
 import { UserPayload } from '../../types/gateway.types';
 import {
   createUnlockTicket,
+  getSessionToken,
   toPublicUser,
   verifyJwtToken,
   verifyUnlockTicket,
@@ -63,12 +64,12 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return { success: true, user: toPublicUser(user as unknown as UserPayload) };
+    return { success: true, token, user: toPublicUser(user as unknown as UserPayload) };
   }
 
   @Get('session')
   getSession(@Req() request: Request) {
-    const token = request.cookies?.moneyup_session;
+    const token = getSessionToken(request);
     if (!token) {
       throw new UnauthorizedException('No active session found');
     }

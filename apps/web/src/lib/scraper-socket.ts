@@ -10,10 +10,12 @@ let scraperSocket: Socket | null = null;
  */
 export function getScraperSocket(): Socket {
   if (!scraperSocket) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('moneyup_session') : null;
     scraperSocket = io(`${API_BASE}/scrapers`, {
       withCredentials: true,
       transports: ['websocket'],
       autoConnect: true,
+      auth: token ? { token } : undefined,
     });
   }
   return scraperSocket;
