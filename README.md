@@ -1,38 +1,42 @@
 # MoneyUp 💰
 
-> A self-hosted, AI-powered personal finance dashboard that securely scrapes your Israeli bank and credit card accounts, categorizes your spending, and gives you actionable insights — all running locally on your own machine.
+<p align="center">
+  <img src="./thumbnail/MoneyUp.png" alt="MoneyUp Logo" width="600" />
+</p>
+
+> A local, AI-powered personal finance dashboard that securely scrapes your bank and credit card accounts, categorizes your spending, and gives you actionable insights — all running on your own machine.
 
 ---
 
 ## Features
 
-- **Bank & Credit Card Sync** — Securely fetch transactions via [israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers).
-- **Periodical Summary** — Real-time tracking of income vs. expenses, segmented by source.
-- **Smart AI Categorization** — Automatic classification of spending into logical buckets (Food, Fuel, etc.).
-- **AI Financial Advisor** — Integrated chat with support for OpenAI, Claude, and Gemini for tailored advice.
-- **Privacy First** — Local SQLite storage with **AES-256-GCM** encryption. No data leaves your machine.
-- **Modern UI** — Fast, RTL-supported Hebrew interface with robust Dark/Light mode via `next-themes`.
+- **Bank & Credit Accounts Sync** — Securely fetch and synchronize transactions via [israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers).
+- **AI Categorization** — Automatic and smart classification of spending into logical categories (Food, Fuel, Utilities, etc.).
+- **AI Agent Screen** — Actionable insights and conversational chat supporting ChatGPT, Claude, Gemini, and Ollama models.
+- **Export Screen** — Easily export transaction histories and financial data to Excel, PDF, and JSON formats.
+- **Privacy First** — Local SQLite database with **AES-256-GCM** encryption. Your financial credentials and data never leave your machine.
+- **Variety of Configuration Screens** — Intuitive interfaces to customize scrapers, categories, model keys, security configurations, and user preferences.
 
 ---
 
-## Quick Showcase
+## Previews
 
-Here is a preview of the MoneyUp interface in action:
+Here is a glimpse of the MoneyUp interface in action:
 
-### 📊 Financial Dashboard
-*Real-time charts tracking your income vs. expenses, transaction tables, and automatic smart classification of Israeli banking entities.*
+### 🤖 AI Agent Screen
+*Chat with your customized local or cloud AI models (supporting ChatGPT, Claude, Gemini, or Ollama) to analyze your spending habits.*
 
-<video src="./docs/media/dashboard.mp4" width="100%" controls></video>
+![AI Agent Preview](./docs/media/gifs/Agent.gif)
 
-### 🤖 AI Financial Agents & Conversations
-*Chat with your customized local or cloud AI models (supporting GPT-4o, Claude, Gemini, or Ollama) to analyze your spending habits.*
+### 📤 Export Screen
+*Export your transaction histories, categories, and summaries directly to Excel, PDF, or JSON format.*
 
-<video src="./docs/media/agent.mp4" width="100%" controls></video>
+![Export Screen Preview](./docs/media/gifs/Export.gif)
 
 ### ⚙️ Bank Scrapers & Security Settings
-*Easily connect your Israeli bank and credit card accounts securely using client-side AES-256 encryption.*
+*Configure your credentials and scrape Israeli bank/credit card accounts securely with local AES-256-GCM encryption.*
 
-<video src="./docs/media/settings.mp4" width="100%" controls></video>
+![Settings Preview](./docs/media/gifs/Settings.gif)
 
 ---
 
@@ -44,19 +48,19 @@ Here is a preview of the MoneyUp interface in action:
 |:---|:---|:---|:---|
 | <small>בנק הפועלים (Hapoalim)</small> | <small>Enabled</small> | <small>MAX (מקס)</small> | <small>Enabled</small> |
 | <small>בנק לאומי (Leumi)</small> | <small>Enabled</small> | <small>ישראכרט (Isracard)</small> | <small>Enabled</small> |
-| <small>בנק יהב</small> | <small>Enabled</small> | <small>כאל (Cal)</small> | <small>Enabled</small> |
+| <small>בנק יהב (Yahav)</small> | <small>Enabled</small> | <small>כאל (Cal)</small> | <small>Enabled</small> |
 
 ---
 
 ## Architecture
 
-MoneyUp is structured as a **pnpm monorepo** managed by **Turborepo** with a modular NestJS monolith backend and a React (Vite) frontend:
+MoneyUp is structured as a **pnpm monorepo** containing a NestJS monolith backend, a React (Vite) web client, and a Tauri desktop client:
 
 ```
 apps/
-  server/         ← NestJS Modular Monolith server (compiled via SWC, port 3000)
+  server/         ← NestJS Monolith backend server (compiled via SWC, port 3000)
   web/            ← React + Vite web client (RTL, port 5173)
-  desktop/        ← Tauri desktop client (Coming soon)
+  desktop/        ← Tauri desktop client (production-ready, native wrappers for Windows & Linux)
 
 packages/
   common/         ← Shared utilities, exception filters, interceptors, and model definitions
@@ -67,49 +71,62 @@ packages/
 
 ## Prerequisites
 
-- **Node.js** >= 20
-- **pnpm** >= 10.24 (`npm install -g pnpm`)
-- **Chromium / Chrome** — required by the bank scraper (Puppeteer). Install via your package manager:
-  ```bash
-  # Debian / Ubuntu
-  sudo apt install chromium-browser
-  ```
-- A supported Israeli bank or credit card account (see [Supported Institutions](#supported-institutions))
-- An AI provider API key (OpenAI, Gemini, etc.) for the AI features
+To run MoneyUp, you only need:
+- **Node.js** > 20
+- **A Chromium-based browser** (Chrome, Edge, Chromium, etc.) — if no browser is detected on your system, the application will automatically install one for you.
+- **A supported bank or credit card account** from supported institutions (see [Supported Institutions](#supported-institutions))
+- **An AI Provider Key** (ChatGPT, Claude, Gemini, or Ollama) for the AI-powered features
 
 ---
 
-## Quick start
+## Quick Start
 
-### Docker (Reccomended!)
+The easiest way to run MoneyUp is to use one of the pre-built releases or run via Docker.
 
+### 1. Windows / Linux Releases (Recommended! 🚀)
+Download the latest pre-compiled desktop bundle for your system from the [Releases](https://github.com/roee1454/MoneyUp/releases) page.
+- **Windows**: Install the `.msi` or run the portable executable.
+- **Linux**: Run the `.AppImage` or install the `.deb` package.
+
+### 2. Docker (Also Recommended! 🐳)
+Run the entire stack in production mode with a single command:
 ```bash
 git clone https://github.com/roee1454/MoneyUp
 cd MoneyUp
-cp .env.example .env # Optional for default .env configuration.
+cp .env.example .env # Set up your environment variables
 docker compose -f infra/compose.yml up
 ```
 
-## Installation
-
+### 3. Production Mode (Local Build 🛠️)
+To build and run the application locally in production mode:
 ```bash
-# 1. Clone the repo
-git clone https://github.com/your-username/MoneyUp.git
+# Clone the repository
+git clone https://github.com/roee1454/MoneyUp
 cd MoneyUp
 
-# 2. Install dependencies
+# Install workspace dependencies
 pnpm install
 
-# 3. Set up environment variables
-cp .env.example .env
-# Edit .env and fill in your JWT_SECRET and any other required values
+# Build all applications and packages
+pnpm build
 
-# 4. Start everything (backend services + web client)
-pnpm dev
+# Start the server and client preview
+# In one terminal, start the server:
+pnpm server:start
+
+# In another terminal, preview the web application:
+pnpm client:start
 ```
 
-The web app will be available at **http://localhost:5173**  
-The backend server will be at **http://localhost:3000**
+### 4. Development Mode (Local Dev 💻)
+To start the workspace in development mode (with hot-reloading):
+```bash
+# Install dependencies
+pnpm install
+
+# Run backend services + web client concurrently
+pnpm dev
+```
 
 ---
 
@@ -117,12 +134,12 @@ The backend server will be at **http://localhost:3000**
 
 > [!IMPORTANT]
 > **By using MoneyUp, you acknowledge and agree to the following:**
-
-- **MIT License** — Open source software provided "as is" without warranty or liability.
-- **Local Only** — All credentials and financial data are stored encrypted **only** on your machine.
-- **Third-Party Scraping** — You are responsible for ensuring automated access complies with your bank's TOS.
-- **Patched Library** — Ships with a locally patched `israeli-bank-scrapers` build for enhanced features. No telemetry. You are free to inspect the patch (diff against the original release).
-- **AI Providers** — Using AI features sends summarized (non-credential) transaction data to your chosen provider.
+> 
+> - **MIT License** — Open source software provided "as is" without warranty or liability.
+> - **Local Only** — All credentials and financial data are stored encrypted **only** on your machine.
+> - **Third-Party Scraping** — You are responsible for ensuring automated access complies with your bank's TOS.
+> - **Patched Library** — Ships with a locally patched `israeli-bank-scrapers` build for enhanced features. No telemetry. You are free to inspect the patch (diff against the original release).
+> - **AI Providers** — Using AI features sends summarized (non-credential) transaction data to your chosen provider.
 
 ---
 
