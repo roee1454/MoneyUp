@@ -3,7 +3,6 @@
 <p align="center">
   <img src="./thumbnail/MoneyUp.png" alt="MoneyUp Logo" width="600" />
 </p>
----
 
 ## Features
 
