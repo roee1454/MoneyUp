@@ -1,11 +1,8 @@
 # MoneyUp 💰
-
+> A local, AI-powered personal finance dashboard that securely scrapes your bank and credit card accounts, categorizes your spending, and gives you actionable insights — all running on your own machine.
 <p align="center">
   <img src="./thumbnail/MoneyUp.png" alt="MoneyUp Logo" width="600" />
 </p>
-
-> A local, AI-powered personal finance dashboard that securely scrapes your bank and credit card accounts, categorizes your spending, and gives you actionable insights — all running on your own machine.
-
 ---
 
 ## Features
